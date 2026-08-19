@@ -69,6 +69,7 @@ const AIM_DIST = 700;         // where along the nose the crosshair is reckoned
 const RETICLE_WORLD = 34;     // its size in world units, so distance shrinks it
 const LOS_SAMPLES = 9;        // points tested along a sight line
 const LOS_FADE = 7;           // how fast a target fades in when it comes into view
+const SEAL_WARN_SECS = 3.6;   // how long before a bulkhead the alarm starts
 
 const RADIUS = { turret: 13, wallgun: 11, emplacement: 21, drone: 11, port: 20 };
 
@@ -976,6 +977,14 @@ export class Game {
     }
 
     const nextSeal = this.level.seals.find((s) => s > this.t - 40);
+    // Warned in seconds, not units. A fixed distance means the warning gets
+    // shorter exactly as the level gets faster -- at REACTOR's closing speed
+    // 420 units is under a second, and the climb alone takes two thirds of one.
+    const sealSecs = nextSeal === undefined
+      ? Infinity : (nextSeal - this.t) / Math.max(1, this.speed);
+    // Clearing a seal means being above the lip by the ship's own half height,
+    // which is to say fully out of the trench and fully exposed.
+    const sealClear = nextSeal !== undefined && this.shipY >= tr.rim(nextSeal) + 6;
     drawHud(rd, {
       shield: this.shield,
       shieldMax: this.shieldMax,
@@ -998,7 +1007,8 @@ export class Game {
       // keyboard player to hold their phone still forever.
       calibrating: this.input.motion === 'granted' && this.input.needsCalibration
         && this.input.hasReading,
-      sealAhead: nextSeal !== undefined && nextSeal - this.t < 420 && nextSeal > this.t ? 1 : 0,
+      sealAhead: sealSecs < SEAL_WARN_SECS && nextSeal > this.t ? 1 : 0,
+      sealClear,
       portAhead: port ? tr.portT - this.t < 700 && tr.portT > this.t : false,
       portAlive: port ? port.alive : false,
       progress: this.t / tr.total,

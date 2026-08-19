@@ -13,7 +13,12 @@ import { rng, clamp } from './math.js';
 //
 // Obstacles must not crowd a bulkhead's approach, but guns near one are the
 // point: they punish the climb the bulkhead forces. Hence two clearances.
-const OB_CLEARANCE = 420;
+// Asymmetric on purpose. The approach to a bulkhead has to be clear air: you
+// are climbing out of the trench at full vertical deflection and cannot also be
+// dodging, and at 460 units a second even a second of run-up is 460 units of
+// track. Past it, normal spacing resumes immediately -- the climb is over.
+const OB_CLEARANCE_BEFORE = 1100;
+const OB_CLEARANCE_AFTER = 420;
 const GUN_CLEARANCE = 220;
 const MIN_OB_GAP = 240;      // no unavoidable stacked pairs
 export const SEAL_PITCH = 2600;   // minimum track per seal in a section
@@ -72,7 +77,8 @@ export function buildLevel(spec, track) {
     }
   });
 
-  const nearSeal = (t) => seals.some((s) => Math.abs(s - t) < OB_CLEARANCE);
+  const nearSeal = (t) =>
+    seals.some((s) => t > s - OB_CLEARANCE_BEFORE && t < s + OB_CLEARANCE_AFTER);
   const nearSealGun = (t) => seals.some((s) => Math.abs(s - t) < GUN_CLEARANCE);
   const nearPort = (t) => track.portT > 0 && t > track.portT - 620;
 

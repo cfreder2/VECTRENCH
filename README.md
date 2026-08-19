@@ -61,7 +61,15 @@ SHIFT or M launches.
 
 Inside the trench you dodge geometry. Above the rim you are safe from geometry
 but exposed to surface batteries — and only up there can you see them well
-enough to shoot back. Several times a run the trench is sealed by a
+enough to shoot back.
+
+A **bulkhead** is the solid red wall that seals the trench from floor to rim.
+There is no gap and no way to shoot it: the only way past is over the top, into
+the guns. The HUD calls it **3.6 seconds out** — timed rather than measured in
+distance, because a fixed distance gets shorter exactly as a level gets faster —
+and it stays red until you are actually above the lip, at which point it flips
+to **BULKHEAD — CLEAR**. The approach is kept free of obstacles so the climb is
+the only thing you have to do. Several times a run the trench is sealed by a
 bulkhead and the only way through is over the top — into the guns. That trade is
 the game.
 

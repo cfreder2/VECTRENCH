@@ -192,7 +192,12 @@ export function drawHud(rd, st) {
   if (st.calibrating) warn('HOLD THE PHONE STEADY', CYAN, true);
   if (st.exposed) warn('EXPOSED', RED, true);
   if (st.wallWarn > 0) warn('PULL AWAY', AMBER, true);
-  if (st.sealAhead > 0) warn('BULKHEAD -- CLIMB', AMBER, true);
+  // Two states, because "climb" alone never tells you when you have climbed
+  // enough. The alarm stops the moment you are actually above the lip.
+  if (st.sealAhead > 0) {
+    if (st.sealClear) warn('BULKHEAD -- CLEAR', CYAN, false);
+    else warn('BULKHEAD -- CLIMB OVER IT', RED, true);
+  }
   if (st.portAhead && st.portAlive) {
     warn(st.locks > 0 ? 'PORT LOCKED -- LAUNCH' : 'PUT THE CROSSHAIR ON THE PORT', CYAN, true);
   }

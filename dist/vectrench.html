@@ -2249,7 +2249,12 @@ const NUMERIC = ['width', 'depth', 'curviness', 'hilliness', 'roughness', 'hue']
 //
 // Obstacles must not crowd a bulkhead's approach, but guns near one are the
 // point: they punish the climb the bulkhead forces. Hence two clearances.
-const OB_CLEARANCE = 420;
+// Asymmetric on purpose. The approach to a bulkhead has to be clear air: you
+// are climbing out of the trench at full vertical deflection and cannot also be
+// dodging, and at 460 units a second even a second of run-up is 460 units of
+// track. Past it, normal spacing resumes immediately -- the climb is over.
+const OB_CLEARANCE_BEFORE = 1100;
+const OB_CLEARANCE_AFTER = 420;
 const GUN_CLEARANCE = 220;
 const MIN_OB_GAP = 240;      // no unavoidable stacked pairs
 const SEAL_PITCH = 2600;   // minimum track per seal in a section
@@ -2308,7 +2313,8 @@ function buildLevel(spec, track) {
     }
   });
 
-  const nearSeal = (t) => seals.some((s) => Math.abs(s - t) < OB_CLEARANCE);
+  const nearSeal = (t) =>
+    seals.some((s) => t > s - OB_CLEARANCE_BEFORE && t < s + OB_CLEARANCE_AFTER);
   const nearSealGun = (t) => seals.some((s) => Math.abs(s - t) < GUN_CLEARANCE);
   const nearPort = (t) => track.portT > 0 && t > track.portT - 620;
 
@@ -3358,7 +3364,12 @@ function drawHud(rd, st) {
   if (st.calibrating) warn('HOLD THE PHONE STEADY', CYAN, true);
   if (st.exposed) warn('EXPOSED', RED, true);
   if (st.wallWarn > 0) warn('PULL AWAY', AMBER, true);
-  if (st.sealAhead > 0) warn('BULKHEAD -- CLIMB', AMBER, true);
+  // Two states, because "climb" alone never tells you when you have climbed
+  // enough. The alarm stops the moment you are actually above the lip.
+  if (st.sealAhead > 0) {
+    if (st.sealClear) warn('BULKHEAD -- CLEAR', CYAN, false);
+    else warn('BULKHEAD -- CLIMB OVER IT', RED, true);
+  }
   if (st.portAhead && st.portAlive) {
     warn(st.locks > 0 ? 'PORT LOCKED -- LAUNCH' : 'PUT THE CROSSHAIR ON THE PORT', CYAN, true);
   }
@@ -4108,6 +4119,7 @@ const AIM_DIST = 700;         // where along the nose the crosshair is reckoned
 const RETICLE_WORLD = 34;     // its size in world units, so distance shrinks it
 const LOS_SAMPLES = 9;        // points tested along a sight line
 const LOS_FADE = 7;           // how fast a target fades in when it comes into view
+const SEAL_WARN_SECS = 3.6;   // how long before a bulkhead the alarm starts
 
 const RADIUS = { turret: 13, wallgun: 11, emplacement: 21, drone: 11, port: 20 };
 
@@ -5015,6 +5027,14 @@ class Game {
     }
 
     const nextSeal = this.level.seals.find((s) => s > this.t - 40);
+    // Warned in seconds, not units. A fixed distance means the warning gets
+    // shorter exactly as the level gets faster -- at REACTOR's closing speed
+    // 420 units is under a second, and the climb alone takes two thirds of one.
+    const sealSecs = nextSeal === undefined
+      ? Infinity : (nextSeal - this.t) / Math.max(1, this.speed);
+    // Clearing a seal means being above the lip by the ship's own half height,
+    // which is to say fully out of the trench and fully exposed.
+    const sealClear = nextSeal !== undefined && this.shipY >= tr.rim(nextSeal) + 6;
     drawHud(rd, {
       shield: this.shield,
       shieldMax: this.shieldMax,
@@ -5037,7 +5057,8 @@ class Game {
       // keyboard player to hold their phone still forever.
       calibrating: this.input.motion === 'granted' && this.input.needsCalibration
         && this.input.hasReading,
-      sealAhead: nextSeal !== undefined && nextSeal - this.t < 420 && nextSeal > this.t ? 1 : 0,
+      sealAhead: sealSecs < SEAL_WARN_SECS && nextSeal > this.t ? 1 : 0,
+      sealClear,
       portAhead: port ? tr.portT - this.t < 700 && tr.portT > this.t : false,
       portAlive: port ? port.alive : false,
       progress: this.t / tr.total,
