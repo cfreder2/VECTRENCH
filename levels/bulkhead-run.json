@@ -1,0 +1,76 @@
+{
+  "name": "BULKHEAD RUN",
+  "blurb": "The brief this game was built to. A wide mouth that narrows for the rest of your life, sealed three times, with the surface guns waiting every time you are forced over the rim.",
+  "seed": 90210,
+  "speed": {
+    "start": 300,
+    "end": 470
+  },
+  "finale": "port",
+  "sections": [
+    {
+      "name": "wide mouth",
+      "length": 800,
+      "width": 112,
+      "depth": 128,
+      "curviness": 0.2,
+      "hilliness": 0.28,
+      "roughness": 0.4,
+      "obstacles": 0.36,
+      "kinds": ["pylon", "fang"],
+      "turrets": 0.2,
+      "wallguns": 0.14,
+      "drones": 0.26,
+      "seals": 0,
+      "hue": 0.13
+    },
+    {
+      "name": "the narrows",
+      "length": 1400,
+      "width": 56,
+      "depth": 150,
+      "curviness": 0.6,
+      "hilliness": 0.44,
+      "roughness": 0.55,
+      "obstacles": 0.66,
+      "kinds": ["pylon", "fang", "gate"],
+      "turrets": 0.36,
+      "wallguns": 0.42,
+      "drones": 0.3,
+      "seals": 1,
+      "hue": 0.12
+    },
+    {
+      "name": "sealed deep",
+      "length": 1800,
+      "width": 48,
+      "depth": 168,
+      "curviness": 0.68,
+      "hilliness": 0.5,
+      "roughness": 0.6,
+      "obstacles": 0.62,
+      "kinds": ["fang", "gate", "ring"],
+      "turrets": 0.68,
+      "wallguns": 0.38,
+      "drones": 0.24,
+      "seals": 2,
+      "hue": 0.1
+    },
+    {
+      "name": "the choke",
+      "length": 900,
+      "width": 38,
+      "depth": 148,
+      "curviness": 0.48,
+      "hilliness": 0.35,
+      "roughness": 0.5,
+      "obstacles": 0.58,
+      "kinds": ["ring", "gate"],
+      "turrets": 0.3,
+      "wallguns": 0.48,
+      "drones": 0.2,
+      "seals": 0,
+      "hue": 0.08
+    }
+  ]
+}

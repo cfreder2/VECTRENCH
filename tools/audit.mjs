@@ -1,6 +1,12 @@
 // Fairness audit: is there any flyable line through a compiled level, given the
 // ship's actual lateral and vertical speed limits? Forward reachability DP over
 // the cross-section at each obstacle.
+//
+// Run directly, this sweeps the prose examples and many seeds. `audit()` is also
+// the check `tools/levels.mjs` runs over the pre-built levels, which is why it
+// is exported and why the sweep below is guarded.
+import { fileURLToPath } from 'node:url';
+import { realpathSync } from 'node:fs';
 import { parseProse } from '../src/nl.js';
 import { EXAMPLES } from '../src/spec.js';
 import { Track } from '../src/track.js';
@@ -10,7 +16,7 @@ const MAX_VX = 115, MAX_VY = 100;
 const SHIP_HX = 7, SHIP_HY = 5;
 const NX = 49, NY = 37;
 
-function audit(spec, verbose = false) {
+export function audit(spec) {
   const track = new Track(spec);
   const lv = buildLevel(spec, track);
   const obs = lv.obstacles.slice().sort((a, b) => a.t - b.t);
@@ -74,22 +80,27 @@ function audit(spec, verbose = false) {
   return { ok: true, blocked, tight, track, lv };
 }
 
-for (const ex of EXAMPLES) {
-  const { spec } = parseProse(ex.prose);
-  const r = audit(spec);
-  console.log(`${ex.label.padEnd(12)} clearable=${r.ok}` +
-    (r.blocked.length ? `  BLOCKED: ${JSON.stringify(r.blocked)}` : '') +
-    (r.tight.length ? `  tight(${r.tight.length}): ${JSON.stringify(r.tight.slice(0,4))}` : ''));
-}
+const isMain = process.argv[1] &&
+  fileURLToPath(import.meta.url) === realpathSync(process.argv[1]);
 
-// Sweep many seeds: how often does the generator produce an unclearable level?
-console.log('\n--- seed sweep on TRENCH RUN shape ---');
-const { spec: base } = parseProse(EXAMPLES[0].prose);
-let bad = 0, tightTotal = 0;
-const reasons = {};
-for (let s = 1; s <= 60; s++) {
-  const r = audit({ ...base, seed: s });
-  if (!r.ok) { bad++; for (const b of r.blocked) reasons[b.reason.split('(')[0].trim()] = (reasons[b.reason.split('(')[0].trim()] || 0) + 1; }
-  tightTotal += r.tight.length;
+if (isMain) {
+  for (const ex of EXAMPLES) {
+    const { spec } = parseProse(ex.prose);
+    const r = audit(spec);
+    console.log(`${ex.label.padEnd(12)} clearable=${r.ok}` +
+      (r.blocked.length ? `  BLOCKED: ${JSON.stringify(r.blocked)}` : '') +
+      (r.tight.length ? `  tight(${r.tight.length}): ${JSON.stringify(r.tight.slice(0,4))}` : ''));
+  }
+
+  // Sweep many seeds: how often does the generator produce an unclearable level?
+  console.log('\n--- seed sweep on TRENCH RUN shape ---');
+  const { spec: base } = parseProse(EXAMPLES[0].prose);
+  let bad = 0, tightTotal = 0;
+  const reasons = {};
+  for (let s = 1; s <= 60; s++) {
+    const r = audit({ ...base, seed: s });
+    if (!r.ok) { bad++; for (const b of r.blocked) reasons[b.reason.split('(')[0].trim()] = (reasons[b.reason.split('(')[0].trim()] || 0) + 1; }
+    tightTotal += r.tight.length;
+  }
+  console.log(`unclearable: ${bad}/60   reasons: ${JSON.stringify(reasons)}   avg tight spots: ${(tightTotal/60).toFixed(1)}`);
 }
-console.log(`unclearable: ${bad}/60   reasons: ${JSON.stringify(reasons)}   avg tight spots: ${(tightTotal/60).toFixed(1)}`);

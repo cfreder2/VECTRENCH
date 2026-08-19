@@ -1,0 +1,60 @@
+{
+  "name": "SHAKEDOWN",
+  "blurb": "The tutorial that is not a tutorial. Wide, bright and forgiving, with one bulkhead near the end so you meet the climb before it can kill you.",
+  "seed": 4211,
+  "speed": {
+    "start": 250,
+    "end": 330
+  },
+  "finale": "port",
+  "sections": [
+    {
+      "name": "open approach",
+      "length": 900,
+      "width": 104,
+      "depth": 92,
+      "curviness": 0.14,
+      "hilliness": 0.2,
+      "roughness": 0.3,
+      "obstacles": 0.35,
+      "kinds": ["pylon"],
+      "turrets": 0.1,
+      "wallguns": 0.0,
+      "drones": 0.3,
+      "seals": 0,
+      "hue": 0.5
+    },
+    {
+      "name": "first fangs",
+      "length": 1100,
+      "width": 78,
+      "depth": 112,
+      "curviness": 0.34,
+      "hilliness": 0.3,
+      "roughness": 0.42,
+      "obstacles": 0.55,
+      "kinds": ["pylon", "fang"],
+      "turrets": 0.2,
+      "wallguns": 0.16,
+      "drones": 0.42,
+      "seals": 0,
+      "hue": 0.5
+    },
+    {
+      "name": "one bulkhead",
+      "length": 1100,
+      "width": 70,
+      "depth": 122,
+      "curviness": 0.3,
+      "hilliness": 0.32,
+      "roughness": 0.45,
+      "obstacles": 0.5,
+      "kinds": ["pylon", "fang"],
+      "turrets": 0.46,
+      "wallguns": 0.2,
+      "drones": 0.4,
+      "seals": 1,
+      "hue": 0.52
+    }
+  ]
+}

@@ -95,6 +95,10 @@
   }
   button.primary:hover:not(:disabled) { background: rgba(255,183,77,0.3); border-color: var(--amber); }
   button.chip { padding: 6px 10px; font-size: 10.5px; letter-spacing: 0.1em; }
+  /* Pre-built levels are the finished thing, not a prompt to edit. */
+  button.chip.built { background: rgba(255,183,77,0.1); color: var(--amber);
+    border-color: rgba(255,183,77,0.42); }
+  button.chip.built:hover:not(:disabled) { background: rgba(255,183,77,0.24); border-color: var(--amber); }
 
   #report {
     font-size: 10.5px; line-height: 1.65; color: var(--dim);
@@ -152,11 +156,18 @@
     <div id="spacer"></div>
     <div id="sheet">
       <div class="foldable">
-        <label for="prose">LEVEL DESCRIPTION</label>
+        <label>PRE-BUILT LEVELS</label>
+        <div class="row" id="prebuilt"></div>
+      </div>
+      <div class="foldable">
+        <label for="prose">OR DESCRIBE YOUR OWN</label>
         <textarea id="prose" spellcheck="false"
           placeholder="e.g. start wide and open, then tighten into a deep twisting trench packed with hanging fangs and irises, seal it twice with heavy turret cover on the surface, finish with a narrow choke and an exhaust port"></textarea>
       </div>
-      <div class="row foldable" id="examples"></div>
+      <div class="foldable">
+        <label>EXAMPLE DESCRIPTIONS</label>
+        <div class="row" id="examples"></div>
+      </div>
       <div class="row">
         <button id="build" class="primary">BUILD</button>
         <button id="fly" class="primary" disabled>FLY IT</button>

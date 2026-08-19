@@ -6,6 +6,7 @@
 
 import { parseProse } from './nl.js';
 import { EXAMPLES, encodeSpec, decodeSpec, normalizeSpec } from './spec.js';
+import { PREBUILT } from './levels.js';
 import { getKey, setKey, parseProseLLM } from './llm.js';
 import { drawSchematic } from './hud.js';
 import { drawText } from './font.js';
@@ -52,6 +53,23 @@ export class UI {
   // --- wiring ------------------------------------------------------------
 
   bindAll() {
+    // Pre-built levels load their authored spec directly. Going through the
+    // parser would re-derive numbers someone already tuned and audited, so the
+    // prose box is cleared instead: what you fly is the file, not a reading of
+    // a description of the file.
+    const pre = $('prebuilt');
+    PREBUILT.forEach((lv) => {
+      const b = document.createElement('button');
+      b.className = 'chip built';
+      b.textContent = lv.label;
+      if (lv.blurb) b.title = lv.blurb;
+      b.addEventListener('click', () => {
+        $('prose').value = '';
+        this.setSpec(lv.spec, [`pre-built: ${lv.label}`, lv.blurb].filter(Boolean));
+      });
+      pre.appendChild(b);
+    });
+
     const ex = $('examples');
     EXAMPLES.forEach((e) => {
       const b = document.createElement('button');
@@ -134,8 +152,8 @@ export class UI {
     }
     this.show('design');
     if (!this.spec) {
-      if (!$('prose').value) $('prose').value = EXAMPLES[0].prose;
-      this.build();
+      // Open on a finished level so the first tap after this one can be FLY IT.
+      this.setSpec(PREBUILT[0].spec, [`pre-built: ${PREBUILT[0].label}`, PREBUILT[0].blurb]);
     } else {
       this.status(`${this.spec.name} -- ready`);
     }
