@@ -30,9 +30,12 @@ export const PREBUILT = [
             "pylon"
           ],
           "turrets": 0,
+          "gatlings": 0,
+          "batteries": 0,
           "wallguns": 0,
           "drones": 0.15,
           "seals": 0,
+          "panels": 2,
           "hue": 0.5
         },
         {
@@ -48,9 +51,12 @@ export const PREBUILT = [
             "pylon"
           ],
           "turrets": 0.1,
+          "gatlings": 0,
+          "batteries": 0,
           "wallguns": 0,
           "drones": 0.25,
           "seals": 0,
+          "panels": 2,
           "hue": 0.5
         },
         {
@@ -67,9 +73,12 @@ export const PREBUILT = [
             "fang"
           ],
           "turrets": 0.18,
+          "gatlings": 0.1,
+          "batteries": 0,
           "wallguns": 0.12,
           "drones": 0.28,
           "seals": 0,
+          "panels": 2,
           "hue": 0.51
         },
         {
@@ -86,9 +95,12 @@ export const PREBUILT = [
             "fang"
           ],
           "turrets": 0.25,
+          "gatlings": 0.18,
+          "batteries": 0.1,
           "wallguns": 0.2,
           "drones": 0.3,
           "seals": 0,
+          "panels": 2,
           "hue": 0.51
         },
         {
@@ -105,9 +117,12 @@ export const PREBUILT = [
             "fang"
           ],
           "turrets": 0.5,
+          "gatlings": 0.3,
+          "batteries": 0.25,
           "wallguns": 0.18,
           "drones": 0.25,
           "seals": 1,
+          "panels": 3,
           "hue": 0.52
         },
         {
@@ -124,9 +139,12 @@ export const PREBUILT = [
             "gate"
           ],
           "turrets": 0.3,
+          "gatlings": 0.22,
+          "batteries": 0.15,
           "wallguns": 0.3,
           "drones": 0.2,
           "seals": 0,
+          "panels": 2,
           "hue": 0.52
         }
       ]
@@ -157,9 +175,12 @@ export const PREBUILT = [
             "pylon"
           ],
           "turrets": 0.05,
+          "gatlings": 0,
+          "batteries": 0,
           "wallguns": 0,
           "drones": 0.2,
           "seals": 0,
+          "panels": 2,
           "hue": 0.13
         },
         {
@@ -176,9 +197,12 @@ export const PREBUILT = [
             "fang"
           ],
           "turrets": 0.15,
+          "gatlings": 0.12,
+          "batteries": 0.08,
           "wallguns": 0.12,
           "drones": 0.25,
           "seals": 0,
+          "panels": 2,
           "hue": 0.13
         },
         {
@@ -196,9 +220,12 @@ export const PREBUILT = [
             "gate"
           ],
           "turrets": 0.3,
+          "gatlings": 0.28,
+          "batteries": 0.22,
           "wallguns": 0.3,
           "drones": 0.3,
           "seals": 1,
+          "panels": 3,
           "hue": 0.12
         },
         {
@@ -212,12 +239,16 @@ export const PREBUILT = [
           "obstacles": 0.48,
           "kinds": [
             "fang",
-            "gate"
+            "gate",
+            "slider"
           ],
           "turrets": 0.45,
+          "gatlings": 0.4,
+          "batteries": 0.35,
           "wallguns": 0.4,
           "drones": 0.28,
           "seals": 1,
+          "panels": 2,
           "hue": 0.11
         },
         {
@@ -235,9 +266,12 @@ export const PREBUILT = [
             "ring"
           ],
           "turrets": 0.6,
+          "gatlings": 0.55,
+          "batteries": 0.55,
           "wallguns": 0.35,
           "drones": 0.24,
           "seals": 1,
+          "panels": 2,
           "hue": 0.1
         },
         {
@@ -251,12 +285,16 @@ export const PREBUILT = [
           "obstacles": 0.5,
           "kinds": [
             "ring",
-            "gate"
+            "gate",
+            "press"
           ],
           "turrets": 0.35,
+          "gatlings": 0.45,
+          "batteries": 0.4,
           "wallguns": 0.45,
           "drones": 0.2,
           "seals": 0,
+          "panels": 2,
           "hue": 0.09
         },
         {
@@ -269,12 +307,16 @@ export const PREBUILT = [
           "roughness": 0.48,
           "obstacles": 0.45,
           "kinds": [
-            "ring"
+            "ring",
+            "pinwheel"
           ],
           "turrets": 0.3,
+          "gatlings": 0.35,
+          "batteries": 0.3,
           "wallguns": 0.4,
           "drones": 0.18,
           "seals": 0,
+          "panels": 2,
           "hue": 0.08
         }
       ]
@@ -305,9 +347,12 @@ export const PREBUILT = [
             "pylon"
           ],
           "turrets": 0.08,
+          "gatlings": 0.05,
+          "batteries": 0,
           "wallguns": 0,
           "drones": 0.25,
           "seals": 0,
+          "panels": 2,
           "hue": 0.02
         },
         {
@@ -321,12 +366,16 @@ export const PREBUILT = [
           "obstacles": 0.3,
           "kinds": [
             "pylon",
-            "stack"
+            "stack",
+            "slider"
           ],
           "turrets": 0.2,
+          "gatlings": 0.2,
+          "batteries": 0.15,
           "wallguns": 0.2,
           "drones": 0.3,
           "seals": 0,
+          "panels": 2,
           "hue": 0.02
         },
         {
@@ -343,9 +392,12 @@ export const PREBUILT = [
             "pylon"
           ],
           "turrets": 0.3,
+          "gatlings": 0.35,
+          "batteries": 0.3,
           "wallguns": 0.35,
           "drones": 0.35,
           "seals": 1,
+          "panels": 3,
           "hue": 0.01
         },
         {
@@ -360,12 +412,15 @@ export const PREBUILT = [
           "kinds": [
             "stack",
             "gate",
-            "fang"
+            "press"
           ],
           "turrets": 0.45,
+          "gatlings": 0.5,
+          "batteries": 0.45,
           "wallguns": 0.45,
           "drones": 0.35,
           "seals": 0,
+          "panels": 2,
           "hue": 0.01
         },
         {
@@ -383,9 +438,12 @@ export const PREBUILT = [
             "ring"
           ],
           "turrets": 0.62,
+          "gatlings": 0.62,
+          "batteries": 0.7,
           "wallguns": 0.42,
           "drones": 0.3,
           "seals": 2,
+          "panels": 4,
           "hue": 0.01
         },
         {
@@ -399,12 +457,16 @@ export const PREBUILT = [
           "obstacles": 0.55,
           "kinds": [
             "ring",
-            "gate"
+            "gate",
+            "pinwheel"
           ],
           "turrets": 0.55,
+          "gatlings": 0.7,
+          "batteries": 0.6,
           "wallguns": 0.5,
           "drones": 0.28,
           "seals": 0,
+          "panels": 2,
           "hue": 0.04
         },
         {
@@ -418,12 +480,15 @@ export const PREBUILT = [
           "obstacles": 0.5,
           "kinds": [
             "ring",
-            "gate"
+            "cross"
           ],
           "turrets": 0.6,
+          "gatlings": 0.75,
+          "batteries": 0.8,
           "wallguns": 0.5,
           "drones": 0.26,
           "seals": 1,
+          "panels": 3,
           "hue": 0.03
         },
         {
@@ -439,9 +504,12 @@ export const PREBUILT = [
             "ring"
           ],
           "turrets": 0.4,
+          "gatlings": 0.6,
+          "batteries": 0.5,
           "wallguns": 0.5,
           "drones": 0.22,
           "seals": 0,
+          "panels": 2,
           "hue": 0
         }
       ]

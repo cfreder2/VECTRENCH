@@ -113,6 +113,7 @@ export class UI {
     $('invx').addEventListener('change', (e) => { this.input.invertX = e.target.checked; });
     $('invy').addEventListener('change', (e) => { this.input.invertY = e.target.checked; });
     $('mute').addEventListener('change', (e) => this.audio.setMuted(e.target.checked));
+    $('music').addEventListener('change', (e) => this.audio.setMusicEnabled(e.target.checked));
     $('crt').addEventListener('change', (e) => {
       this.rd.scanline = e.target.checked ? 0.08 : 0;
       this.rd.trail = e.target.checked ? 0.34 : 0.9;
@@ -286,10 +287,12 @@ export class UI {
     } catch { /* browsers may refuse either; the game plays fine regardless */ }
     if (this.input.motion === 'granted') this.input.recalibrate();
     this.game.reset();
+    this.audio.musicStart();
     this.show('flight');
   }
 
   toMenu() {
+    this.audio.musicStop();
     this.show('design');
     this.status(`${this.spec.name} -- ${this.game.phase === 'won' ? 'cleared' : 'ready'}`);
     try { screen.orientation?.unlock?.(); } catch { /* not supported everywhere */ }

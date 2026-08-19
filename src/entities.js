@@ -6,6 +6,7 @@
 // Collision with the canyon converts back to canyon-local via Track.worldToLocal.
 
 import { hash2, clamp, hsv, TAU } from './math.js';
+import { obstacleToLocal } from './collide.js';
 
 // --- ship ---------------------------------------------------------------
 
@@ -104,16 +105,30 @@ export function drawShip(rd, pos, basis, thrust, time, hurt) {
 const OB_COL = {
   pylon: [1, 0.45, 0.14], fang: [1, 0.38, 0.2], gate: [1, 0.52, 0.16],
   ring: [0.4, 0.95, 1], stack: [1, 0.48, 0.15], seal: [1, 0.22, 0.16],
+  // The moving ones read cooler than the rock: they are machinery, not terrain,
+  // and a player needs to tell at a glance which things will still be there.
+  pinwheel: [0.55, 0.9, 1], cross: [0.6, 0.85, 1],
+  press: [1, 0.7, 0.2], slider: [0.75, 0.85, 1],
 };
 
-function box(rd, track, t, dz, x0, x1, y0, y1, col, w, a) {
+/**
+ * One box of an obstacle, in that obstacle's own frame.
+ *
+ * `ob` and `time` are how a moving obstacle gets drawn where it actually is:
+ * the corners go through exactly the transform collision inverts, so what you
+ * see and what you hit cannot drift apart.
+ */
+function box(rd, track, t, dz, x0, x1, y0, y1, col, w, a, ob = null, time = 0) {
   const p = _obp;
+  const c = _obc;
   // Front and back rectangles plus the four connecting edges.
   for (const [tt, idx] of [[t, 0], [t + dz, 4]]) {
-    track.localToWorld(tt, x0, y0, p[idx]);
-    track.localToWorld(tt, x1, y0, p[idx + 1]);
-    track.localToWorld(tt, x1, y1, p[idx + 2]);
-    track.localToWorld(tt, x0, y1, p[idx + 3]);
+    for (let k = 0; k < 4; k++) {
+      const ox = k === 0 || k === 3 ? x0 : x1;
+      const oy = k < 2 ? y0 : y1;
+      if (ob) { obstacleToLocal(ob, time, ox, oy, c); track.localToWorld(tt, c[0], c[1], p[idx + k]); }
+      else track.localToWorld(tt, ox, oy, p[idx + k]);
+    }
   }
   for (const o of [0, 4]) {
     for (let i = 0; i < 4; i++) {
@@ -127,6 +142,7 @@ function box(rd, track, t, dz, x0, x1, y0, y1, col, w, a) {
   }
 }
 const _obp = Array.from({ length: 8 }, () => [0, 0, 0]);
+const _obc = [0, 0];
 
 export function drawObstacles(rd, track, obstacles, cursor, camT, far, time) {
   const p = [0, 0, 0], q = [0, 0, 0];
@@ -137,26 +153,70 @@ export function drawObstacles(rd, track, obstacles, cursor, camT, far, time) {
     const col = OB_COL[ob.kind] || OB_COL.pylon;
 
     if (ob.kind === 'seal') {
+      if (ob.gone) continue;
       const [x0, x1, y0, y1] = ob.boxes[0];
-      box(rd, track, ob.t, ob.dz, x0, x1, y0, y1, col, 1.5, 1);
-      // Panel grid, so a bulkhead reads as built rather than as a hole.
-      for (let k = 1; k < 6; k++) {
-        const x = x0 + ((x1 - x0) * k) / 6;
-        track.localToWorld(ob.t, x, y0, p);
-        track.localToWorld(ob.t, x, y1, q);
-        rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], 0.9, col[0], col[1], col[2], 0.55);
+      const drop = ob.dropY || 0;
+      box(rd, track, ob.t, ob.dz, x0, x1, y0, y1, col, 1.5, 1, ob, time);
+
+      // The face, hatched densely across the trench opening. Wireframe has no
+      // fill, so density is the only way a wall says "solid" -- and it has to,
+      // because the trench floor behind it draws straight through and otherwise
+      // converges to a vanishing point in the middle of the thing, which reads
+      // as an open tunnel exactly where the game is shouting CLIMB.
+      const hw = ob.hw || (x1 - x0) * 0.25;
+      for (let k = -7; k <= 7; k++) {
+        const x = (k / 7) * hw;
+        track.localToWorld(ob.t, x, y0 + drop, p);
+        track.localToWorld(ob.t, x, y1 + drop, q);
+        rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], 1, col[0], col[1], col[2], 0.42);
       }
+      for (let k = 0; k <= 9; k++) {
+        const y = y0 + drop + ((y1 - y0) * k) / 9;
+        track.localToWorld(ob.t, -hw, y, p);
+        track.localToWorld(ob.t, hw, y, q);
+        rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], 1, col[0], col[1], col[2], 0.42);
+      }
+
+      // Chevrons: two columns of arrows climbing the face, brightest in
+      // sequence. A bulkhead is the one obstacle whose answer is a direction
+      // rather than a gap, and nothing else on screen can say "up" for it.
+      //
+      // Every row stays legible and the pulse only picks which is brightest.
+      // Unlit rows used to sit at 0.18 and vanished into the wall, so a still
+      // frame -- which is what a player actually reads at speed -- carried two
+      // arrows out of five.
+      const rows = 5;
+      const cw = Math.min(30, hw * 0.52);
+      const top = y1 + drop;
+      for (let k = 0; k < rows; k++) {
+        const fy = y0 + drop + ((top - (y0 + drop)) * (k + 0.6)) / (rows + 0.4);
+        const phase = (time * 1.7 - k * 0.24) % 1.6;
+        const lit = phase > 0 && phase < 0.42 ? 1 : 0.5;
+        for (const cx of [-1, 1]) {
+          // Outboard of the control panels, which live inside 0.3 of the
+          // opening: a chevron arm through a panel made both unreadable.
+          const bx = cx * hw * 0.72;
+          track.localToWorld(ob.t, bx - cw * 0.5, fy - cw * 0.34, p);
+          track.localToWorld(ob.t, bx, fy + cw * 0.3, q);
+          rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], 2.4 + lit * 1.6, 1, 0.78, 0.24, lit);
+          track.localToWorld(ob.t, bx + cw * 0.5, fy - cw * 0.34, p);
+          rd.line3(q[0], q[1], q[2], p[0], p[1], p[2], 2.4 + lit * 1.6, 1, 0.78, 0.24, lit);
+        }
+      }
+      // Sparse ribs across the buried part of the face, outside the opening.
       for (let k = 1; k < 4; k++) {
-        const y = y0 + ((y1 - y0) * k) / 4;
-        track.localToWorld(ob.t, x0, y, p);
-        track.localToWorld(ob.t, x1, y, q);
-        rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], 0.9, col[0], col[1], col[2], 0.55);
+        const y = y0 + drop + ((y1 - y0) * k) / 4;
+        for (const [a, b] of [[x0, -hw], [hw, x1]]) {
+          track.localToWorld(ob.t, a, y, p);
+          track.localToWorld(ob.t, b, y, q);
+          rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], 0.9, col[0], col[1], col[2], 0.45);
+        }
       }
       // Hazard flashers along the lip: the "go up" instruction.
       const blink = 0.45 + 0.55 * Math.sin(time * 8);
       for (let k = 0; k <= 8; k++) {
         const x = x0 + ((x1 - x0) * k) / 8;
-        track.localToWorld(ob.t, x, y1, p);
+        track.localToWorld(ob.t, x, y1 + drop, p);
         rd.dot3(p[0], p[1], p[2], 2.6, 1, 0.75, 0.2, blink);
       }
       continue;
@@ -202,7 +262,7 @@ export function drawObstacles(rd, track, obstacles, cursor, camT, far, time) {
     }
 
     for (const [x0, x1, y0, y1] of ob.boxes) {
-      box(rd, track, ob.t, ob.dz, x0, x1, y0, y1, col, 1.2, 1);
+      box(rd, track, ob.t, ob.dz, x0, x1, y0, y1, col, 1.2, 1, ob, time);
     }
   }
 }
@@ -255,12 +315,150 @@ export function drawEnemies(rd, track, enemies, camT, far, time) {
       track.localToWorld(e.t, e.x, e.y, p);
       track.localToWorld(e.t + 4, e.x + sgn * 11, e.y, q);
       rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], 1.5, col[0], col[1], col[2], A);
+    } else if (e.kind === 'battery') {
+      drawBattery(rd, track, e, col, time, A);
+    } else if (e.kind === 'gatling') {
+      drawGatling(rd, track, e, col, time, A);
+    } else if (e.kind === 'panel') {
+      drawPanel(rd, track, e, time, A);
     } else if (e.kind === 'port') {
       drawPort(rd, track, e, time, A);
     } else if (e.kind === 'drone') {
       drawDrone(rd, track, e, col, time, A);
     }
   }
+}
+
+
+// How a battery's tubes are laid out on its deck: columns along the trench by
+// rows across it. The shape is the readout -- you are meant to see a twelve
+// coming and decide, from the skyline, whether you want to be up there.
+const TUBE_GRID = { 1: [1, 1], 2: [2, 1], 3: [3, 1], 6: [3, 2], 12: [4, 3] };
+
+/**
+ * A surface missile battery: a hull on the skyline with a grid of vertical
+ * launch cells in its deck, one per tube.
+ *
+ * Drawn big on purpose. The trench is the safe place and the surface is the
+ * bargain you make to get past a bulkhead, and that only reads if the things up
+ * there look like they were built to end you.
+ */
+function drawBattery(rd, track, e, col, time, A = 1) {
+  const p = [0, 0, 0], q = [0, 0, 0];
+  const [cols, rows] = TUBE_GRID[e.tubes] || [1, 1];
+  const L = 15 + e.tubes * 2.0;
+  const W = 7 + rows * 5;
+  const H = 7 + rows * 3;
+  const inboard = e.x < 0 ? 1 : -1;
+  const line = (t0, x0, y0, t1, x1, y1, w, a, r = col[0], g = col[1], b = col[2]) => {
+    track.localToWorld(e.t + t0, e.x + x0, e.y + y0, p);
+    track.localToWorld(e.t + t1, e.x + x1, e.y + y1, q);
+    rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], w, r, g, b, a * A);
+  };
+
+  // Hull: a deck plate lifted off the surface, chamfered toward the trench so
+  // it reads as facing you rather than as a crate someone left there.
+  const nose = L * 0.72;
+  const deck = [[-L, -W], [-nose, W * inboard * 0.15 + W], [nose, W * inboard * 0.15 + W], [L, -W]];
+  for (const dy of [1, H]) {
+    for (let i = 0; i < 4; i++) {
+      const a = deck[i], b = deck[(i + 1) & 3];
+      line(a[0], a[1] * inboard, dy, b[0], b[1] * inboard, dy, 1.4, 0.95);
+    }
+  }
+  for (const d of deck) line(d[0], d[1] * inboard, 1, d[0], d[1] * inboard, H, 1.1, 0.75);
+
+  // Launch cells. A loaded cell glows; the one about to fire flares.
+  const firing = e.salvo > 0;
+  for (let c = 0; c < cols; c++) {
+    for (let r2 = 0; r2 < rows; r2++) {
+      const ct = cols === 1 ? 0 : (-0.62 + (1.24 * c) / (cols - 1)) * L;
+      const cx = (rows === 1 ? 0 : (-0.5 + (1.0 * r2) / (rows - 1)) * W) * inboard;
+      const s2 = Math.min(L / cols, W / rows) * 0.34;
+      const idx = c * rows + r2;
+      const spent = e.tubes - (e.salvo || 0);
+      const live = idx >= spent;
+      const glow = live ? (firing && idx === spent ? 1 : 0.55) : 0.12;
+      for (let k = 0; k < 4; k++) {
+        const a = [[-s2, -s2], [s2, -s2], [s2, s2], [-s2, s2]][k];
+        const b = [[-s2, -s2], [s2, -s2], [s2, s2], [-s2, s2]][(k + 1) & 3];
+        line(ct + a[0], cx + a[1], H, ct + b[0], cx + b[1], H, 1.1, glow, 1, 0.75, 0.35);
+      }
+      if (live) {
+        track.localToWorld(e.t + ct, e.x + cx, e.y + H + 1, p);
+        rd.dot3(p[0], p[1], p[2], 2.2 + (firing && idx === spent ? 3 : 0),
+          1, 0.7, 0.3, (firing && idx === spent ? 1 : 0.6) * A);
+      }
+    }
+  }
+
+  // A mast, so it has a silhouette against the sky at distance.
+  line(-L * 0.5, 0, H, -L * 0.5, 0, H + 13 + e.tubes * 0.6, 1.2, 0.7);
+  track.localToWorld(e.t - L * 0.5, e.x, e.y + H + 13 + e.tubes * 0.6, p);
+  rd.dot3(p[0], p[1], p[2], 2.4, 1, 0.35, 0.25,
+    (0.45 + 0.55 * Math.abs(Math.sin(time * 3 + e.t))) * A);
+}
+
+/**
+ * A surface gatling: a rotating barrel cluster that spins up before it fires.
+ *
+ * The spin-up is the whole point of drawing it this way. It is the only warning
+ * the player gets, and it has to be legible from across the canyon.
+ */
+function drawGatling(rd, track, e, col, time, A = 1) {
+  const p = [0, 0, 0], q = [0, 0, 0];
+  const inboard = e.x < 0 ? 1 : -1;
+  const wind = e.wind || 0;
+  const line = (t0, x0, y0, t1, x1, y1, w, a, r = col[0], g = col[1], b = col[2]) => {
+    track.localToWorld(e.t + t0, e.x + x0, e.y + y0, p);
+    track.localToWorld(e.t + t1, e.x + x1, e.y + y1, q);
+    rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], w, r, g, b, a * A);
+  };
+  // Mount.
+  for (const d of [[-9, -7], [9, -7], [9, 7], [-9, 7]]) line(d[0], d[1], 0, d[0], d[1], 7, 1.1, 0.7);
+  for (let k = 0; k < 4; k++) {
+    const a = [[-9, -7], [9, -7], [9, 7], [-9, 7]][k];
+    const b = [[-9, -7], [9, -7], [9, 7], [-9, 7]][(k + 1) & 3];
+    line(a[0], a[1], 7, b[0], b[1], 7, 1.2, 0.85);
+  }
+  // Six barrels around the axis, turning with the spin-up.
+  const spin = (e.barrel || 0);
+  const R = 5.2;
+  const reach = 15;
+  for (let k = 0; k < 6; k++) {
+    const a = (k / 6) * TAU + spin;
+    const by = 11 + Math.sin(a) * R;
+    const bt = Math.cos(a) * R;
+    const hot = 0.45 + 0.55 * wind;
+    line(bt, 0, by, bt + inboard * 2, inboard * reach, by, 1.5, hot, 1, 0.55 + 0.35 * wind, 0.2);
+  }
+  // Muzzle glow, and hot air over it while it is spun up.
+  track.localToWorld(e.t + 2, e.x + inboard * reach, e.y + 11, p);
+  rd.dot3(p[0], p[1], p[2], 2.5 + wind * 6, 1, 0.55 + 0.4 * wind, 0.15, (0.4 + 0.6 * wind) * A);
+  if (wind > 0.15) {
+    track.localToWorld(e.t, e.x, e.y + 20 + wind * 8, q);
+    rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], 1, 1, 0.6, 0.2, wind * 0.5 * A);
+  }
+}
+
+/** A bulkhead control panel: small, bright, and the reason to look down. */
+function drawPanel(rd, track, e, time, A = 1) {
+  const p = [0, 0, 0], q = [0, 0, 0];
+  const w = 9, h = 7;
+  const pulse = 0.6 + 0.4 * Math.sin(time * 6 + e.t * 0.05);
+  const hit = e.flash > 0 ? 1 : 0;
+  const cr = 1, cg = hit ? 0.25 : 0.85, cb = hit ? 0.2 : 0.35;
+  const line = (x0, y0, x1, y1, lw, a) => {
+    track.localToWorld(e.t, e.x + x0, e.y + y0, p);
+    track.localToWorld(e.t, e.x + x1, e.y + y1, q);
+    rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], lw, cr, cg, cb, a * A);
+  };
+  line(-w, -h, w, -h, 1.5, 1); line(w, -h, w, h, 1.5, 1);
+  line(w, h, -w, h, 1.5, 1); line(-w, h, -w, -h, 1.5, 1);
+  line(-w * 0.5, 0, w * 0.5, 0, 1.2, pulse);
+  line(0, -h * 0.5, 0, h * 0.5, 1.2, pulse);
+  track.localToWorld(e.t - 3, e.x, e.y, p);
+  rd.dot3(p[0], p[1], p[2], 3.4, cr, cg, cb, pulse * A);
 }
 
 /** The finale: a recessed exhaust vent. Concentric rings and a live core. */
@@ -310,15 +508,29 @@ export class Weapons {
   constructor() {
     this.lasers = [];   // player fire
     this.bolts = [];    // enemy fire
-    this.missiles = [];
+    this.missiles = []; // player missiles, one per lock
+    this.seekers = [];  // enemy missiles, from the surface batteries
+  }
+
+  /**
+   * An enemy heat-seeker. Slower than the ship and slower to turn than it can
+   * bank, so it is beaten by flying rather than by luck -- and it can be shot
+   * out of the air, which is what the gun is for when a battery empties itself
+   * at you.
+   */
+  fireSeeker(x, y, z, dx, dy, dz) {
+    this.seekers.push({
+      x, y, z, px: x, py: y, pz: z, dx, dy, dz,
+      speed: 250, accel: 190, maxSpeed: 430, turn: 1.9, life: 7, arm: 0.35,
+    });
   }
 
   fireLaser(x, y, z, dx, dy, dz, speed = 1500) {
     this.lasers.push({ x, y, z, px: x, py: y, pz: z, dx, dy, dz, speed, life: 1.1 });
   }
 
-  fireBolt(x, y, z, dx, dy, dz, speed = 430, heavy = false) {
-    this.bolts.push({ x, y, z, px: x, py: y, pz: z, dx, dy, dz, speed, life: 3.2, heavy });
+  fireBolt(x, y, z, dx, dy, dz, speed = 430, heavy = false, tracer = false) {
+    this.bolts.push({ x, y, z, px: x, py: y, pz: z, dx, dy, dz, speed, life: 3.2, heavy, tracer });
   }
 
   fireMissile(x, y, z, dx, dy, dz, target) {
@@ -327,7 +539,31 @@ export class Weapons {
     });
   }
 
-  update(dt) {
+  update(dt, chase) {
+    // Enemy seekers, homing on wherever the ship is now.
+    let sw = 0;
+    for (let i = 0; i < this.seekers.length; i++) {
+      const m = this.seekers[i];
+      m.life -= dt;
+      m.arm -= dt;
+      if (m.life <= 0) continue;
+      if (chase && m.arm <= 0) {
+        let ax = chase[0] - m.x, ay = chase[1] - m.y, az = chase[2] - m.z;
+        const L = Math.hypot(ax, ay, az) || 1;
+        ax /= L; ay /= L; az /= L;
+        const k = clamp(m.turn * dt, 0, 1);
+        m.dx += (ax - m.dx) * k; m.dy += (ay - m.dy) * k; m.dz += (az - m.dz) * k;
+        const n = Math.hypot(m.dx, m.dy, m.dz) || 1;
+        m.dx /= n; m.dy /= n; m.dz /= n;
+      }
+      m.speed = Math.min(m.maxSpeed, m.speed + m.accel * dt);
+      const d = m.speed * dt;
+      m.px = m.x; m.py = m.y; m.pz = m.z;
+      m.x += m.dx * d; m.y += m.dy * d; m.z += m.dz * d;
+      this.seekers[sw++] = m;
+    }
+    this.seekers.length = sw;
+
     for (const arr of [this.lasers, this.bolts]) {
       let w = 0;
       for (let i = 0; i < arr.length; i++) {
@@ -368,16 +604,26 @@ export class Weapons {
   }
 
   draw(rd) {
+    for (const m of this.seekers) {
+      // A hot head and a long tail, so a salvo of twelve reads as weather.
+      rd.line3(m.x, m.y, m.z, m.x - m.dx * 26, m.y - m.dy * 26, m.z - m.dz * 26,
+        2.2, 1, 0.42, 0.14, 1);
+      rd.line3(m.x - m.dx * 26, m.y - m.dy * 26, m.z - m.dz * 26,
+        m.x - m.dx * 54, m.y - m.dy * 54, m.z - m.dz * 54, 1.4, 1, 0.3, 0.1, 0.35);
+      rd.dot3(m.x, m.y, m.z, 3.4, 1, 0.8, 0.4, 1);
+    }
     for (const s of this.lasers) {
       const L = 30;
       rd.line3(s.x, s.y, s.z, s.x - s.dx * L, s.y - s.dy * L, s.z - s.dz * L,
         2.2, 0.6, 1, 0.75, 1);
     }
     for (const s of this.bolts) {
-      const L = s.heavy ? 22 : 14;
-      const w = s.heavy ? 2.6 : 1.8;
+      // Gatling rounds are drawn long and pale-hot: at that cadence they are a
+      // stream rather than a series of shots, and they should read as one.
+      const L = s.tracer ? 34 : s.heavy ? 22 : 14;
+      const w = s.tracer ? 1.6 : s.heavy ? 2.6 : 1.8;
       rd.line3(s.x, s.y, s.z, s.x - s.dx * L, s.y - s.dy * L, s.z - s.dz * L,
-        w, 1, s.heavy ? 0.35 : 0.55, 0.2, 1);
+        w, 1, s.tracer ? 0.7 : s.heavy ? 0.35 : 0.55, s.tracer ? 0.3 : 0.2, 1);
     }
     for (const m of this.missiles) {
       rd.line3(m.x, m.y, m.z, m.x - m.dx * 14, m.y - m.dy * 14, m.z - m.dz * 14,
@@ -390,6 +636,7 @@ export class Weapons {
     this.lasers.length = 0;
     this.bolts.length = 0;
     this.missiles.length = 0;
+    this.seekers.length = 0;
   }
 }
 

@@ -22,6 +22,7 @@ const OB_CLEARANCE_AFTER = 420;
 const GUN_CLEARANCE = 220;
 const MIN_OB_GAP = 240;      // no unavoidable stacked pairs
 export const SEAL_PITCH = 2600;   // minimum track per seal in a section
+const PRESS_GAP = 26;      // narrowest a crusher is allowed to close to
 
 function obstacle(t, dz, kind, boxes, extra) {
   return { t, dz, kind, boxes, hit: false, ...extra };
@@ -33,6 +34,24 @@ function enemy(kind, t, x, y, over) {
     hp: 3, maxHp: 3, alive: true, lockable: false, points: 150,
     cool: 0.5, spin: 0, aim: 0, flash: 0,
     ...over,
+  };
+}
+
+/**
+ * How many tubes a missile battery carries, and what that costs to kill.
+ *
+ * The big ones are rare and deliberately unmissable: a twelve-tube battery is a
+ * ship-sized thing on the skyline that empties itself at you. Density decides
+ * how many batteries there are; this decides how frightening each one is, and
+ * it leans harder as a section does.
+ */
+function batterySize(rand, menace) {
+  const r = rand() * (0.55 + menace * 0.95);
+  const tubes = r > 1.25 ? 12 : r > 0.95 ? 6 : r > 0.68 ? 3 : r > 0.4 ? 2 : 1;
+  return {
+    tubes,
+    hp: 4 + tubes,
+    points: 300 + tubes * 120,
   };
 }
 
@@ -64,9 +83,35 @@ export function buildLevel(spec, track) {
       if (track.portT > 0 && t > track.portT - 1200) continue;
       const hw = track.halfWidth(t);
       const rim = track.rim(t);
-      obstacles.push(obstacle(t, 46, 'seal', [[-hw - 60, hw + 60, -30, rim - 1]]));
+      const seal = obstacle(t, 46, 'seal', [[-hw - 60, hw + 60, -30, rim - 1]]);
+      seal.panelCount = sec.panels;
+      // The face is wider than the trench opening; the renderer needs the
+      // opening to know where markings will actually be seen.
+      seal.hw = hw;
+      obstacles.push(seal);
       seals.push(t);
-      // Cover fire for the forced climb.
+
+      // Control panels on the face. Shooting every one drops the bulkhead into
+      // the floor and you keep your altitude -- which is the other way through,
+      // and the reason a bulkhead is a decision rather than a toll. With none
+      // authored, the only way is over the top.
+      // Laid out as a grid, not a run: a flat index spread across x while the
+      // height alternated on k % 2 put four panels in a staircase, which reads
+      // as misaligned rather than as deliberate.
+      const cols = sec.panels <= 3 ? sec.panels : 2;
+      const prows = Math.ceil(sec.panels / Math.max(1, cols));
+      for (let k = 0; k < sec.panels; k++) {
+        const c = k % cols;
+        const r = Math.floor(k / cols);
+        const px = cols === 1 ? 0 : (-0.3 + (0.6 * c) / (cols - 1)) * hw;
+        const py = rim * (prows === 1 ? 0.46 : 0.34 + 0.3 * r);
+        enemies.push(enemy('panel', t - 3, px, py, {
+          hp: 2, maxHp: 2, lockable: true, points: 200, sealT: t, cool: 1e9,
+        }));
+      }
+
+      // Cover fire for the forced climb: this is the moment the surface is
+      // supposed to be the worst place in the level, so it gets the heavy kit.
       const n = 3 + Math.floor(rand() * 3);
       for (let j = 0; j < n; j++) {
         const side = j % 2 === 0 ? -1 : 1;
@@ -74,6 +119,14 @@ export function buildLevel(spec, track) {
           side * (hw + 28 + rand() * 190), track.rim(t),
           { hp: 3, maxHp: 3, lockable: true, points: 250, cool: 0.5 + rand() }));
       }
+      enemies.push(enemy('gatling', t - 120 + rand() * 240,
+        (rand() < 0.5 ? -1 : 1) * (hw + 22 + rand() * 60), track.rim(t),
+        { hp: 5, maxHp: 5, lockable: true, points: 400, cool: 0.4, wind: 0, burst: 0 }));
+      const bb = batterySize(rand, 0.55 + sec.batteries * 0.45);
+      enemies.push(enemy('battery', t - 500 + rand() * 260,
+        (rand() < 0.5 ? -1 : 1) * (hw + 40 + rand() * 120), track.rim(t),
+        { hp: bb.hp, maxHp: bb.hp, lockable: true, points: bb.points,
+          tubes: bb.tubes, salvo: 0, salvoTimer: 0, cool: 0.9 + rand() }));
     }
   });
 
@@ -137,6 +190,66 @@ export function buildLevel(spec, track) {
           [cx - r, cx + r, cy + r, rim + 14],
           [cx - r, cx + r, -30, cy - r],
         ], { ring: { cx, cy, r } }));
+      } else if (kind === 'pinwheel' || kind === 'cross') {
+        // Arms radiating from the trench centre, turning. Collision keeps the
+        // arms as plain boxes and turns the frame instead, so a pinwheel costs
+        // no more to hit-test than a pylon does.
+        const arms = kind === 'cross' ? 4 : (rand() < 0.5 ? 3 : 5);
+        const reach = Math.min(hw - 6, rim * 0.62);
+        const thick = kind === 'cross' ? 13 : 9;
+        const cy = rim * 0.5;
+        const boxes = [];
+        for (let i = 0; i < arms; i++) {
+          // Written as one horizontal arm each, then rotated into place by the
+          // frame: the boxes stay axis aligned, which is the whole trick.
+          const a = (i / arms) * Math.PI * 2;
+          const ca = Math.cos(a), sa = Math.sin(a);
+          const steps = 5;
+          for (let k = 1; k <= steps; k++) {
+            const r = (reach * k) / steps;
+            const px = ca * r, py = cy + sa * r;
+            boxes.push([px - thick, px + thick, py - thick, py + thick]);
+          }
+        }
+        obstacles.push(obstacle(t, 16, kind, boxes, {
+          cx: 0, cy,
+          anim: { rate: 0, phase: rand() * 6.283, spin: (rand() < 0.5 ? -1 : 1) * (0.5 + rand() * 0.7) },
+        }));
+      } else if (kind === 'press') {
+        // Two walls closing on the centre. They are two obstacles rather than
+        // one with two boxes, because they travel in opposite directions and a
+        // frame can only carry the pair one way -- and two counter-sliding
+        // walls is exactly what a frame each expresses.
+        //
+        // The gap never shuts past what the ship can thread. A crusher with no
+        // opening is just a wall that arrives late, and the run-out over the
+        // top is the other answer: these stop at the rim, not at the ceiling.
+        const open = Math.min(hw - 8, 48);
+        const travel = Math.max(6, open - PRESS_GAP * 0.5);
+        const rate = 0.85 + rand() * 0.5;
+        const phase = rand() * 6.283;
+        for (const side of [-1, 1]) {
+          obstacles.push(obstacle(t, 20, 'press',
+            side < 0 ? [[-hw - 40, -open, -30, rim + 6]] : [[open, hw + 40, -30, rim + 6]], {
+              cx: 0, cy: 0,
+              anim: { dx: side * travel, dy: 0, rate, phase, spin: 0 },
+            }));
+        }
+      } else if (kind === 'slider') {
+        // A block tracking side to side, or up and down.
+        const vertical = rand() < 0.4;
+        const w = 16 + rand() * 14;
+        const h = 26 + rand() * 34;
+        const amp = vertical ? Math.max(10, rim * 0.3) : Math.max(12, hw - w - 12);
+        obstacles.push(obstacle(t, 18, 'slider', [
+          [-w, w, rim * 0.45 - h, rim * 0.45 + h],
+        ], {
+          cx: 0, cy: rim * 0.45,
+          anim: {
+            dx: vertical ? 0 : amp, dy: vertical ? amp : 0,
+            rate: 0.8 + rand() * 0.7, phase: rand() * 6.283, spin: 0,
+          },
+        }));
       } else {
         // Staggered slabs: two half-blocks in quick succession, alternating.
         const low = rand() < 0.5;
@@ -161,6 +274,33 @@ export function buildLevel(spec, track) {
       const hw = track.halfWidth(t);
       enemies.push(enemy('turret', t, (rand() < 0.5 ? -1 : 1) * (hw + 24 + rand() * 200),
         track.rim(t), { hp: 3, maxHp: 3, lockable: true, points: 250, cool: 0.6 + rand() }));
+    }
+
+    // Surface gatlings: they sit close to the lip, because their job is to make
+    // the few seconds above the rim expensive rather than to snipe.
+    const gg = spacing(sec.gatlings, 2600, 5.0);
+    for (let t = start + gg * rand(); t < end; t += gg * (0.7 + rand() * 0.6)) {
+      if (nearPort(t)) continue;
+      const hw = track.halfWidth(t);
+      enemies.push(enemy('gatling', t, (rand() < 0.5 ? -1 : 1) * (hw + 18 + rand() * 90),
+        track.rim(t), {
+          hp: 5, maxHp: 5, lockable: true, points: 400,
+          cool: 0.8 + rand() * 1.2, wind: 0, burst: 0,
+        }));
+    }
+
+    // Surface missile batteries.
+    const bg = spacing(sec.batteries, 3000, 4.0);
+    for (let t = start + bg * rand(); t < end; t += bg * (0.7 + rand() * 0.6)) {
+      if (nearPort(t)) continue;
+      const hw = track.halfWidth(t);
+      const b = batterySize(rand, sec.batteries);
+      enemies.push(enemy('battery', t, (rand() < 0.5 ? -1 : 1) * (hw + 34 + rand() * 150),
+        track.rim(t), {
+          hp: b.hp, maxHp: b.hp, lockable: true, points: b.points,
+          tubes: b.tubes, salvo: 0, salvoTimer: 0,
+          cool: 1.4 + rand() * 1.6,
+        }));
     }
 
     // Wall guns inside the trench.

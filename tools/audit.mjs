@@ -11,6 +11,7 @@ import { parseProse } from '../src/nl.js';
 import { EXAMPLES } from '../src/spec.js';
 import { Track } from '../src/track.js';
 import { buildLevel } from '../src/level.js';
+import { hitsObstacle } from '../src/collide.js';
 // The real limits, not a copy of them: if the ship gets faster and this file
 // does not hear about it, the audit keeps proving a harder game than shipped.
 import { MAX_VX, MAX_VY } from '../src/game.js';
@@ -35,17 +36,20 @@ export function audit(spec) {
     for (let i = 0; i < NX; i++) xs.push(-(hw - 8) + ((hw - 8) * 2 * i) / (NX - 1));
     for (let j = 0; j < NY; j++) ys.push(7 + ((ceil - 7) * j) / (NY - 1));
 
-    // Free cells at this obstacle.
+    // Free cells at this obstacle, at the moment the ship actually gets here.
+    //
+    // The moment matters now that obstacles move. Speed is a function of track
+    // position alone, so arrival time is the same for every player and a
+    // pinwheel presents one specific face -- which means "is there a way
+    // through" has one answer and this can still prove it. The transform is the
+    // same function the game collides against, imported rather than copied.
+    const when = track.timeAt(ob.t);
     const free = new Uint8Array(NX * NY);
     let freeCount = 0;
     for (let i = 0; i < NX; i++) {
       for (let j = 0; j < NY; j++) {
-        let hit = false;
-        for (const [x0, x1, y0, y1] of ob.boxes) {
-          if (xs[i] + SHIP_HX > x0 && xs[i] - SHIP_HX < x1 &&
-              ys[j] + SHIP_HY > y0 && ys[j] - SHIP_HY < y1) { hit = true; break; }
-        }
-        if (!hit) { free[i * NY + j] = 1; freeCount++; }
+        if (hitsObstacle(ob, when, xs[i], ys[j], SHIP_HX, SHIP_HY)) continue;
+        free[i * NY + j] = 1; freeCount++;
       }
     }
     if (freeCount === 0) { blocked.push({ t: Math.round(ob.t), kind: ob.kind, reason: 'no free cell' }); return { ok: false, blocked, tight, track, lv }; }

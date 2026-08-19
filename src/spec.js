@@ -11,7 +11,12 @@
 
 import { clamp } from './math.js';
 
-export const OBSTACLE_KINDS = ['pylon', 'fang', 'gate', 'ring', 'stack'];
+// The last four move. They are the same axis-aligned boxes as the rest; what
+// changes is the frame those boxes live in, which slides or turns over the run.
+export const OBSTACLE_KINDS = [
+  'pylon', 'fang', 'gate', 'ring', 'stack',
+  'pinwheel', 'cross', 'press', 'slider',
+];
 
 /** Field ranges. Also the documentation the NL layer and the model are given. */
 export const FIELDS = {
@@ -23,9 +28,12 @@ export const FIELDS = {
   roughness: { min: 0,    max: 1,    def: 0.5 },
   obstacles: { min: 0,    max: 1,    def: 0.4 },
   turrets:   { min: 0,    max: 1,    def: 0.3 },
+  gatlings:  { min: 0,    max: 1,    def: 0.15, unit: 'surface gatling guns' },
+  batteries: { min: 0,    max: 1,    def: 0.12, unit: 'surface missile batteries' },
   wallguns:  { min: 0,    max: 1,    def: 0.32 },
   drones:    { min: 0,    max: 1,    def: 0.3 },
   seals:     { min: 0,    max: 6,    def: 0 },
+  panels:    { min: 0,    max: 4,    def: 2, unit: 'shootable panels per bulkhead' },
   hue:       { min: 0,    max: 1,    def: 0.5 },
 };
 
@@ -46,9 +54,12 @@ export function normalizeSection(raw = {}) {
     obstacles: num(raw.obstacles, FIELDS.obstacles),
     kinds: kinds.length ? kinds : ['pylon', 'fang'],
     turrets: num(raw.turrets, FIELDS.turrets),
+    gatlings: num(raw.gatlings, FIELDS.gatlings),
+    batteries: num(raw.batteries, FIELDS.batteries),
     wallguns: num(raw.wallguns, FIELDS.wallguns),
     drones: num(raw.drones, FIELDS.drones),
     seals: Math.round(num(raw.seals, FIELDS.seals)),
+    panels: Math.round(num(raw.panels, FIELDS.panels)),
     hue: num(raw.hue, FIELDS.hue),
   };
 }

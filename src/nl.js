@@ -65,6 +65,10 @@ const RULES = [
   ['turrets', /\b(?:no turrets|undefended|no guns|unguarded|no defen[cs]es)\b/, 0],
   ['turrets', /\b(?:turret|batter(?:y|ies)|emplacement|surface gun|anti[- ]air|flak|ack[- ]ack|triple[- ]?a|defen[cs]es|cannon)\b/, 0.45],
   ['wallguns', /\b(?:wall ?gun|gun ?port|wall turret|side gun|embrasure|pill ?box|wall[- ]mounted)\b/, 0.5],
+  ['gatlings', /\b(?:gatling|chain ?gun|mini ?gun|vulcan|auto ?cannon|rotary cannon|hot lead)\b/, 0.55],
+  ['batteries', /\b(?:missile batter(?:y|ies)|missile rack|launcher|silo|sam site|missile site|rocket batter(?:y|ies)|seeker|heat[- ]seek(?:er|ing))\b/, 0.5],
+  ['gatlings', /\b(?:no gatlings?|no chain ?guns?)\b/, 0],
+  ['batteries', /\b(?:no missiles?|no launchers?|no batteries)\b/, 0],
   ['drones', /\b(?:no drones|no fighters)\b/, 0],
   ['drones', /\b(?:drone|fighter|interceptor|tie|enemy ship|bogey|swarm|squadron|wing of)\b/, 0.5],
 
@@ -82,6 +86,12 @@ const KIND_RULES = [
   ['gate', /\b(?:gate|bulkhead|door|hatch|window|blast ?door|panel|shutter|barricade)(?:e?s)?\b/],
   ['ring', /\b(?:ring|iris|hoop|torus|aperture|portal|donut|doughnut|eye)(?:e?s)?\b/],
   ['stack', /\b(?:slab|stagger(?:ed)?|zigzag|zig[- ]zag|chicane|alternating|stepped|step|block)(?:e?s)?\b/],
+  // The moving ones. Naming any of them is how a description asks for
+  // machinery rather than rock.
+  ['pinwheel', /\b(?:pinwheel|windmill|rotor|turnstile|fan blade|whirl(?:igig)?|propeller)(?:e?s)?\b/],
+  ['cross', /\b(?:spinning cross|giant x|big x|saltire|spinner|rotating cross|crossbar)(?:e?s)?\b/],
+  ['press', /\b(?:crusher|press|vice|vise|jaws|clamp|closing walls?|crushing walls?|masher|squeeze)(?:e?s)?\b/],
+  ['slider', /\b(?:slider|piston|shuttle|sweeper|tracking block|sliding block|hammer)(?:e?s)?\b/],
 ];
 
 const SEAL_RE = /\b(?:seal(?:ed|s|ing)?|walled off|blocked off|closed off|bulkhead across|barrier across|dead ?end|no way through|forced (?:up|over)|must (?:go|fly) (?:up|over)|completely blocks?)\b/;
@@ -184,9 +194,30 @@ function parseSegment(text) {
   const deepN = text.match(/(\d{2,3})\s*deep/i);
   if (deepN) { found.depth = +deepN[1]; notes.push(`depth ${deepN[1]}`); }
 
-  for (const [param, re] of [['turrets', /turrets?|batter(?:y|ies)|emplacements?/],
+  // Bulkhead control panels: an explicit count, or none at all.
+  if (/\b(?:no panels?|sealed shut|no way to open|welded)\b/.test(text)) {
+    found.panels = 0;
+    notes.push('no panels');
+  } else {
+    // Adjacent only. The general "number before a word" search scans from the
+    // left and would happily read "sealed twice with three panels" as two,
+    // because "twice" is also a number and comes first.
+    const pm = text.match(new RegExp(
+      `(\\d+|${Object.keys(NUMBER_WORDS).join('|')})\\s+(?:control\\s+)?panels?`, 'i'));
+    if (pm) {
+      const n = Number.isFinite(+pm[1]) ? +pm[1] : NUMBER_WORDS[pm[1].toLowerCase()];
+      if (n !== undefined) {
+        found.panels = clamp(Math.round(n), 0, 4);
+        notes.push(`${found.panels} panels`);
+      }
+    }
+  }
+
+  for (const [param, re] of [['turrets', /turrets?|emplacements?/],
     ['drones', /drones?|fighters?|interceptors?/],
-    ['wallguns', /wall ?guns?|gun ?ports?/]]) {
+    ['wallguns', /wall ?guns?|gun ?ports?/],
+    ['gatlings', /gatlings?|chain ?guns?|mini ?guns?/],
+    ['batteries', /missile batter(?:y|ies)|launchers?|silos?/]]) {
     const n = numberBefore(text, new RegExp(re.source));
     if (n !== null && n > 0) {
       // A count is a rate hint: more named guns means a denser section.

@@ -78,11 +78,32 @@ least 0.5 — asking for stalactites and getting none would be a strange reading
 | `gate` | `bulkhead`, `door`, `hatch`, `window`, `blast door`, `shutter` | A wall with one rectangular hole |
 | `ring` | `iris`, `hoop`, `aperture`, `portal`, `eye` | A wall with one circular hole |
 | `stack` | `slab`, `staggered`, `zigzag`, `chicane`, `alternating`, `stepped` | Alternating half-blocks, in pairs |
+| `pinwheel` | `pinwheel`, `windmill`, `rotor`, `turnstile`, `propeller` | Three or five arms, turning |
+| `cross` | `giant x`, `spinning cross`, `saltire`, `spinner` | A heavy four-armed X, turning |
+| `press` | `crusher`, `press`, `vice`, `jaws`, `closing walls` | Two walls that close and open |
+| `slider` | `slider`, `piston`, `shuttle`, `sweeper`, `hammer` | A block tracking side to side, or up and down |
 
-**Enemies.** `turret`, `battery`, `emplacement`, `flak`, `anti-air`, `cannon`
-put guns on the surface. `wall gun`, `gun port`, `embrasure`, `pillbox` put them
-inside the trench. `drone`, `fighter`, `interceptor`, `swarm`, `squadron` send
-waves at you. Negations work: `undefended`, `no guns`, `no drones`.
+**The last four move**, and that is the only difference: they are the same
+axis-aligned boxes as everything else, in a frame that slides or turns. A
+pinwheel is four still arms on a turning frame, a crusher is two still walls on
+frames sliding toward each other. Collision transforms one query point into that
+frame rather than transforming eight corners out of it, which is why a spinning
+five-arm rotor costs no more to hit-test than a pylon.
+
+Their phase comes from **where they are on the track**, not from when you happen
+to arrive. Speed depends only on position, so arrival time is the same for every
+player: a pinwheel presents one specific face to everyone, the audit knows which
+face that is, and "there is a way through" stays a provable claim. A crusher
+never closes past 26 units, and none of them reach the ceiling — over the top is
+always the other answer.
+
+**Enemies.** `turret`, `emplacement`, `flak`, `anti-air`, `cannon` put plain
+guns on the surface. `gatling`, `chaingun`, `minigun`, `vulcan`, `autocannon`
+put rotary cannon up there, and `missile battery`, `launcher`, `silo`, `rocket
+battery`, `SAM site` put missile racks up there. `wall gun`, `gun port`,
+`embrasure`, `pillbox` put guns inside the trench. `drone`, `fighter`,
+`interceptor`, `swarm`, `squadron` send waves at you. Negations work:
+`undefended`, `no guns`, `no drones`, `no gatlings`, `no missiles`.
 
 All of them can be locked, so enemy density is also missile density: a section
 that puts several guns within sight of each other is a section that hands the
@@ -90,9 +111,15 @@ player a salvo. The clusters the compiler makes on its own — a drone wave, the
 cover fire it places around every bulkhead — are already shaped for that.
 
 **Bulkheads.** `seal`, `sealed`, `walled off`, `blocked off`, `dead end`,
-`forced over`, `no way through` place a full-height barrier you can only clear by
-climbing out of the trench. A count comes along for the ride: `sealed three
-times`, `two bulkheads`, `sealed twice`.
+`forced over`, `no way through` place a full-height barrier. A count comes along
+for the ride: `sealed three times`, `two bulkheads`, `sealed twice`.
+
+Every bulkhead carries **control panels** — shoot them all out and it sinks into
+the floor and you keep your altitude, which is the alternative to climbing into
+the guns. `three control panels`, `1 panel`, or `no panels` to weld it shut so
+that over the top is the only way. The count has to sit directly against the
+word: `sealed twice with three panels` reads as three, because the general
+"number before a word" search would otherwise find `twice` first.
 
 **Colour.** `red`/`molten`/`lava`, `orange`/`amber`/`rust`, `yellow`/`gold`,
 `green`/`toxic`/`acid`, `cyan`/`icy`/`glacial`, `blue`/`cobalt`,
@@ -162,10 +189,13 @@ Each section:
 | `roughness` | 0–1 | 0.5 | Wall detail. Cosmetic; costs no fairness |
 | `obstacles` | 0–1 | 0.4 | Rate, not a count — see below |
 | `kinds` | list | `["pylon","fang"]` | Which of `pylon` `fang` `gate` `ring` `stack` may appear |
-| `turrets` | 0–1 | 0.3 | Surface batteries, above the rim |
+| `turrets` | 0–1 | 0.3 | Plain surface guns, above the rim |
+| `gatlings` | 0–1 | 0.15 | Surface rotary cannon: spin up, then a stream of tracer |
+| `batteries` | 0–1 | 0.12 | Surface missile racks. Density decides how many; the section's own value also decides how big, so a heavy section is where the twelve-tube ones appear |
 | `wallguns` | 0–1 | 0.32 | Guns on the trench walls |
 | `drones` | 0–1 | 0.3 | Fighter wave rate |
 | `seals` | 0–6 | 0 | Bulkheads that force you over the rim |
+| `panels` | 0–4 | 2 | Shootable control panels per bulkhead. 0 welds it shut |
 | `hue` | 0–1 | 0.5 | 0 red, 0.14 gold, 0.33 green, 0.5 cyan, 0.62 blue, 0.79 violet |
 
 **Everything is clamped on the way in.** A field out of range, of the wrong type,
@@ -221,6 +251,10 @@ what you author is sometimes not exactly what you get:
 - **Nothing in the last 620 units before the port.**
 - Two heavy emplacements are placed 1750 and 1050 units ahead of the port,
   whatever you asked for, so the lock is taught before it decides the run.
+- Every bulkhead gets a gatling and a missile battery of its own on top of
+  whatever the section asked for, because a forced climb with nothing waiting
+  is not a decision. The battery's size leans on the section's `batteries`
+  value, so a heavy section is where the twelve-tube ones stand.
 - The track runs 1100 units past your last section, and the port sits 720 units
   into that run-out.
 

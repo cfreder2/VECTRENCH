@@ -20,6 +20,7 @@ const RUNOUT = 1100;       // extra track past the last section, for the finale
 const MAX_SLOPE_X = 0.55;
 const MAX_SLOPE_Y = 0.30;
 const BLEND = 260;         // transition length between sections
+const TIME_STEP = 40;      // grid for the position-to-seconds table
 
 function vnoise(t, wl, salt) {
   const p = t / wl;
@@ -197,6 +198,36 @@ export class Track {
    * second and a half and the lock takes one -- technically possible, and no
    * fun. The slowdown is also the beat the whole level has been building to.
    */
+  /**
+   * Seconds from the start of the run to track position `t`.
+   *
+   * Speed depends only on position, so this is fixed for every player -- which
+   * is what lets a moving obstacle be animated off it and still present the
+   * same face to everyone, and lets the audit know which face that is.
+   */
+  timeAt(t) {
+    const tb = this._timeTable || this._buildTimeTable();
+    const k = clamp(t / TIME_STEP, 0, tb.length - 1);
+    const i = Math.floor(k);
+    const f = k - i;
+    const a = tb[i];
+    const b = tb[Math.min(tb.length - 1, i + 1)];
+    return a + (b - a) * f;
+  }
+
+  _buildTimeTable() {
+    const n = Math.ceil(this.total / TIME_STEP) + 2;
+    const tb = new Float32Array(n);
+    let acc = 0;
+    for (let i = 1; i < n; i++) {
+      const t = (i - 0.5) * TIME_STEP;
+      acc += TIME_STEP / Math.max(1, this.speedAt(t));
+      tb[i] = acc;
+    }
+    this._timeTable = tb;
+    return tb;
+  }
+
   speedAt(t) {
     const k = clamp(t / Math.max(1, this.bodyLength), 0, 1);
     let v = lerp(this.spec.speed.start, this.spec.speed.end, k);

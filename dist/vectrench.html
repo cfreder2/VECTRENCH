@@ -210,6 +210,7 @@
           </div>
           <div class="row">
             <span class="toggle"><input type="checkbox" id="mute"> MUTE</span>
+            <span class="toggle"><input type="checkbox" id="music" checked> MUSIC</span>
             <span class="toggle"><input type="checkbox" id="crt" checked> CRT GLOW</span>
           </div>
           <div class="note">
@@ -345,6 +346,79 @@ function segSphere(ax, ay, az, bx, by, bz, cx, cy, cz, r) {
   const py = ay + dy * t - cy;
   const pz = az + dz * t - cz;
   return px * px + py * py + pz * pz <= r * r;
+}
+
+// --- moving obstacles ---------------------------------------------------
+//
+// An obstacle's boxes are axis-aligned rectangles in its own frame, and that
+// frame may slide and spin over the run: a pinwheel is four static arms turning,
+// a crusher is two static walls sliding toward each other. Keeping the boxes
+// still and moving the frame is what makes that cheap -- collision transforms
+// one query point instead of eight corners, and the shapes stay AABBs.
+//
+// Everything reads the same function: the ship's collision, the projectile
+// scenery test, the renderer, and tools/audit.mjs. A moving obstacle drawn in
+// one place and collided in another would be a trap the audit could not see.
+
+/**
+ * The obstacle's frame at `time` seconds into the run: an offset, and a
+ * rotation about (cx, cy) given as its cosine and sine.
+ *
+ * Phase comes from the obstacle's position along the track, not from when the
+ * player happens to arrive -- the ship's speed is a function of track position
+ * alone, so arrival time is fixed, and a spinning gate presents the same face
+ * to everyone. Without that a level would be unauditable and, worse, unfair in
+ * a way nobody could learn.
+ */
+function frameOf(ob, time, out) {
+  const a = ob.anim;
+  if (!a) { out[0] = 0; out[1] = 0; out[2] = 1; out[3] = 0; return out; }
+  const s = time * a.rate + a.phase;
+  out[0] = a.dx ? a.dx * Math.sin(s) : 0;
+  out[1] = (a.dy ? a.dy * Math.sin(s + (a.dyPhase || 0)) : 0) + (ob.dropY || 0);
+  const th = a.spin ? time * a.spin + a.phase : 0;
+  out[2] = Math.cos(th);
+  out[3] = Math.sin(th);
+  return out;
+}
+
+const _f = [0, 0, 1, 0];
+
+/**
+ * Does a canyon-local point sit inside this obstacle at this time?
+ *
+ * `padX`/`padY` grow the boxes rather than shrinking the point, so a caller can
+ * pass the ship's half extents and still ask a point question.
+ */
+function hitsObstacle(ob, time, lx, ly, padX = 0, padY = 0) {
+  if (ob.gone) return false;
+  frameOf(ob, time, _f);
+  let px = lx - _f[0];
+  let py = ly - _f[1];
+  if (_f[3] !== 0) {
+    // Into the obstacle's own frame: rotate the point back about the centre.
+    const cx = ob.cx || 0, cy = ob.cy || 0;
+    const ux = px - cx, uy = py - cy;
+    px = cx + ux * _f[2] + uy * _f[3];
+    py = cy - ux * _f[3] + uy * _f[2];
+  }
+  for (let i = 0; i < ob.boxes.length; i++) {
+    const b = ob.boxes[i];
+    if (px + padX > b[0] && px - padX < b[1] && py + padY > b[2] && py - padY < b[3]) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/** A point of the obstacle's own frame, back in canyon-local coordinates. */
+function obstacleToLocal(ob, time, ox, oy, out) {
+  frameOf(ob, time, _f);
+  const cx = ob.cx || 0, cy = ob.cy || 0;
+  const ux = ox - cx, uy = oy - cy;
+  out[0] = cx + ux * _f[2] - uy * _f[3] + _f[0];
+  out[1] = cy + ux * _f[3] + uy * _f[2] + _f[1];
+  return out;
 }
 
 // ---- font.js -------------------------------------------------------
@@ -868,7 +942,12 @@ const _tmp = [0, 0];
 
 
 
-const OBSTACLE_KINDS = ['pylon', 'fang', 'gate', 'ring', 'stack'];
+// The last four move. They are the same axis-aligned boxes as the rest; what
+// changes is the frame those boxes live in, which slides or turns over the run.
+const OBSTACLE_KINDS = [
+  'pylon', 'fang', 'gate', 'ring', 'stack',
+  'pinwheel', 'cross', 'press', 'slider',
+];
 
 /** Field ranges. Also the documentation the NL layer and the model are given. */
 const FIELDS = {
@@ -880,9 +959,12 @@ const FIELDS = {
   roughness: { min: 0,    max: 1,    def: 0.5 },
   obstacles: { min: 0,    max: 1,    def: 0.4 },
   turrets:   { min: 0,    max: 1,    def: 0.3 },
+  gatlings:  { min: 0,    max: 1,    def: 0.15, unit: 'surface gatling guns' },
+  batteries: { min: 0,    max: 1,    def: 0.12, unit: 'surface missile batteries' },
   wallguns:  { min: 0,    max: 1,    def: 0.32 },
   drones:    { min: 0,    max: 1,    def: 0.3 },
   seals:     { min: 0,    max: 6,    def: 0 },
+  panels:    { min: 0,    max: 4,    def: 2, unit: 'shootable panels per bulkhead' },
   hue:       { min: 0,    max: 1,    def: 0.5 },
 };
 
@@ -903,9 +985,12 @@ function normalizeSection(raw = {}) {
     obstacles: num(raw.obstacles, FIELDS.obstacles),
     kinds: kinds.length ? kinds : ['pylon', 'fang'],
     turrets: num(raw.turrets, FIELDS.turrets),
+    gatlings: num(raw.gatlings, FIELDS.gatlings),
+    batteries: num(raw.batteries, FIELDS.batteries),
     wallguns: num(raw.wallguns, FIELDS.wallguns),
     drones: num(raw.drones, FIELDS.drones),
     seals: Math.round(num(raw.seals, FIELDS.seals)),
+    panels: Math.round(num(raw.panels, FIELDS.panels)),
     hue: num(raw.hue, FIELDS.hue),
   };
 }
@@ -1240,6 +1325,10 @@ const RULES = [
   ['turrets', /\b(?:no turrets|undefended|no guns|unguarded|no defen[cs]es)\b/, 0],
   ['turrets', /\b(?:turret|batter(?:y|ies)|emplacement|surface gun|anti[- ]air|flak|ack[- ]ack|triple[- ]?a|defen[cs]es|cannon)\b/, 0.45],
   ['wallguns', /\b(?:wall ?gun|gun ?port|wall turret|side gun|embrasure|pill ?box|wall[- ]mounted)\b/, 0.5],
+  ['gatlings', /\b(?:gatling|chain ?gun|mini ?gun|vulcan|auto ?cannon|rotary cannon|hot lead)\b/, 0.55],
+  ['batteries', /\b(?:missile batter(?:y|ies)|missile rack|launcher|silo|sam site|missile site|rocket batter(?:y|ies)|seeker|heat[- ]seek(?:er|ing))\b/, 0.5],
+  ['gatlings', /\b(?:no gatlings?|no chain ?guns?)\b/, 0],
+  ['batteries', /\b(?:no missiles?|no launchers?|no batteries)\b/, 0],
   ['drones', /\b(?:no drones|no fighters)\b/, 0],
   ['drones', /\b(?:drone|fighter|interceptor|tie|enemy ship|bogey|swarm|squadron|wing of)\b/, 0.5],
 
@@ -1257,6 +1346,12 @@ const KIND_RULES = [
   ['gate', /\b(?:gate|bulkhead|door|hatch|window|blast ?door|panel|shutter|barricade)(?:e?s)?\b/],
   ['ring', /\b(?:ring|iris|hoop|torus|aperture|portal|donut|doughnut|eye)(?:e?s)?\b/],
   ['stack', /\b(?:slab|stagger(?:ed)?|zigzag|zig[- ]zag|chicane|alternating|stepped|step|block)(?:e?s)?\b/],
+  // The moving ones. Naming any of them is how a description asks for
+  // machinery rather than rock.
+  ['pinwheel', /\b(?:pinwheel|windmill|rotor|turnstile|fan blade|whirl(?:igig)?|propeller)(?:e?s)?\b/],
+  ['cross', /\b(?:spinning cross|giant x|big x|saltire|spinner|rotating cross|crossbar)(?:e?s)?\b/],
+  ['press', /\b(?:crusher|press|vice|vise|jaws|clamp|closing walls?|crushing walls?|masher|squeeze)(?:e?s)?\b/],
+  ['slider', /\b(?:slider|piston|shuttle|sweeper|tracking block|sliding block|hammer)(?:e?s)?\b/],
 ];
 
 const SEAL_RE = /\b(?:seal(?:ed|s|ing)?|walled off|blocked off|closed off|bulkhead across|barrier across|dead ?end|no way through|forced (?:up|over)|must (?:go|fly) (?:up|over)|completely blocks?)\b/;
@@ -1359,9 +1454,30 @@ function parseSegment(text) {
   const deepN = text.match(/(\d{2,3})\s*deep/i);
   if (deepN) { found.depth = +deepN[1]; notes.push(`depth ${deepN[1]}`); }
 
-  for (const [param, re] of [['turrets', /turrets?|batter(?:y|ies)|emplacements?/],
+  // Bulkhead control panels: an explicit count, or none at all.
+  if (/\b(?:no panels?|sealed shut|no way to open|welded)\b/.test(text)) {
+    found.panels = 0;
+    notes.push('no panels');
+  } else {
+    // Adjacent only. The general "number before a word" search scans from the
+    // left and would happily read "sealed twice with three panels" as two,
+    // because "twice" is also a number and comes first.
+    const pm = text.match(new RegExp(
+      `(\\d+|${Object.keys(NUMBER_WORDS).join('|')})\\s+(?:control\\s+)?panels?`, 'i'));
+    if (pm) {
+      const n = Number.isFinite(+pm[1]) ? +pm[1] : NUMBER_WORDS[pm[1].toLowerCase()];
+      if (n !== undefined) {
+        found.panels = clamp(Math.round(n), 0, 4);
+        notes.push(`${found.panels} panels`);
+      }
+    }
+  }
+
+  for (const [param, re] of [['turrets', /turrets?|emplacements?/],
     ['drones', /drones?|fighters?|interceptors?/],
-    ['wallguns', /wall ?guns?|gun ?ports?/]]) {
+    ['wallguns', /wall ?guns?|gun ?ports?/],
+    ['gatlings', /gatlings?|chain ?guns?|mini ?guns?/],
+    ['batteries', /missile batter(?:y|ies)|launchers?|silos?/]]) {
     const n = numberBefore(text, new RegExp(re.source));
     if (n !== null && n > 0) {
       // A count is a rate hint: more named guns means a denser section.
@@ -1530,9 +1646,12 @@ const PREBUILT = [
             "pylon"
           ],
           "turrets": 0,
+          "gatlings": 0,
+          "batteries": 0,
           "wallguns": 0,
           "drones": 0.15,
           "seals": 0,
+          "panels": 2,
           "hue": 0.5
         },
         {
@@ -1548,9 +1667,12 @@ const PREBUILT = [
             "pylon"
           ],
           "turrets": 0.1,
+          "gatlings": 0,
+          "batteries": 0,
           "wallguns": 0,
           "drones": 0.25,
           "seals": 0,
+          "panels": 2,
           "hue": 0.5
         },
         {
@@ -1567,9 +1689,12 @@ const PREBUILT = [
             "fang"
           ],
           "turrets": 0.18,
+          "gatlings": 0.1,
+          "batteries": 0,
           "wallguns": 0.12,
           "drones": 0.28,
           "seals": 0,
+          "panels": 2,
           "hue": 0.51
         },
         {
@@ -1586,9 +1711,12 @@ const PREBUILT = [
             "fang"
           ],
           "turrets": 0.25,
+          "gatlings": 0.18,
+          "batteries": 0.1,
           "wallguns": 0.2,
           "drones": 0.3,
           "seals": 0,
+          "panels": 2,
           "hue": 0.51
         },
         {
@@ -1605,9 +1733,12 @@ const PREBUILT = [
             "fang"
           ],
           "turrets": 0.5,
+          "gatlings": 0.3,
+          "batteries": 0.25,
           "wallguns": 0.18,
           "drones": 0.25,
           "seals": 1,
+          "panels": 3,
           "hue": 0.52
         },
         {
@@ -1624,9 +1755,12 @@ const PREBUILT = [
             "gate"
           ],
           "turrets": 0.3,
+          "gatlings": 0.22,
+          "batteries": 0.15,
           "wallguns": 0.3,
           "drones": 0.2,
           "seals": 0,
+          "panels": 2,
           "hue": 0.52
         }
       ]
@@ -1657,9 +1791,12 @@ const PREBUILT = [
             "pylon"
           ],
           "turrets": 0.05,
+          "gatlings": 0,
+          "batteries": 0,
           "wallguns": 0,
           "drones": 0.2,
           "seals": 0,
+          "panels": 2,
           "hue": 0.13
         },
         {
@@ -1676,9 +1813,12 @@ const PREBUILT = [
             "fang"
           ],
           "turrets": 0.15,
+          "gatlings": 0.12,
+          "batteries": 0.08,
           "wallguns": 0.12,
           "drones": 0.25,
           "seals": 0,
+          "panels": 2,
           "hue": 0.13
         },
         {
@@ -1696,9 +1836,12 @@ const PREBUILT = [
             "gate"
           ],
           "turrets": 0.3,
+          "gatlings": 0.28,
+          "batteries": 0.22,
           "wallguns": 0.3,
           "drones": 0.3,
           "seals": 1,
+          "panels": 3,
           "hue": 0.12
         },
         {
@@ -1712,12 +1855,16 @@ const PREBUILT = [
           "obstacles": 0.48,
           "kinds": [
             "fang",
-            "gate"
+            "gate",
+            "slider"
           ],
           "turrets": 0.45,
+          "gatlings": 0.4,
+          "batteries": 0.35,
           "wallguns": 0.4,
           "drones": 0.28,
           "seals": 1,
+          "panels": 2,
           "hue": 0.11
         },
         {
@@ -1735,9 +1882,12 @@ const PREBUILT = [
             "ring"
           ],
           "turrets": 0.6,
+          "gatlings": 0.55,
+          "batteries": 0.55,
           "wallguns": 0.35,
           "drones": 0.24,
           "seals": 1,
+          "panels": 2,
           "hue": 0.1
         },
         {
@@ -1751,12 +1901,16 @@ const PREBUILT = [
           "obstacles": 0.5,
           "kinds": [
             "ring",
-            "gate"
+            "gate",
+            "press"
           ],
           "turrets": 0.35,
+          "gatlings": 0.45,
+          "batteries": 0.4,
           "wallguns": 0.45,
           "drones": 0.2,
           "seals": 0,
+          "panels": 2,
           "hue": 0.09
         },
         {
@@ -1769,12 +1923,16 @@ const PREBUILT = [
           "roughness": 0.48,
           "obstacles": 0.45,
           "kinds": [
-            "ring"
+            "ring",
+            "pinwheel"
           ],
           "turrets": 0.3,
+          "gatlings": 0.35,
+          "batteries": 0.3,
           "wallguns": 0.4,
           "drones": 0.18,
           "seals": 0,
+          "panels": 2,
           "hue": 0.08
         }
       ]
@@ -1805,9 +1963,12 @@ const PREBUILT = [
             "pylon"
           ],
           "turrets": 0.08,
+          "gatlings": 0.05,
+          "batteries": 0,
           "wallguns": 0,
           "drones": 0.25,
           "seals": 0,
+          "panels": 2,
           "hue": 0.02
         },
         {
@@ -1821,12 +1982,16 @@ const PREBUILT = [
           "obstacles": 0.3,
           "kinds": [
             "pylon",
-            "stack"
+            "stack",
+            "slider"
           ],
           "turrets": 0.2,
+          "gatlings": 0.2,
+          "batteries": 0.15,
           "wallguns": 0.2,
           "drones": 0.3,
           "seals": 0,
+          "panels": 2,
           "hue": 0.02
         },
         {
@@ -1843,9 +2008,12 @@ const PREBUILT = [
             "pylon"
           ],
           "turrets": 0.3,
+          "gatlings": 0.35,
+          "batteries": 0.3,
           "wallguns": 0.35,
           "drones": 0.35,
           "seals": 1,
+          "panels": 3,
           "hue": 0.01
         },
         {
@@ -1860,12 +2028,15 @@ const PREBUILT = [
           "kinds": [
             "stack",
             "gate",
-            "fang"
+            "press"
           ],
           "turrets": 0.45,
+          "gatlings": 0.5,
+          "batteries": 0.45,
           "wallguns": 0.45,
           "drones": 0.35,
           "seals": 0,
+          "panels": 2,
           "hue": 0.01
         },
         {
@@ -1883,9 +2054,12 @@ const PREBUILT = [
             "ring"
           ],
           "turrets": 0.62,
+          "gatlings": 0.62,
+          "batteries": 0.7,
           "wallguns": 0.42,
           "drones": 0.3,
           "seals": 2,
+          "panels": 4,
           "hue": 0.01
         },
         {
@@ -1899,12 +2073,16 @@ const PREBUILT = [
           "obstacles": 0.55,
           "kinds": [
             "ring",
-            "gate"
+            "gate",
+            "pinwheel"
           ],
           "turrets": 0.55,
+          "gatlings": 0.7,
+          "batteries": 0.6,
           "wallguns": 0.5,
           "drones": 0.28,
           "seals": 0,
+          "panels": 2,
           "hue": 0.04
         },
         {
@@ -1918,12 +2096,15 @@ const PREBUILT = [
           "obstacles": 0.5,
           "kinds": [
             "ring",
-            "gate"
+            "cross"
           ],
           "turrets": 0.6,
+          "gatlings": 0.75,
+          "batteries": 0.8,
           "wallguns": 0.5,
           "drones": 0.26,
           "seals": 1,
+          "panels": 3,
           "hue": 0.03
         },
         {
@@ -1939,9 +2120,12 @@ const PREBUILT = [
             "ring"
           ],
           "turrets": 0.4,
+          "gatlings": 0.6,
+          "batteries": 0.5,
           "wallguns": 0.5,
           "drones": 0.22,
           "seals": 0,
+          "panels": 2,
           "hue": 0
         }
       ]
@@ -1972,6 +2156,7 @@ const RUNOUT = 1100;       // extra track past the last section, for the finale
 const MAX_SLOPE_X = 0.55;
 const MAX_SLOPE_Y = 0.30;
 const BLEND = 260;         // transition length between sections
+const TIME_STEP = 40;      // grid for the position-to-seconds table
 
 function vnoise(t, wl, salt) {
   const p = t / wl;
@@ -2149,6 +2334,36 @@ class Track {
    * second and a half and the lock takes one -- technically possible, and no
    * fun. The slowdown is also the beat the whole level has been building to.
    */
+  /**
+   * Seconds from the start of the run to track position `t`.
+   *
+   * Speed depends only on position, so this is fixed for every player -- which
+   * is what lets a moving obstacle be animated off it and still present the
+   * same face to everyone, and lets the audit know which face that is.
+   */
+  timeAt(t) {
+    const tb = this._timeTable || this._buildTimeTable();
+    const k = clamp(t / TIME_STEP, 0, tb.length - 1);
+    const i = Math.floor(k);
+    const f = k - i;
+    const a = tb[i];
+    const b = tb[Math.min(tb.length - 1, i + 1)];
+    return a + (b - a) * f;
+  }
+
+  _buildTimeTable() {
+    const n = Math.ceil(this.total / TIME_STEP) + 2;
+    const tb = new Float32Array(n);
+    let acc = 0;
+    for (let i = 1; i < n; i++) {
+      const t = (i - 0.5) * TIME_STEP;
+      acc += TIME_STEP / Math.max(1, this.speedAt(t));
+      tb[i] = acc;
+    }
+    this._timeTable = tb;
+    return tb;
+  }
+
   speedAt(t) {
     const k = clamp(t / Math.max(1, this.bodyLength), 0, 1);
     let v = lerp(this.spec.speed.start, this.spec.speed.end, k);
@@ -2258,6 +2473,7 @@ const OB_CLEARANCE_AFTER = 420;
 const GUN_CLEARANCE = 220;
 const MIN_OB_GAP = 240;      // no unavoidable stacked pairs
 const SEAL_PITCH = 2600;   // minimum track per seal in a section
+const PRESS_GAP = 26;      // narrowest a crusher is allowed to close to
 
 function obstacle(t, dz, kind, boxes, extra) {
   return { t, dz, kind, boxes, hit: false, ...extra };
@@ -2269,6 +2485,24 @@ function enemy(kind, t, x, y, over) {
     hp: 3, maxHp: 3, alive: true, lockable: false, points: 150,
     cool: 0.5, spin: 0, aim: 0, flash: 0,
     ...over,
+  };
+}
+
+/**
+ * How many tubes a missile battery carries, and what that costs to kill.
+ *
+ * The big ones are rare and deliberately unmissable: a twelve-tube battery is a
+ * ship-sized thing on the skyline that empties itself at you. Density decides
+ * how many batteries there are; this decides how frightening each one is, and
+ * it leans harder as a section does.
+ */
+function batterySize(rand, menace) {
+  const r = rand() * (0.55 + menace * 0.95);
+  const tubes = r > 1.25 ? 12 : r > 0.95 ? 6 : r > 0.68 ? 3 : r > 0.4 ? 2 : 1;
+  return {
+    tubes,
+    hp: 4 + tubes,
+    points: 300 + tubes * 120,
   };
 }
 
@@ -2300,9 +2534,35 @@ function buildLevel(spec, track) {
       if (track.portT > 0 && t > track.portT - 1200) continue;
       const hw = track.halfWidth(t);
       const rim = track.rim(t);
-      obstacles.push(obstacle(t, 46, 'seal', [[-hw - 60, hw + 60, -30, rim - 1]]));
+      const seal = obstacle(t, 46, 'seal', [[-hw - 60, hw + 60, -30, rim - 1]]);
+      seal.panelCount = sec.panels;
+      // The face is wider than the trench opening; the renderer needs the
+      // opening to know where markings will actually be seen.
+      seal.hw = hw;
+      obstacles.push(seal);
       seals.push(t);
-      // Cover fire for the forced climb.
+
+      // Control panels on the face. Shooting every one drops the bulkhead into
+      // the floor and you keep your altitude -- which is the other way through,
+      // and the reason a bulkhead is a decision rather than a toll. With none
+      // authored, the only way is over the top.
+      // Laid out as a grid, not a run: a flat index spread across x while the
+      // height alternated on k % 2 put four panels in a staircase, which reads
+      // as misaligned rather than as deliberate.
+      const cols = sec.panels <= 3 ? sec.panels : 2;
+      const prows = Math.ceil(sec.panels / Math.max(1, cols));
+      for (let k = 0; k < sec.panels; k++) {
+        const c = k % cols;
+        const r = Math.floor(k / cols);
+        const px = cols === 1 ? 0 : (-0.3 + (0.6 * c) / (cols - 1)) * hw;
+        const py = rim * (prows === 1 ? 0.46 : 0.34 + 0.3 * r);
+        enemies.push(enemy('panel', t - 3, px, py, {
+          hp: 2, maxHp: 2, lockable: true, points: 200, sealT: t, cool: 1e9,
+        }));
+      }
+
+      // Cover fire for the forced climb: this is the moment the surface is
+      // supposed to be the worst place in the level, so it gets the heavy kit.
       const n = 3 + Math.floor(rand() * 3);
       for (let j = 0; j < n; j++) {
         const side = j % 2 === 0 ? -1 : 1;
@@ -2310,6 +2570,14 @@ function buildLevel(spec, track) {
           side * (hw + 28 + rand() * 190), track.rim(t),
           { hp: 3, maxHp: 3, lockable: true, points: 250, cool: 0.5 + rand() }));
       }
+      enemies.push(enemy('gatling', t - 120 + rand() * 240,
+        (rand() < 0.5 ? -1 : 1) * (hw + 22 + rand() * 60), track.rim(t),
+        { hp: 5, maxHp: 5, lockable: true, points: 400, cool: 0.4, wind: 0, burst: 0 }));
+      const bb = batterySize(rand, 0.55 + sec.batteries * 0.45);
+      enemies.push(enemy('battery', t - 500 + rand() * 260,
+        (rand() < 0.5 ? -1 : 1) * (hw + 40 + rand() * 120), track.rim(t),
+        { hp: bb.hp, maxHp: bb.hp, lockable: true, points: bb.points,
+          tubes: bb.tubes, salvo: 0, salvoTimer: 0, cool: 0.9 + rand() }));
     }
   });
 
@@ -2373,6 +2641,66 @@ function buildLevel(spec, track) {
           [cx - r, cx + r, cy + r, rim + 14],
           [cx - r, cx + r, -30, cy - r],
         ], { ring: { cx, cy, r } }));
+      } else if (kind === 'pinwheel' || kind === 'cross') {
+        // Arms radiating from the trench centre, turning. Collision keeps the
+        // arms as plain boxes and turns the frame instead, so a pinwheel costs
+        // no more to hit-test than a pylon does.
+        const arms = kind === 'cross' ? 4 : (rand() < 0.5 ? 3 : 5);
+        const reach = Math.min(hw - 6, rim * 0.62);
+        const thick = kind === 'cross' ? 13 : 9;
+        const cy = rim * 0.5;
+        const boxes = [];
+        for (let i = 0; i < arms; i++) {
+          // Written as one horizontal arm each, then rotated into place by the
+          // frame: the boxes stay axis aligned, which is the whole trick.
+          const a = (i / arms) * Math.PI * 2;
+          const ca = Math.cos(a), sa = Math.sin(a);
+          const steps = 5;
+          for (let k = 1; k <= steps; k++) {
+            const r = (reach * k) / steps;
+            const px = ca * r, py = cy + sa * r;
+            boxes.push([px - thick, px + thick, py - thick, py + thick]);
+          }
+        }
+        obstacles.push(obstacle(t, 16, kind, boxes, {
+          cx: 0, cy,
+          anim: { rate: 0, phase: rand() * 6.283, spin: (rand() < 0.5 ? -1 : 1) * (0.5 + rand() * 0.7) },
+        }));
+      } else if (kind === 'press') {
+        // Two walls closing on the centre. They are two obstacles rather than
+        // one with two boxes, because they travel in opposite directions and a
+        // frame can only carry the pair one way -- and two counter-sliding
+        // walls is exactly what a frame each expresses.
+        //
+        // The gap never shuts past what the ship can thread. A crusher with no
+        // opening is just a wall that arrives late, and the run-out over the
+        // top is the other answer: these stop at the rim, not at the ceiling.
+        const open = Math.min(hw - 8, 48);
+        const travel = Math.max(6, open - PRESS_GAP * 0.5);
+        const rate = 0.85 + rand() * 0.5;
+        const phase = rand() * 6.283;
+        for (const side of [-1, 1]) {
+          obstacles.push(obstacle(t, 20, 'press',
+            side < 0 ? [[-hw - 40, -open, -30, rim + 6]] : [[open, hw + 40, -30, rim + 6]], {
+              cx: 0, cy: 0,
+              anim: { dx: side * travel, dy: 0, rate, phase, spin: 0 },
+            }));
+        }
+      } else if (kind === 'slider') {
+        // A block tracking side to side, or up and down.
+        const vertical = rand() < 0.4;
+        const w = 16 + rand() * 14;
+        const h = 26 + rand() * 34;
+        const amp = vertical ? Math.max(10, rim * 0.3) : Math.max(12, hw - w - 12);
+        obstacles.push(obstacle(t, 18, 'slider', [
+          [-w, w, rim * 0.45 - h, rim * 0.45 + h],
+        ], {
+          cx: 0, cy: rim * 0.45,
+          anim: {
+            dx: vertical ? 0 : amp, dy: vertical ? amp : 0,
+            rate: 0.8 + rand() * 0.7, phase: rand() * 6.283, spin: 0,
+          },
+        }));
       } else {
         // Staggered slabs: two half-blocks in quick succession, alternating.
         const low = rand() < 0.5;
@@ -2397,6 +2725,33 @@ function buildLevel(spec, track) {
       const hw = track.halfWidth(t);
       enemies.push(enemy('turret', t, (rand() < 0.5 ? -1 : 1) * (hw + 24 + rand() * 200),
         track.rim(t), { hp: 3, maxHp: 3, lockable: true, points: 250, cool: 0.6 + rand() }));
+    }
+
+    // Surface gatlings: they sit close to the lip, because their job is to make
+    // the few seconds above the rim expensive rather than to snipe.
+    const gg = spacing(sec.gatlings, 2600, 5.0);
+    for (let t = start + gg * rand(); t < end; t += gg * (0.7 + rand() * 0.6)) {
+      if (nearPort(t)) continue;
+      const hw = track.halfWidth(t);
+      enemies.push(enemy('gatling', t, (rand() < 0.5 ? -1 : 1) * (hw + 18 + rand() * 90),
+        track.rim(t), {
+          hp: 5, maxHp: 5, lockable: true, points: 400,
+          cool: 0.8 + rand() * 1.2, wind: 0, burst: 0,
+        }));
+    }
+
+    // Surface missile batteries.
+    const bg = spacing(sec.batteries, 3000, 4.0);
+    for (let t = start + bg * rand(); t < end; t += bg * (0.7 + rand() * 0.6)) {
+      if (nearPort(t)) continue;
+      const hw = track.halfWidth(t);
+      const b = batterySize(rand, sec.batteries);
+      enemies.push(enemy('battery', t, (rand() < 0.5 ? -1 : 1) * (hw + 34 + rand() * 150),
+        track.rim(t), {
+          hp: b.hp, maxHp: b.hp, lockable: true, points: b.points,
+          tubes: b.tubes, salvo: 0, salvoTimer: 0,
+          cool: 1.4 + rand() * 1.6,
+        }));
     }
 
     // Wall guns inside the trench.
@@ -2710,6 +3065,7 @@ const CANYON = { SLICE, DRAW };
 
 
 
+
 // --- ship ---------------------------------------------------------------
 
 // Polylines in ship-local space: x right, y up, z forward.
@@ -2807,16 +3163,30 @@ function drawShip(rd, pos, basis, thrust, time, hurt) {
 const OB_COL = {
   pylon: [1, 0.45, 0.14], fang: [1, 0.38, 0.2], gate: [1, 0.52, 0.16],
   ring: [0.4, 0.95, 1], stack: [1, 0.48, 0.15], seal: [1, 0.22, 0.16],
+  // The moving ones read cooler than the rock: they are machinery, not terrain,
+  // and a player needs to tell at a glance which things will still be there.
+  pinwheel: [0.55, 0.9, 1], cross: [0.6, 0.85, 1],
+  press: [1, 0.7, 0.2], slider: [0.75, 0.85, 1],
 };
 
-function box(rd, track, t, dz, x0, x1, y0, y1, col, w, a) {
+/**
+ * One box of an obstacle, in that obstacle's own frame.
+ *
+ * `ob` and `time` are how a moving obstacle gets drawn where it actually is:
+ * the corners go through exactly the transform collision inverts, so what you
+ * see and what you hit cannot drift apart.
+ */
+function box(rd, track, t, dz, x0, x1, y0, y1, col, w, a, ob = null, time = 0) {
   const p = _obp;
+  const c = _obc;
   // Front and back rectangles plus the four connecting edges.
   for (const [tt, idx] of [[t, 0], [t + dz, 4]]) {
-    track.localToWorld(tt, x0, y0, p[idx]);
-    track.localToWorld(tt, x1, y0, p[idx + 1]);
-    track.localToWorld(tt, x1, y1, p[idx + 2]);
-    track.localToWorld(tt, x0, y1, p[idx + 3]);
+    for (let k = 0; k < 4; k++) {
+      const ox = k === 0 || k === 3 ? x0 : x1;
+      const oy = k < 2 ? y0 : y1;
+      if (ob) { obstacleToLocal(ob, time, ox, oy, c); track.localToWorld(tt, c[0], c[1], p[idx + k]); }
+      else track.localToWorld(tt, ox, oy, p[idx + k]);
+    }
   }
   for (const o of [0, 4]) {
     for (let i = 0; i < 4; i++) {
@@ -2830,6 +3200,7 @@ function box(rd, track, t, dz, x0, x1, y0, y1, col, w, a) {
   }
 }
 const _obp = Array.from({ length: 8 }, () => [0, 0, 0]);
+const _obc = [0, 0];
 
 function drawObstacles(rd, track, obstacles, cursor, camT, far, time) {
   const p = [0, 0, 0], q = [0, 0, 0];
@@ -2840,26 +3211,70 @@ function drawObstacles(rd, track, obstacles, cursor, camT, far, time) {
     const col = OB_COL[ob.kind] || OB_COL.pylon;
 
     if (ob.kind === 'seal') {
+      if (ob.gone) continue;
       const [x0, x1, y0, y1] = ob.boxes[0];
-      box(rd, track, ob.t, ob.dz, x0, x1, y0, y1, col, 1.5, 1);
-      // Panel grid, so a bulkhead reads as built rather than as a hole.
-      for (let k = 1; k < 6; k++) {
-        const x = x0 + ((x1 - x0) * k) / 6;
-        track.localToWorld(ob.t, x, y0, p);
-        track.localToWorld(ob.t, x, y1, q);
-        rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], 0.9, col[0], col[1], col[2], 0.55);
+      const drop = ob.dropY || 0;
+      box(rd, track, ob.t, ob.dz, x0, x1, y0, y1, col, 1.5, 1, ob, time);
+
+      // The face, hatched densely across the trench opening. Wireframe has no
+      // fill, so density is the only way a wall says "solid" -- and it has to,
+      // because the trench floor behind it draws straight through and otherwise
+      // converges to a vanishing point in the middle of the thing, which reads
+      // as an open tunnel exactly where the game is shouting CLIMB.
+      const hw = ob.hw || (x1 - x0) * 0.25;
+      for (let k = -7; k <= 7; k++) {
+        const x = (k / 7) * hw;
+        track.localToWorld(ob.t, x, y0 + drop, p);
+        track.localToWorld(ob.t, x, y1 + drop, q);
+        rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], 1, col[0], col[1], col[2], 0.42);
       }
+      for (let k = 0; k <= 9; k++) {
+        const y = y0 + drop + ((y1 - y0) * k) / 9;
+        track.localToWorld(ob.t, -hw, y, p);
+        track.localToWorld(ob.t, hw, y, q);
+        rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], 1, col[0], col[1], col[2], 0.42);
+      }
+
+      // Chevrons: two columns of arrows climbing the face, brightest in
+      // sequence. A bulkhead is the one obstacle whose answer is a direction
+      // rather than a gap, and nothing else on screen can say "up" for it.
+      //
+      // Every row stays legible and the pulse only picks which is brightest.
+      // Unlit rows used to sit at 0.18 and vanished into the wall, so a still
+      // frame -- which is what a player actually reads at speed -- carried two
+      // arrows out of five.
+      const rows = 5;
+      const cw = Math.min(30, hw * 0.52);
+      const top = y1 + drop;
+      for (let k = 0; k < rows; k++) {
+        const fy = y0 + drop + ((top - (y0 + drop)) * (k + 0.6)) / (rows + 0.4);
+        const phase = (time * 1.7 - k * 0.24) % 1.6;
+        const lit = phase > 0 && phase < 0.42 ? 1 : 0.5;
+        for (const cx of [-1, 1]) {
+          // Outboard of the control panels, which live inside 0.3 of the
+          // opening: a chevron arm through a panel made both unreadable.
+          const bx = cx * hw * 0.72;
+          track.localToWorld(ob.t, bx - cw * 0.5, fy - cw * 0.34, p);
+          track.localToWorld(ob.t, bx, fy + cw * 0.3, q);
+          rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], 2.4 + lit * 1.6, 1, 0.78, 0.24, lit);
+          track.localToWorld(ob.t, bx + cw * 0.5, fy - cw * 0.34, p);
+          rd.line3(q[0], q[1], q[2], p[0], p[1], p[2], 2.4 + lit * 1.6, 1, 0.78, 0.24, lit);
+        }
+      }
+      // Sparse ribs across the buried part of the face, outside the opening.
       for (let k = 1; k < 4; k++) {
-        const y = y0 + ((y1 - y0) * k) / 4;
-        track.localToWorld(ob.t, x0, y, p);
-        track.localToWorld(ob.t, x1, y, q);
-        rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], 0.9, col[0], col[1], col[2], 0.55);
+        const y = y0 + drop + ((y1 - y0) * k) / 4;
+        for (const [a, b] of [[x0, -hw], [hw, x1]]) {
+          track.localToWorld(ob.t, a, y, p);
+          track.localToWorld(ob.t, b, y, q);
+          rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], 0.9, col[0], col[1], col[2], 0.45);
+        }
       }
       // Hazard flashers along the lip: the "go up" instruction.
       const blink = 0.45 + 0.55 * Math.sin(time * 8);
       for (let k = 0; k <= 8; k++) {
         const x = x0 + ((x1 - x0) * k) / 8;
-        track.localToWorld(ob.t, x, y1, p);
+        track.localToWorld(ob.t, x, y1 + drop, p);
         rd.dot3(p[0], p[1], p[2], 2.6, 1, 0.75, 0.2, blink);
       }
       continue;
@@ -2905,7 +3320,7 @@ function drawObstacles(rd, track, obstacles, cursor, camT, far, time) {
     }
 
     for (const [x0, x1, y0, y1] of ob.boxes) {
-      box(rd, track, ob.t, ob.dz, x0, x1, y0, y1, col, 1.2, 1);
+      box(rd, track, ob.t, ob.dz, x0, x1, y0, y1, col, 1.2, 1, ob, time);
     }
   }
 }
@@ -2958,12 +3373,150 @@ function drawEnemies(rd, track, enemies, camT, far, time) {
       track.localToWorld(e.t, e.x, e.y, p);
       track.localToWorld(e.t + 4, e.x + sgn * 11, e.y, q);
       rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], 1.5, col[0], col[1], col[2], A);
+    } else if (e.kind === 'battery') {
+      drawBattery(rd, track, e, col, time, A);
+    } else if (e.kind === 'gatling') {
+      drawGatling(rd, track, e, col, time, A);
+    } else if (e.kind === 'panel') {
+      drawPanel(rd, track, e, time, A);
     } else if (e.kind === 'port') {
       drawPort(rd, track, e, time, A);
     } else if (e.kind === 'drone') {
       drawDrone(rd, track, e, col, time, A);
     }
   }
+}
+
+
+// How a battery's tubes are laid out on its deck: columns along the trench by
+// rows across it. The shape is the readout -- you are meant to see a twelve
+// coming and decide, from the skyline, whether you want to be up there.
+const TUBE_GRID = { 1: [1, 1], 2: [2, 1], 3: [3, 1], 6: [3, 2], 12: [4, 3] };
+
+/**
+ * A surface missile battery: a hull on the skyline with a grid of vertical
+ * launch cells in its deck, one per tube.
+ *
+ * Drawn big on purpose. The trench is the safe place and the surface is the
+ * bargain you make to get past a bulkhead, and that only reads if the things up
+ * there look like they were built to end you.
+ */
+function drawBattery(rd, track, e, col, time, A = 1) {
+  const p = [0, 0, 0], q = [0, 0, 0];
+  const [cols, rows] = TUBE_GRID[e.tubes] || [1, 1];
+  const L = 15 + e.tubes * 2.0;
+  const W = 7 + rows * 5;
+  const H = 7 + rows * 3;
+  const inboard = e.x < 0 ? 1 : -1;
+  const line = (t0, x0, y0, t1, x1, y1, w, a, r = col[0], g = col[1], b = col[2]) => {
+    track.localToWorld(e.t + t0, e.x + x0, e.y + y0, p);
+    track.localToWorld(e.t + t1, e.x + x1, e.y + y1, q);
+    rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], w, r, g, b, a * A);
+  };
+
+  // Hull: a deck plate lifted off the surface, chamfered toward the trench so
+  // it reads as facing you rather than as a crate someone left there.
+  const nose = L * 0.72;
+  const deck = [[-L, -W], [-nose, W * inboard * 0.15 + W], [nose, W * inboard * 0.15 + W], [L, -W]];
+  for (const dy of [1, H]) {
+    for (let i = 0; i < 4; i++) {
+      const a = deck[i], b = deck[(i + 1) & 3];
+      line(a[0], a[1] * inboard, dy, b[0], b[1] * inboard, dy, 1.4, 0.95);
+    }
+  }
+  for (const d of deck) line(d[0], d[1] * inboard, 1, d[0], d[1] * inboard, H, 1.1, 0.75);
+
+  // Launch cells. A loaded cell glows; the one about to fire flares.
+  const firing = e.salvo > 0;
+  for (let c = 0; c < cols; c++) {
+    for (let r2 = 0; r2 < rows; r2++) {
+      const ct = cols === 1 ? 0 : (-0.62 + (1.24 * c) / (cols - 1)) * L;
+      const cx = (rows === 1 ? 0 : (-0.5 + (1.0 * r2) / (rows - 1)) * W) * inboard;
+      const s2 = Math.min(L / cols, W / rows) * 0.34;
+      const idx = c * rows + r2;
+      const spent = e.tubes - (e.salvo || 0);
+      const live = idx >= spent;
+      const glow = live ? (firing && idx === spent ? 1 : 0.55) : 0.12;
+      for (let k = 0; k < 4; k++) {
+        const a = [[-s2, -s2], [s2, -s2], [s2, s2], [-s2, s2]][k];
+        const b = [[-s2, -s2], [s2, -s2], [s2, s2], [-s2, s2]][(k + 1) & 3];
+        line(ct + a[0], cx + a[1], H, ct + b[0], cx + b[1], H, 1.1, glow, 1, 0.75, 0.35);
+      }
+      if (live) {
+        track.localToWorld(e.t + ct, e.x + cx, e.y + H + 1, p);
+        rd.dot3(p[0], p[1], p[2], 2.2 + (firing && idx === spent ? 3 : 0),
+          1, 0.7, 0.3, (firing && idx === spent ? 1 : 0.6) * A);
+      }
+    }
+  }
+
+  // A mast, so it has a silhouette against the sky at distance.
+  line(-L * 0.5, 0, H, -L * 0.5, 0, H + 13 + e.tubes * 0.6, 1.2, 0.7);
+  track.localToWorld(e.t - L * 0.5, e.x, e.y + H + 13 + e.tubes * 0.6, p);
+  rd.dot3(p[0], p[1], p[2], 2.4, 1, 0.35, 0.25,
+    (0.45 + 0.55 * Math.abs(Math.sin(time * 3 + e.t))) * A);
+}
+
+/**
+ * A surface gatling: a rotating barrel cluster that spins up before it fires.
+ *
+ * The spin-up is the whole point of drawing it this way. It is the only warning
+ * the player gets, and it has to be legible from across the canyon.
+ */
+function drawGatling(rd, track, e, col, time, A = 1) {
+  const p = [0, 0, 0], q = [0, 0, 0];
+  const inboard = e.x < 0 ? 1 : -1;
+  const wind = e.wind || 0;
+  const line = (t0, x0, y0, t1, x1, y1, w, a, r = col[0], g = col[1], b = col[2]) => {
+    track.localToWorld(e.t + t0, e.x + x0, e.y + y0, p);
+    track.localToWorld(e.t + t1, e.x + x1, e.y + y1, q);
+    rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], w, r, g, b, a * A);
+  };
+  // Mount.
+  for (const d of [[-9, -7], [9, -7], [9, 7], [-9, 7]]) line(d[0], d[1], 0, d[0], d[1], 7, 1.1, 0.7);
+  for (let k = 0; k < 4; k++) {
+    const a = [[-9, -7], [9, -7], [9, 7], [-9, 7]][k];
+    const b = [[-9, -7], [9, -7], [9, 7], [-9, 7]][(k + 1) & 3];
+    line(a[0], a[1], 7, b[0], b[1], 7, 1.2, 0.85);
+  }
+  // Six barrels around the axis, turning with the spin-up.
+  const spin = (e.barrel || 0);
+  const R = 5.2;
+  const reach = 15;
+  for (let k = 0; k < 6; k++) {
+    const a = (k / 6) * TAU + spin;
+    const by = 11 + Math.sin(a) * R;
+    const bt = Math.cos(a) * R;
+    const hot = 0.45 + 0.55 * wind;
+    line(bt, 0, by, bt + inboard * 2, inboard * reach, by, 1.5, hot, 1, 0.55 + 0.35 * wind, 0.2);
+  }
+  // Muzzle glow, and hot air over it while it is spun up.
+  track.localToWorld(e.t + 2, e.x + inboard * reach, e.y + 11, p);
+  rd.dot3(p[0], p[1], p[2], 2.5 + wind * 6, 1, 0.55 + 0.4 * wind, 0.15, (0.4 + 0.6 * wind) * A);
+  if (wind > 0.15) {
+    track.localToWorld(e.t, e.x, e.y + 20 + wind * 8, q);
+    rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], 1, 1, 0.6, 0.2, wind * 0.5 * A);
+  }
+}
+
+/** A bulkhead control panel: small, bright, and the reason to look down. */
+function drawPanel(rd, track, e, time, A = 1) {
+  const p = [0, 0, 0], q = [0, 0, 0];
+  const w = 9, h = 7;
+  const pulse = 0.6 + 0.4 * Math.sin(time * 6 + e.t * 0.05);
+  const hit = e.flash > 0 ? 1 : 0;
+  const cr = 1, cg = hit ? 0.25 : 0.85, cb = hit ? 0.2 : 0.35;
+  const line = (x0, y0, x1, y1, lw, a) => {
+    track.localToWorld(e.t, e.x + x0, e.y + y0, p);
+    track.localToWorld(e.t, e.x + x1, e.y + y1, q);
+    rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], lw, cr, cg, cb, a * A);
+  };
+  line(-w, -h, w, -h, 1.5, 1); line(w, -h, w, h, 1.5, 1);
+  line(w, h, -w, h, 1.5, 1); line(-w, h, -w, -h, 1.5, 1);
+  line(-w * 0.5, 0, w * 0.5, 0, 1.2, pulse);
+  line(0, -h * 0.5, 0, h * 0.5, 1.2, pulse);
+  track.localToWorld(e.t - 3, e.x, e.y, p);
+  rd.dot3(p[0], p[1], p[2], 3.4, cr, cg, cb, pulse * A);
 }
 
 /** The finale: a recessed exhaust vent. Concentric rings and a live core. */
@@ -3013,15 +3566,29 @@ class Weapons {
   constructor() {
     this.lasers = [];   // player fire
     this.bolts = [];    // enemy fire
-    this.missiles = [];
+    this.missiles = []; // player missiles, one per lock
+    this.seekers = [];  // enemy missiles, from the surface batteries
+  }
+
+  /**
+   * An enemy heat-seeker. Slower than the ship and slower to turn than it can
+   * bank, so it is beaten by flying rather than by luck -- and it can be shot
+   * out of the air, which is what the gun is for when a battery empties itself
+   * at you.
+   */
+  fireSeeker(x, y, z, dx, dy, dz) {
+    this.seekers.push({
+      x, y, z, px: x, py: y, pz: z, dx, dy, dz,
+      speed: 250, accel: 190, maxSpeed: 430, turn: 1.9, life: 7, arm: 0.35,
+    });
   }
 
   fireLaser(x, y, z, dx, dy, dz, speed = 1500) {
     this.lasers.push({ x, y, z, px: x, py: y, pz: z, dx, dy, dz, speed, life: 1.1 });
   }
 
-  fireBolt(x, y, z, dx, dy, dz, speed = 430, heavy = false) {
-    this.bolts.push({ x, y, z, px: x, py: y, pz: z, dx, dy, dz, speed, life: 3.2, heavy });
+  fireBolt(x, y, z, dx, dy, dz, speed = 430, heavy = false, tracer = false) {
+    this.bolts.push({ x, y, z, px: x, py: y, pz: z, dx, dy, dz, speed, life: 3.2, heavy, tracer });
   }
 
   fireMissile(x, y, z, dx, dy, dz, target) {
@@ -3030,7 +3597,31 @@ class Weapons {
     });
   }
 
-  update(dt) {
+  update(dt, chase) {
+    // Enemy seekers, homing on wherever the ship is now.
+    let sw = 0;
+    for (let i = 0; i < this.seekers.length; i++) {
+      const m = this.seekers[i];
+      m.life -= dt;
+      m.arm -= dt;
+      if (m.life <= 0) continue;
+      if (chase && m.arm <= 0) {
+        let ax = chase[0] - m.x, ay = chase[1] - m.y, az = chase[2] - m.z;
+        const L = Math.hypot(ax, ay, az) || 1;
+        ax /= L; ay /= L; az /= L;
+        const k = clamp(m.turn * dt, 0, 1);
+        m.dx += (ax - m.dx) * k; m.dy += (ay - m.dy) * k; m.dz += (az - m.dz) * k;
+        const n = Math.hypot(m.dx, m.dy, m.dz) || 1;
+        m.dx /= n; m.dy /= n; m.dz /= n;
+      }
+      m.speed = Math.min(m.maxSpeed, m.speed + m.accel * dt);
+      const d = m.speed * dt;
+      m.px = m.x; m.py = m.y; m.pz = m.z;
+      m.x += m.dx * d; m.y += m.dy * d; m.z += m.dz * d;
+      this.seekers[sw++] = m;
+    }
+    this.seekers.length = sw;
+
     for (const arr of [this.lasers, this.bolts]) {
       let w = 0;
       for (let i = 0; i < arr.length; i++) {
@@ -3071,16 +3662,26 @@ class Weapons {
   }
 
   draw(rd) {
+    for (const m of this.seekers) {
+      // A hot head and a long tail, so a salvo of twelve reads as weather.
+      rd.line3(m.x, m.y, m.z, m.x - m.dx * 26, m.y - m.dy * 26, m.z - m.dz * 26,
+        2.2, 1, 0.42, 0.14, 1);
+      rd.line3(m.x - m.dx * 26, m.y - m.dy * 26, m.z - m.dz * 26,
+        m.x - m.dx * 54, m.y - m.dy * 54, m.z - m.dz * 54, 1.4, 1, 0.3, 0.1, 0.35);
+      rd.dot3(m.x, m.y, m.z, 3.4, 1, 0.8, 0.4, 1);
+    }
     for (const s of this.lasers) {
       const L = 30;
       rd.line3(s.x, s.y, s.z, s.x - s.dx * L, s.y - s.dy * L, s.z - s.dz * L,
         2.2, 0.6, 1, 0.75, 1);
     }
     for (const s of this.bolts) {
-      const L = s.heavy ? 22 : 14;
-      const w = s.heavy ? 2.6 : 1.8;
+      // Gatling rounds are drawn long and pale-hot: at that cadence they are a
+      // stream rather than a series of shots, and they should read as one.
+      const L = s.tracer ? 34 : s.heavy ? 22 : 14;
+      const w = s.tracer ? 1.6 : s.heavy ? 2.6 : 1.8;
       rd.line3(s.x, s.y, s.z, s.x - s.dx * L, s.y - s.dy * L, s.z - s.dz * L,
-        w, 1, s.heavy ? 0.35 : 0.55, 0.2, 1);
+        w, 1, s.tracer ? 0.7 : s.heavy ? 0.35 : 0.55, s.tracer ? 0.3 : 0.2, 1);
     }
     for (const m of this.missiles) {
       rd.line3(m.x, m.y, m.z, m.x - m.dx * 14, m.y - m.dy * 14, m.z - m.dz * 14,
@@ -3093,6 +3694,7 @@ class Weapons {
     this.lasers.length = 0;
     this.bolts.length = 0;
     this.missiles.length = 0;
+    this.seekers.length = 0;
   }
 }
 
@@ -3586,12 +4188,208 @@ function fitOf(track, L) {
   return track._fit;
 }
 
+// ---- music.js ------------------------------------------------------
+// Chip-tune music: Rimsky-Korsakov's Flight of the Bumblebee, played by three
+// square waves and a noise channel.
+//
+// The piece is one long chromatic run in sixteenth notes, which is exactly what
+// a chip lead is good at, and its restlessness suits a trench at 400 units a
+// second. It is public domain (1900), and the arrangement here is a reduction:
+// the melody as written, a root-fifth bass under it, and two percussion hits a
+// bar to keep the beat when the melody is busy.
+//
+// Notes are scheduled ahead of time against the audio clock rather than played
+// from a timer tick, because a setInterval on a busy frame drifts by tens of
+// milliseconds and at eleven notes a second that is audible.
+
+const SEMI = { c: 0, 'c#': 1, d: 2, 'd#': 3, e: 4, f: 5, 'f#': 6, g: 7, 'g#': 8, a: 9, 'a#': 10, b: 11 };
+
+/** 'a#4' -> MIDI number. */
+const midi = (name) => {
+  const m = /^([a-g]#?)(-?\d)$/.exec(name);
+  return SEMI[m[1]] + (+m[2] + 1) * 12;
+};
+
+const hz = (n) => 440 * 2 ** ((n - 69) / 12);
+
+// Sixteenth notes, sixteen to a bar, in A minor. Bars 1-4 are the theme -- the
+// octave chromatic fall, the turn at the bottom, the climb back -- and 5-8 are
+// the answering phrase that hovers around the top before dropping again.
+const BARS = [
+  'a5 g#5 g5 f#5 f5 e5 d#5 d5 c#5 c5 b4 a#4 a4 g#4 g4 f#4',
+  'f4 e4 d#4 e4 f4 e4 d#4 e4 f4 f#4 g4 g#4 a4 a#4 b4 c5',
+  'c#5 d5 d#5 e5 f5 e5 d#5 e5 f5 e5 d#5 d5 c#5 c5 b4 a#4',
+  'a4 g#4 a4 a#4 b4 c5 c#5 d5 d#5 e5 f5 f#5 g5 g#5 a5 g#5',
+  'a5 g#5 g5 f#5 f5 e5 f5 f#5 g5 g#5 a5 g#5 g5 f#5 f5 e5',
+  'd#5 e5 f5 e5 d#5 e5 f5 e5 d#5 d5 c#5 c5 b4 c5 c#5 d5',
+  'd#5 e5 f5 f#5 g5 g#5 a5 g#5 g5 f#5 f5 e5 d#5 d5 c#5 c5',
+  'b4 a#4 a4 g#4 a4 a#4 b4 c5 c#5 d5 d#5 e5 f5 f#5 g5 g#5',
+];
+
+const theme = BARS.flatMap((bar) => bar.split(' ').map(midi));
+// Bars 9-12 are the opening four an octave down, so the loop comes back around
+// somewhere other than where it left, the way the orchestral one changes register.
+const MELODY = theme.concat(theme.slice(0, 64).map((n) => n - 12));
+
+// One chord a bar under the melody, and the eighth-note figure played on it.
+const ROOTS = ['a2', 'a2', 'e2', 'e2', 'a2', 'e2', 'a2', 'e2', 'a2', 'a2', 'e2', 'e2'].map(midi);
+const BASS_STEPS = [0, 2, 4, 6, 8, 10, 12, 14];
+const BASS_OFFSET = [0, 0, 7, 0, 0, 12, 7, 0];
+
+const STEP = 60 / 168 / 4;      // a sixteenth at 168bpm: about eleven notes a second
+const LOOKAHEAD = 0.25;         // schedule this far past the clock, every tick
+const TOTAL = MELODY.length;
+
+class Music {
+  /** @param noise a looping-safe noise buffer, shared with the sound effects. */
+  constructor(ctx, dest, noise) {
+    this.ctx = ctx;
+    this.noise = noise;
+    this.enabled = true;
+    this.playing = false;
+    this.level = 1;
+    this.step = 0;
+    this.next = 0;
+    this.timer = null;
+
+    // The lead is a raw square, which is brittle on a phone speaker at these
+    // pitches; the bus filter takes the top off without dulling the runs.
+    this.bus = ctx.createGain();
+    this.bus.gain.value = 0;
+    const tame = ctx.createBiquadFilter();
+    tame.type = 'lowpass';
+    tame.frequency.value = 5200;
+    this.bus.connect(tame);
+    tame.connect(dest);
+  }
+
+  setEnabled(on) {
+    this.enabled = on;
+    if (!on) this.stop();
+  }
+
+  /** Ducks the music without losing the beat -- used while a run is ending. */
+  setLevel(v) {
+    if (v === this.level) return;
+    this.level = v;
+    if (this.playing) this._fade(v * 0.22);
+  }
+
+  start() {
+    if (!this.enabled || this.playing) return;
+    this.playing = true;
+    this.step = 0;
+    this.next = this.ctx.currentTime + 0.1;
+    this._fade(this.level * 0.22);
+    this.timer = setInterval(() => this._pump(), 40);
+    this._pump();
+  }
+
+  stop() {
+    if (!this.playing) return;
+    this.playing = false;
+    clearInterval(this.timer);
+    this.timer = null;
+    this._fade(0);
+  }
+
+  _fade(to) {
+    this.bus.gain.setTargetAtTime(to, this.ctx.currentTime, 0.15);
+  }
+
+  _pump() {
+    const now = this.ctx.currentTime;
+    // A backgrounded tab throttles the timer to about a second. Rather than
+    // dumping every missed note out at once, pick the bar back up from here.
+    if (this.next < now) this.next = now + 0.02;
+    while (this.next < now + LOOKAHEAD) {
+      this._emit(this.step, this.next);
+      this.step = (this.step + 1) % TOTAL;
+      this.next += STEP;
+    }
+  }
+
+  _emit(i, t) {
+    this._pulse(hz(MELODY[i]), t, STEP * 0.92, 0.2, 'square');
+
+    const beat = i % 16;
+    const b = BASS_STEPS.indexOf(beat);
+    if (b >= 0) {
+      const root = ROOTS[(i / 16) | 0] + BASS_OFFSET[b];
+      this._pulse(hz(root), t, STEP * 1.7, 0.17, 'square', 900);
+    }
+    if (beat === 0 || beat === 8) this._kick(t);
+    else if (beat === 4 || beat === 12) this._hat(t);
+  }
+
+  _pulse(f, t, dur, gain, type, cut = 0) {
+    const ctx = this.ctx;
+    const o = ctx.createOscillator();
+    o.type = type;
+    o.frequency.setValueAtTime(f, t);
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(gain, t + 0.004);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g);
+    if (cut) {
+      const lp = ctx.createBiquadFilter();
+      lp.type = 'lowpass';
+      lp.frequency.value = cut;
+      g.connect(lp);
+      lp.connect(this.bus);
+      o.onended = () => { try { g.disconnect(); lp.disconnect(); } catch {} };
+    } else {
+      g.connect(this.bus);
+      o.onended = () => { try { g.disconnect(); } catch {} };
+    }
+    o.start(t);
+    o.stop(t + dur + 0.02);
+  }
+
+  /** Beat one and three: a sine dropped off a cliff. */
+  _kick(t) {
+    const ctx = this.ctx;
+    const o = ctx.createOscillator();
+    o.type = 'sine';
+    o.frequency.setValueAtTime(150, t);
+    o.frequency.exponentialRampToValueAtTime(44, t + 0.09);
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.001, t);
+    g.gain.linearRampToValueAtTime(0.3, t + 0.004);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.14);
+    o.connect(g); g.connect(this.bus);
+    o.start(t);
+    o.stop(t + 0.16);
+    o.onended = () => { try { g.disconnect(); } catch {} };
+  }
+
+  /** The offbeats: a tick of noise, quiet enough to sit under the gun. */
+  _hat(t) {
+    const ctx = this.ctx;
+    const s = ctx.createBufferSource();
+    s.buffer = this.noise;
+    const f = ctx.createBiquadFilter();
+    f.type = 'highpass';
+    f.frequency.value = 6000;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.06, t);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.045);
+    s.connect(f); f.connect(g); g.connect(this.bus);
+    s.start(t);
+    s.stop(t + 0.08);
+    s.onended = () => { try { g.disconnect(); f.disconnect(); } catch {} };
+  }
+}
+
 // ---- audio.js ------------------------------------------------------
 // Synthesised sound. No samples to load, which keeps the whole game one small
 // download and means audio survives being opened offline.
 //
-// The engine drone is the only persistent voice; everything else is a
-// fire-and-forget node graph that disconnects itself when it finishes.
+// The engine drone and the music are the only persistent voices; everything
+// else is a fire-and-forget node graph that disconnects itself when it finishes.
+
+
 
 class Audio {
   constructor() {
@@ -3601,6 +4399,9 @@ class Audio {
     this.engine = null;
     this.engineGain = null;
     this.engineFilter = null;
+    this.music = null;
+    this.musicWanted = true;
+    this._flying = false;
   }
 
   /** Must run inside a user gesture, or the context starts suspended. */
@@ -3646,11 +4447,14 @@ class Audio {
     n.buffer = this._noise(2);
     n.loop = true;
     const ng = ctx.createGain();
-    ng.gain.value = 0.09;
+    ng.gain.value = 0.055;
     n.connect(ng); ng.connect(filt);
     n.start();
     this.engineGain = g;
     this.engineFilter = filt;
+
+    this.music = new Music(ctx, master, this._noise(2));
+    this.music.setEnabled(this.musicWanted);
   }
 
   _noise(seconds) {
@@ -3671,12 +4475,26 @@ class Audio {
   setEngine(throttle, level) {
     if (!this.ctx || !this.engineGain) return;
     const t = this.ctx.currentTime;
-    this.engineGain.gain.setTargetAtTime(level * 0.13, t, 0.1);
+    this.engineGain.gain.setTargetAtTime(level * 0.085, t, 0.1);
     this.engineFilter.frequency.setTargetAtTime(300 + throttle * 900, t, 0.15);
     for (const o of this.engine) {
       o.frequency.setTargetAtTime(48 + throttle * 44, t, 0.15);
     }
   }
+
+  /** The checkbox: remembered even if it is flipped before audio exists. */
+  setMusicEnabled(on) {
+    this.musicWanted = on;
+    if (this.music) {
+      this.music.setEnabled(on);
+      if (on && this._flying) this.music.start();
+    }
+  }
+
+  musicStart() { this._flying = true; this.music?.setLevel(1); this.music?.start(); }
+  musicStop() { this._flying = false; this.music?.stop(); }
+  /** 0 while a run is ending, so the win and loss stings play in the clear. */
+  setMusicLevel(v) { this.music?.setLevel(v); }
 
   _env(node, gain, dur, attack = 0.005) {
     const ctx = this.ctx;
@@ -3722,7 +4540,16 @@ class Audio {
     s.onended = () => { try { g.disconnect(); } catch {} };
   }
 
-  laser() { this._tone('square', 1500, 260, 0.1, 0.16); }
+  // Three voices, all short: the crack of the discharge, a square body that
+  // falls too fast to read as a pitch, and a thump underneath. Each shot is
+  // detuned a little, because eleven identical rounds a second stop sounding
+  // like a gun and start sounding like a note.
+  gun() {
+    const v = 0.9 + Math.random() * 0.2;
+    this._noiseBurst(0.07, 0.8, 3000 * v, 320, 1.2);
+    this._tone('square', 300 * v, 60, 0.085, 0.45);
+    this._tone('sine', 96 * v, 42, 0.13, 0.3);
+  }
   enemyShot() { this._tone('sawtooth', 620, 180, 0.14, 0.1); }
   hit() { this._noiseBurst(0.13, 0.22, 2600, 700, 2); }
   scrape() { this._noiseBurst(0.3, 0.3, 1400, 200, 6); }
@@ -3734,7 +4561,49 @@ class Audio {
   }
   lockTick() { this._tone('sine', 1250, 1250, 0.045, 0.1); }
   lockOn() { this._tone('sine', 900, 1750, 0.16, 0.15); }
-  missile() { this._noiseBurst(0.7, 0.3, 400, 2400, 3); this._tone('sawtooth', 200, 900, 0.5, 0.12); }
+  /**
+   * The launch, in two halves: air swelling as the tube empties, then the
+   * motor running away from you. The swell is what makes it a swish rather
+   * than a hiss -- a noise burst that starts at full volume reads as static.
+   *
+   * `vol` also shortens it, because a battery empties a rack of twelve at
+   * one sixth of a second apart and full-length swishes pile into a wash.
+   */
+  missile(vol = 1) {
+    if (!this.ctx || !this.enabled) return;
+    const ctx = this.ctx;
+    const t = ctx.currentTime;
+    const dur = 0.42 + 0.34 * vol;
+    const s = ctx.createBufferSource();
+    s.buffer = this._noise(1);
+    const bp = ctx.createBiquadFilter();
+    bp.type = 'bandpass';
+    bp.Q.value = 1.4;
+    // Up as it clears the rail, then down as it opens the distance.
+    bp.frequency.setValueAtTime(420, t);
+    bp.frequency.exponentialRampToValueAtTime(3200, t + dur * 0.3);
+    bp.frequency.exponentialRampToValueAtTime(380, t + dur);
+    s.connect(bp);
+    const g = this._env(bp, 0.55 * vol, dur, dur * 0.24);
+    s.start(t);
+    s.stop(t + dur + 0.03);
+    s.onended = () => { try { g.disconnect(); } catch {} };
+    this._tone('sine', 160, 46, 0.24, 0.2 * vol);       // ignition
+    this._tone('sawtooth', 430, 120, dur, 0.07 * vol);  // motor, pitching away
+  }
+
+  /**
+   * The arrival. Most of the weight sits between 80 and 200Hz on purpose: a
+   * boom built out of sub-bass measures huge and is inaudible on the phone
+   * speaker this game is meant to be played through. The sub is still there
+   * underneath it for anyone on headphones.
+   */
+  missileHit() {
+    this._noiseBurst(0.1, 0.85, 6000, 900, 1);    // the crack of it arriving
+    this._noiseBurst(1.1, 1.15, 1200, 190, 1);    // the rumble that carries
+    this._tone('triangle', 190, 44, 0.55, 0.75);  // chest
+    this._tone('sine', 95, 30, 0.85, 0.5);        // sub, for headphones
+  }
   alarm() { this._tone('square', 520, 380, 0.22, 0.09); }
   win() {
     [523, 659, 784, 1047].forEach((f, i) => {
@@ -4084,6 +4953,12 @@ const STEER_RATE = 14;
 const FAR = CANYON.DRAW;
 const CAM_BACK = 66;
 const SHIELD_MAX = 100;
+// The trench is cover, and cover is what turns the surface into a choice rather
+// than a toll. Shields come back only below the rim and only after a few clean
+// seconds, so diving back in to heal is a move you can actually make -- and the
+// price of staying up top is that you never get to make it.
+const SHIELD_REGEN = 7.5;
+const SHIELD_CALM = 3;
 
 // --- weapons ------------------------------------------------------------
 //
@@ -4120,6 +4995,15 @@ const RETICLE_WORLD = 34;     // its size in world units, so distance shrinks it
 const LOS_SAMPLES = 9;        // points tested along a sight line
 const LOS_FADE = 7;           // how fast a target fades in when it comes into view
 const SEAL_WARN_SECS = 3.6;   // how long before a bulkhead the alarm starts
+
+// The surface. These are the numbers that decide whether breaking the rim
+// feels like a decision or like a formality.
+const SALVO_INTERVAL = 0.16;  // seconds between tubes of one rack
+const BATTERY_RELOAD = 5.5;
+const GATLING_SPINUP = 0.75;  // long enough to see it and duck back under
+const GATLING_CADENCE = 0.055;
+const GATLING_SPREAD = 1;
+const SEAL_DROP_SPEED = 190;  // how fast a bulkhead sinks once its panels go
 
 const RADIUS = { turret: 13, wallgun: 11, emplacement: 21, drone: 11, port: 20 };
 
@@ -4172,6 +5056,7 @@ class Game {
     this.yaw = 0;
     this.shield = SHIELD_MAX;
     this.shieldMax = SHIELD_MAX;
+    this.calm = 0;
     this.score = 0;
     this.time = 0;
     this.shake = 0;
@@ -4195,15 +5080,20 @@ class Game {
     this.winTimer = 0;
     this.kills = 0;
     this.hitsTaken = 0;
+    this.droppedSeals = new Set();
 
     this.drones = [];
     for (const w of this.level.drones) w.spawned = false;
+    for (const ob of this.level.obstacles) { ob.dropY = 0; ob.gone = false; ob.dropping = false; }
     for (const e of this.level.enemies) {
       e.alive = true;
       e.hp = e.maxHp;
       e.flash = 0;
       e.paint = 0;
       e.los = 1;
+      e.salvo = 0;
+      e.wind = 0;
+      e.barrel = 0;
       e.spin = hash2((e.t * 3) | 0, 9) * TAU;
     }
     if (this.level.port) {
@@ -4235,6 +5125,11 @@ class Game {
       if (this.messageTimer <= 0) this.message = '';
     }
     this.hurt = Math.max(0, this.hurt - dt * 3);
+    this.calm = Math.max(0, (this.calm || 0) - dt);
+    if (this.phase === 'flying' && !this.exposed && this.calm <= 0
+        && this.shield < SHIELD_MAX) {
+      this.shield = Math.min(SHIELD_MAX, this.shield + SHIELD_REGEN * dt);
+    }
     this.shake = Math.max(0, this.shake - dt * 2.6);
     this.lockedFlash = Math.max(0, this.lockedFlash - dt * 2);
     for (const e of this.level.enemies) if (e.flash > 0) e.flash -= dt * 6;
@@ -4249,7 +5144,7 @@ class Game {
     this.updateEnemies(dt, flying);
     if (flying) this.updateTargeting(dt);
 
-    this.weapons.update(dt);
+    this.weapons.update(dt, this.shipPos);
     this.collide(dt, flying);
     this.particles.update(dt);
 
@@ -4267,6 +5162,7 @@ class Game {
     }
 
     this.audio.setEngine(clamp((this.speed - 200) / 400, 0, 1), flying ? 1 : 0.3);
+    this.audio.setMusicLevel(flying ? 1 : 0);
   }
 
   updateShip(dt) {
@@ -4328,6 +5224,7 @@ class Game {
 
     if (this.grinding && hash2((this.time * 12) | 0, 8) < 0.25) this.audio.scrape();
 
+    this.updateSeals(dt);
     this.checkObstacles(dt);
     this.spawnDrones();
     this.updateDrones(dt);
@@ -4377,6 +5274,7 @@ class Game {
   }
 
   damage(amount, flash = true) {
+    this.calm = SHIELD_CALM;
     if (this.phase !== 'flying') return;
     this.shield -= amount;
     if (flash) {
@@ -4418,15 +5316,11 @@ class Game {
       if (ob.hit) continue;
       // The ship occupies a small box; grow the obstacle instead of shrinking it.
       if (this.t + 8 < ob.t || this.t - 8 > ob.t + ob.dz) continue;
-      for (const [x0, x1, y0, y1] of ob.boxes) {
-        if (this.shipX + 7 > x0 && this.shipX - 7 < x1 &&
-            this.shipY + 5 > y0 && this.shipY - 5 < y1) {
-          ob.hit = true;
-          this.damage(ob.kind === 'seal' ? 48 : 34);
-          this.boomAt(this.shipPos, 34, 170, 1, 0.55, 0.2, 0.7);
-          this.audio.smallBoom();
-          break;
-        }
+      if (hitsObstacle(ob, this.time, this.shipX, this.shipY, 7, 5)) {
+        ob.hit = true;
+        this.damage(ob.kind === 'seal' ? 48 : 34);
+        this.boomAt(this.shipPos, 34, 170, 1, 0.55, 0.2, 0.7);
+        this.audio.smallBoom();
       }
     }
   }
@@ -4551,6 +5445,14 @@ class Game {
         const dist = Math.hypot(dx, dy, dz) || 1;
         e.aim = Math.atan2(this.shipX - e.x, Math.max(1, ahead));
 
+        // The two surface heavies run their own cycles rather than the shared
+        // one-bolt-per-reload loop: what makes them frightening is the shape of
+        // their fire, not its damage. A battery empties a rack; a gatling
+        // spools up in front of you and then does not stop.
+        if (e.kind === 'battery') { this.updateBattery(e, dt, ahead); continue; }
+        if (e.kind === 'gatling') { this.updateGatling(e, dt, ahead); continue; }
+        if (e.kind === 'panel') continue;
+
         let wants = false;
         let heavy = false;
         let reload = 1.4;
@@ -4561,7 +5463,27 @@ class Game {
         } else if (e.kind === 'wallgun') {
           wants = !this.exposed && ahead < 620 && ahead > 30;
           reload = 1.7;
-        } else if (e.kind === 'emplacement') {
+        } else if (e.kind === 'panel') {
+      // The last panel drops the bulkhead. This is the other way through, and
+      // the reason a bulkhead is a decision: climb into the guns, or stay low
+      // and spend the time and the fire it takes to open it.
+      const left = this.level.enemies.filter(
+        (o) => o.kind === 'panel' && o.sealT === e.sealT && o.alive).length;
+      if (left > 0) {
+        this.say(`PANEL DOWN -- ${left} LEFT`, 1);
+      } else {
+        const seal = this.level.obstacles.find(
+          (o) => o.kind === 'seal' && Math.abs(o.t - e.sealT) < 1);
+        if (seal && !seal.dropping) {
+          seal.dropping = true;
+          this.droppedSeals.add(e.sealT);
+          this.score += 800;
+          this.say('BULKHEAD DOWN', 1.6);
+          this.audio.bigBoom();
+          this.shake = Math.min(1.6, this.shake + 0.8);
+        }
+      }
+    } else if (e.kind === 'emplacement') {
           wants = ahead < 900 && ahead > -40;
           heavy = true;
           reload = 1.5;
@@ -4662,7 +5584,10 @@ class Game {
           if (before < 1 && e.paint >= 1) {
             this.locks.push(e);
             this.lockedFlash = 1;
-            this.audio.lockTick();
+            // A completed lock, not a tick toward one -- the painting sweep has
+            // no intermediate steps to count, so this is the only moment there
+            // is and it should sound like an answer rather than a metronome.
+            this.audio.lockOn();
             if (this.locks.length === LOCK_MAX) this.say('LOCKS FULL', 0.9);
           }
         } else if (e.paint) {
@@ -4708,6 +5633,93 @@ class Game {
     this.updateGun(dt, cx, cy);
 
     if (inp.takeMissile()) this.launchMissiles();
+  }
+
+  /** Bulkheads sinking into the floor after their last panel was shot out. */
+  updateSeals(dt) {
+    for (const ob of this.level.obstacles) {
+      if (!ob.dropping || ob.gone) continue;
+      if (Math.abs(ob.t - this.t) > FAR + 400) continue;
+      ob.dropY = (ob.dropY || 0) - SEAL_DROP_SPEED * dt;
+      const depth = ob.boxes[0][3] + 40;
+      if (-ob.dropY >= depth) {
+        ob.dropY = -depth;
+        ob.gone = true;
+      }
+    }
+  }
+
+  /**
+   * A missile battery: a rack emptied one tube at a time, then a long reload.
+   *
+   * The salvo is staggered rather than simultaneous so twelve missiles arrive
+   * as a stream you have to keep answering, not as one wall you either dodge or
+   * do not. Only fires at a ship that has broken the rim -- everything up here
+   * is the cost of being up here.
+   */
+  updateBattery(e, dt, ahead) {
+    const inRange = ahead < 1500 && ahead > -260;
+    if (e.salvo > 0) {
+      // Mid-rack: keep launching regardless of what the ship does now.
+      e.salvoTimer -= dt;
+      if (e.salvoTimer <= 0) {
+        e.salvoTimer = SALVO_INTERVAL;
+        e.salvo--;
+        const up = 0.55 + hash2((e.t | 0) + e.salvo, 7) * 0.5;
+        const side = (e.x < 0 ? 1 : -1) * (0.15 + hash2(e.salvo, (e.t | 0) & 255) * 0.5);
+        // Straight up out of the cell, then it turns over and comes for you.
+        const fx = this.camR[0] * side + this.camU[0] * up + this.camF[0] * 0.25;
+        const fy = this.camR[1] * side + this.camU[1] * up + this.camF[1] * 0.25;
+        const fz = this.camR[2] * side + this.camU[2] * up + this.camF[2] * 0.25;
+        const l = Math.hypot(fx, fy, fz) || 1;
+        this.weapons.fireSeeker(e.world[0], e.world[1] + 8, e.world[2], fx / l, fy / l, fz / l);
+        this.audio.missile(0.5);
+        if (e.salvo === 0) e.cool = BATTERY_RELOAD * (0.85 + hash2(e.t | 0, 3) * 0.4);
+      }
+      return;
+    }
+    e.cool -= dt;
+    if (this.exposed && inRange && e.cool <= 0) {
+      e.salvo = e.tubes;
+      e.salvoTimer = 0.25;
+      if (e.tubes >= 6) {
+        this.say(`${e.tubes} INBOUND`, 1.2);
+        this.audio.alarm();
+      }
+    }
+  }
+
+  /**
+   * A gatling: spins up in plain sight, then hoses the rim with hot lead.
+   *
+   * The spin-up is the only warning, and it is deliberately long enough to duck
+   * back under the rim -- which is the decision the surface is supposed to keep
+   * asking. Individual rounds are cheap; standing in the stream is not.
+   */
+  updateGatling(e, dt, ahead) {
+    const wants = this.exposed && ahead < 900 && ahead > -120;
+    e.wind = clamp(e.wind + (wants ? dt / GATLING_SPINUP : -dt * 1.1), 0, 1);
+    e.barrel = (e.barrel || 0) + dt * (2 + e.wind * 26);
+    if (e.wind < 1) return;
+
+    e.cool -= dt;
+    if (e.cool > 0) return;
+    e.cool = GATLING_CADENCE;
+    const dist = Math.hypot(
+      this.shipPos[0] - e.world[0], this.shipPos[1] - e.world[1], this.shipPos[2] - e.world[2]) || 1;
+    const speed = 620;
+    const lead = dist / speed;
+    // Leads the ship, then scatters: a stream that converged perfectly would be
+    // a hitscan death sentence, and one that did not converge would be scenery.
+    const j = () => (hash2((this.time * 120) | 0, (e.t | 0) & 511) - 0.5) * GATLING_SPREAD;
+    const px = this.shipPos[0] + this.camF[0] * this.speed * lead * 0.9 + j() * 26;
+    const py = this.shipPos[1] + this.camF[1] * this.speed * lead * 0.9 + j() * 22;
+    const pz = this.shipPos[2] + this.camF[2] * this.speed * lead * 0.9;
+    let ax = px - e.world[0], ay = py - e.world[1], az = pz - e.world[2];
+    const al = Math.hypot(ax, ay, az) || 1;
+    this.weapons.fireBolt(e.world[0], e.world[1] + 11, e.world[2],
+      ax / al, ay / al, az / al, speed, false, true);
+    if (ahead < 700) this.audio.enemyShot();
   }
 
   /**
@@ -4790,7 +5802,7 @@ class Game {
       const dl = Math.hypot(dx, dy, dz) || 1;
       this.weapons.fireLaser(this._p[0], this._p[1], this._p[2], dx / dl, dy / dl, dz / dl);
     }
-    this.audio.laser();
+    this.audio.gun();
   }
 
   /** Everything painted, struck at once. */
@@ -4865,6 +5877,18 @@ class Game {
         }
         if (consumed) break;
       }
+      if (!consumed) {
+        for (let k = W.seekers.length - 1; k >= 0; k--) {
+          const m = W.seekers[k];
+          if (!segSphere(s.px, s.py, s.pz, s.x, s.y, s.z, m.x, m.y, m.z, 9)) continue;
+          this.boomAt([m.x, m.y, m.z], 26, 150, 1, 0.7, 0.3, 0.6);
+          this.audio.smallBoom();
+          W.seekers.splice(k, 1);
+          this.score += 40;
+          consumed = true;
+          break;
+        }
+      }
       if (!consumed && this.hitsScenery(s.x, s.y, s.z)) {
         this.particles.burst(s.x, s.y, s.z, 5, 80, 1, 0.6, 0.3, 0.3, 1.4);
         consumed = true;
@@ -4878,10 +5902,29 @@ class Game {
         const s = W.bolts[i];
         if (segSphere(s.px, s.py, s.pz, s.x, s.y, s.z,
           this.shipPos[0], this.shipPos[1], this.shipPos[2], 11)) {
-          this.damage(s.heavy ? 19 : 11);
+          this.damage(s.tracer ? 5 : s.heavy ? 19 : 11);
           this.particles.burst(s.x, s.y, s.z, 10, 140, 1, 0.5, 0.25, 0.4, 1.8);
           W.bolts.splice(i, 1);
         }
+      }
+    }
+
+    // Enemy seekers. They hit hard, but they can be shot down and they die on
+    // rock, so a rack emptied at you is a problem with several answers.
+    for (let i = W.seekers.length - 1; i >= 0; i--) {
+      const m = W.seekers[i];
+      let boom = false;
+      if (flying && segSphere(m.px, m.py, m.pz, m.x, m.y, m.z,
+        this.shipPos[0], this.shipPos[1], this.shipPos[2], 12)) {
+        this.damage(26);
+        boom = true;
+      } else if (m.arm <= 0 && this.hitsScenery(m.x, m.y, m.z)) {
+        boom = true;
+      }
+      if (boom) {
+        this.boomAt([m.x, m.y, m.z], 34, 190, 1, 0.55, 0.25, 0.9);
+        this.audio.missileHit();
+        W.seekers.splice(i, 1);
       }
     }
 
@@ -4903,7 +5946,7 @@ class Game {
       }
       if (boom || this.hitsScenery(m.x, m.y, m.z)) {
         this.boomAt([m.x, m.y, m.z], 46, 210, 1, 0.7, 0.3, 1.1);
-        this.audio.smallBoom();
+        this.audio.missileHit();
         W.missiles.splice(i, 1);
       }
     }
@@ -4928,9 +5971,7 @@ class Game {
       if (ob.t > lt + 30) break;
       if (ob.t + ob.dz < lt - 30) continue;
       if (lt < ob.t || lt > ob.t + ob.dz) continue;
-      for (const [x0, x1, y0, y1] of ob.boxes) {
-        if (lx > x0 && lx < x1 && ly > y0 && ly < y1) return true;
-      }
+      if (hitsObstacle(ob, this.time, lx, ly)) return true;
     }
     return false;
   }
@@ -4939,6 +5980,13 @@ class Game {
     e.alive = false;
     this.score += e.points;
     this.kills++;
+    // World position is normally filled in by the visibility pass, but a target
+    // can die without ever having been through it -- a missile that outlives
+    // its owner's view, or a panel taken from further out than the pass runs.
+    if (!e.world) {
+      e.world = [0, 0, 0];
+      this.track.localToWorld(e.t, e.x, e.y, e.world);
+    }
     const big = e.kind === 'port' || e.kind === 'emplacement';
     this.boomAt(e.world, big ? 90 : 34, big ? 300 : 170,
       1, e.kind === 'port' ? 0.85 : 0.55, 0.25, big ? 1.6 : 0.8);
@@ -4953,6 +6001,26 @@ class Game {
       this.score += 5000;
       this.say('DIRECT HIT', 5);
       this.audio.win();
+    } else if (e.kind === 'panel') {
+      // The last panel drops the bulkhead. This is the other way through, and
+      // the reason a bulkhead is a decision: climb into the guns, or stay low
+      // and spend the time and the fire it takes to open it.
+      const left = this.level.enemies.filter(
+        (o) => o.kind === 'panel' && o.sealT === e.sealT && o.alive).length;
+      if (left > 0) {
+        this.say(`PANEL DOWN -- ${left} LEFT`, 1);
+      } else {
+        const seal = this.level.obstacles.find(
+          (o) => o.kind === 'seal' && Math.abs(o.t - e.sealT) < 1);
+        if (seal && !seal.dropping) {
+          seal.dropping = true;
+          this.droppedSeals.add(e.sealT);
+          this.score += 800;
+          this.say('BULKHEAD DOWN', 1.6);
+          this.audio.bigBoom();
+          this.shake = Math.min(1.6, this.shake + 0.8);
+        }
+      }
     } else if (e.kind === 'emplacement') {
       // Worth the trouble: a heavy kill buys back part of the launcher wait.
       this.missileCooldown = Math.max(0, this.missileCooldown - 2);
@@ -5026,7 +6094,8 @@ class Game {
         this.paintProgress, this.lockedFlash > 0.5, !!this.hoverTarget);
     }
 
-    const nextSeal = this.level.seals.find((s) => s > this.t - 40);
+    const nextSeal = this.level.seals.find(
+      (s) => s > this.t - 40 && !this.droppedSeals.has(s));
     // Warned in seconds, not units. A fixed distance means the warning gets
     // shorter exactly as the level gets faster -- at REACTOR's closing speed
     // 420 units is under a second, and the climb alone takes two thirds of one.
@@ -5213,6 +6282,7 @@ class UI {
     $('invx').addEventListener('change', (e) => { this.input.invertX = e.target.checked; });
     $('invy').addEventListener('change', (e) => { this.input.invertY = e.target.checked; });
     $('mute').addEventListener('change', (e) => this.audio.setMuted(e.target.checked));
+    $('music').addEventListener('change', (e) => this.audio.setMusicEnabled(e.target.checked));
     $('crt').addEventListener('change', (e) => {
       this.rd.scanline = e.target.checked ? 0.08 : 0;
       this.rd.trail = e.target.checked ? 0.34 : 0.9;
@@ -5386,10 +6456,12 @@ class UI {
     } catch { /* browsers may refuse either; the game plays fine regardless */ }
     if (this.input.motion === 'granted') this.input.recalibrate();
     this.game.reset();
+    this.audio.musicStart();
     this.show('flight');
   }
 
   toMenu() {
+    this.audio.musicStop();
     this.show('design');
     this.status(`${this.spec.name} -- ${this.game.phase === 'won' ? 'cleared' : 'ready'}`);
     try { screen.orientation?.unlock?.(); } catch { /* not supported everywhere */ }

@@ -16,3 +16,76 @@ export function segSphere(ax, ay, az, bx, by, bz, cx, cy, cz, r) {
   const pz = az + dz * t - cz;
   return px * px + py * py + pz * pz <= r * r;
 }
+
+// --- moving obstacles ---------------------------------------------------
+//
+// An obstacle's boxes are axis-aligned rectangles in its own frame, and that
+// frame may slide and spin over the run: a pinwheel is four static arms turning,
+// a crusher is two static walls sliding toward each other. Keeping the boxes
+// still and moving the frame is what makes that cheap -- collision transforms
+// one query point instead of eight corners, and the shapes stay AABBs.
+//
+// Everything reads the same function: the ship's collision, the projectile
+// scenery test, the renderer, and tools/audit.mjs. A moving obstacle drawn in
+// one place and collided in another would be a trap the audit could not see.
+
+/**
+ * The obstacle's frame at `time` seconds into the run: an offset, and a
+ * rotation about (cx, cy) given as its cosine and sine.
+ *
+ * Phase comes from the obstacle's position along the track, not from when the
+ * player happens to arrive -- the ship's speed is a function of track position
+ * alone, so arrival time is fixed, and a spinning gate presents the same face
+ * to everyone. Without that a level would be unauditable and, worse, unfair in
+ * a way nobody could learn.
+ */
+export function frameOf(ob, time, out) {
+  const a = ob.anim;
+  if (!a) { out[0] = 0; out[1] = 0; out[2] = 1; out[3] = 0; return out; }
+  const s = time * a.rate + a.phase;
+  out[0] = a.dx ? a.dx * Math.sin(s) : 0;
+  out[1] = (a.dy ? a.dy * Math.sin(s + (a.dyPhase || 0)) : 0) + (ob.dropY || 0);
+  const th = a.spin ? time * a.spin + a.phase : 0;
+  out[2] = Math.cos(th);
+  out[3] = Math.sin(th);
+  return out;
+}
+
+const _f = [0, 0, 1, 0];
+
+/**
+ * Does a canyon-local point sit inside this obstacle at this time?
+ *
+ * `padX`/`padY` grow the boxes rather than shrinking the point, so a caller can
+ * pass the ship's half extents and still ask a point question.
+ */
+export function hitsObstacle(ob, time, lx, ly, padX = 0, padY = 0) {
+  if (ob.gone) return false;
+  frameOf(ob, time, _f);
+  let px = lx - _f[0];
+  let py = ly - _f[1];
+  if (_f[3] !== 0) {
+    // Into the obstacle's own frame: rotate the point back about the centre.
+    const cx = ob.cx || 0, cy = ob.cy || 0;
+    const ux = px - cx, uy = py - cy;
+    px = cx + ux * _f[2] + uy * _f[3];
+    py = cy - ux * _f[3] + uy * _f[2];
+  }
+  for (let i = 0; i < ob.boxes.length; i++) {
+    const b = ob.boxes[i];
+    if (px + padX > b[0] && px - padX < b[1] && py + padY > b[2] && py - padY < b[3]) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/** A point of the obstacle's own frame, back in canyon-local coordinates. */
+export function obstacleToLocal(ob, time, ox, oy, out) {
+  frameOf(ob, time, _f);
+  const cx = ob.cx || 0, cy = ob.cy || 0;
+  const ux = ox - cx, uy = oy - cy;
+  out[0] = cx + ux * _f[2] - uy * _f[3] + _f[0];
+  out[1] = cy + ux * _f[3] + uy * _f[2] + _f[1];
+  return out;
+}

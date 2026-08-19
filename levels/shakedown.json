@@ -22,7 +22,10 @@
       "wallguns": 0,
       "drones": 0.15,
       "seals": 0,
-      "hue": 0.5
+      "hue": 0.5,
+      "gatlings": 0.0,
+      "batteries": 0.0,
+      "panels": 2
     },
     {
       "name": "first columns",
@@ -38,7 +41,10 @@
       "wallguns": 0,
       "drones": 0.25,
       "seals": 0,
-      "hue": 0.5
+      "hue": 0.5,
+      "gatlings": 0.0,
+      "batteries": 0.0,
+      "panels": 2
     },
     {
       "name": "the bend",
@@ -54,7 +60,10 @@
       "wallguns": 0.12,
       "drones": 0.28,
       "seals": 0,
-      "hue": 0.51
+      "hue": 0.51,
+      "gatlings": 0.1,
+      "batteries": 0.0,
+      "panels": 2
     },
     {
       "name": "hanging fangs",
@@ -70,7 +79,10 @@
       "wallguns": 0.2,
       "drones": 0.3,
       "seals": 0,
-      "hue": 0.51
+      "hue": 0.51,
+      "gatlings": 0.18,
+      "batteries": 0.1,
+      "panels": 2
     },
     {
       "name": "one bulkhead",
@@ -86,7 +98,10 @@
       "wallguns": 0.18,
       "drones": 0.25,
       "seals": 1,
-      "hue": 0.52
+      "hue": 0.52,
+      "gatlings": 0.3,
+      "batteries": 0.25,
+      "panels": 3
     },
     {
       "name": "run to the port",
@@ -102,7 +117,10 @@
       "wallguns": 0.3,
       "drones": 0.2,
       "seals": 0,
-      "hue": 0.52
+      "hue": 0.52,
+      "gatlings": 0.22,
+      "batteries": 0.15,
+      "panels": 2
     }
   ]
 }

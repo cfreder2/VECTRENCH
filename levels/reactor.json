@@ -22,7 +22,10 @@
       "wallguns": 0,
       "drones": 0.25,
       "seals": 0,
-      "hue": 0.02
+      "hue": 0.02,
+      "gatlings": 0.05,
+      "batteries": 0.0,
+      "panels": 2
     },
     {
       "name": "into the red",
@@ -33,12 +36,15 @@
       "hilliness": 0.45,
       "roughness": 0.6,
       "obstacles": 0.3,
-      "kinds": ["pylon", "stack"],
+      "kinds": ["pylon", "stack", "slider"],
       "turrets": 0.2,
       "wallguns": 0.2,
       "drones": 0.3,
       "seals": 0,
-      "hue": 0.02
+      "hue": 0.02,
+      "gatlings": 0.2,
+      "batteries": 0.15,
+      "panels": 2
     },
     {
       "name": "slab field",
@@ -54,7 +60,10 @@
       "wallguns": 0.35,
       "drones": 0.35,
       "seals": 1,
-      "hue": 0.01
+      "hue": 0.01,
+      "gatlings": 0.35,
+      "batteries": 0.3,
+      "panels": 3
     },
     {
       "name": "gauntlet",
@@ -65,12 +74,15 @@
       "hilliness": 0.55,
       "roughness": 0.65,
       "obstacles": 0.55,
-      "kinds": ["stack", "gate", "fang"],
+      "kinds": ["stack", "gate", "press"],
       "turrets": 0.45,
       "wallguns": 0.45,
       "drones": 0.35,
       "seals": 0,
-      "hue": 0.01
+      "hue": 0.01,
+      "gatlings": 0.5,
+      "batteries": 0.45,
+      "panels": 2
     },
     {
       "name": "sealed core",
@@ -86,7 +98,10 @@
       "wallguns": 0.42,
       "drones": 0.3,
       "seals": 2,
-      "hue": 0.01
+      "hue": 0.01,
+      "gatlings": 0.62,
+      "batteries": 0.7,
+      "panels": 4
     },
     {
       "name": "iris chain",
@@ -97,12 +112,15 @@
       "hilliness": 0.45,
       "roughness": 0.55,
       "obstacles": 0.55,
-      "kinds": ["ring", "gate"],
+      "kinds": ["ring", "gate", "pinwheel"],
       "turrets": 0.55,
       "wallguns": 0.5,
       "drones": 0.28,
       "seals": 0,
-      "hue": 0.04
+      "hue": 0.04,
+      "gatlings": 0.7,
+      "batteries": 0.6,
+      "panels": 2
     },
     {
       "name": "last bulkhead",
@@ -113,12 +131,15 @@
       "hilliness": 0.4,
       "roughness": 0.55,
       "obstacles": 0.5,
-      "kinds": ["ring", "gate"],
+      "kinds": ["ring", "cross"],
       "turrets": 0.6,
       "wallguns": 0.5,
       "drones": 0.26,
       "seals": 1,
-      "hue": 0.03
+      "hue": 0.03,
+      "gatlings": 0.75,
+      "batteries": 0.8,
+      "panels": 3
     },
     {
       "name": "core approach",
@@ -134,7 +155,10 @@
       "wallguns": 0.5,
       "drones": 0.22,
       "seals": 0,
-      "hue": 0
+      "hue": 0,
+      "gatlings": 0.6,
+      "batteries": 0.5,
+      "panels": 2
     }
   ]
 }

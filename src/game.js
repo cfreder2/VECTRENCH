@@ -15,7 +15,7 @@ import {
   shipBasis, shipLocalToWorld, MUZZLES,
 } from './entities.js';
 import { drawHud, drawReticle, drawTargetBox } from './hud.js';
-import { segSphere } from './collide.js';
+import { segSphere, hitsObstacle } from './collide.js';
 import { drawText } from './font.js';
 
 // The ship's motion limits. Exported because tools/audit.mjs proves levels are
@@ -34,6 +34,12 @@ const STEER_RATE = 14;
 const FAR = CANYON.DRAW;
 const CAM_BACK = 66;
 const SHIELD_MAX = 100;
+// The trench is cover, and cover is what turns the surface into a choice rather
+// than a toll. Shields come back only below the rim and only after a few clean
+// seconds, so diving back in to heal is a move you can actually make -- and the
+// price of staying up top is that you never get to make it.
+const SHIELD_REGEN = 7.5;
+const SHIELD_CALM = 3;
 
 // --- weapons ------------------------------------------------------------
 //
@@ -70,6 +76,15 @@ const RETICLE_WORLD = 34;     // its size in world units, so distance shrinks it
 const LOS_SAMPLES = 9;        // points tested along a sight line
 const LOS_FADE = 7;           // how fast a target fades in when it comes into view
 const SEAL_WARN_SECS = 3.6;   // how long before a bulkhead the alarm starts
+
+// The surface. These are the numbers that decide whether breaking the rim
+// feels like a decision or like a formality.
+const SALVO_INTERVAL = 0.16;  // seconds between tubes of one rack
+const BATTERY_RELOAD = 5.5;
+const GATLING_SPINUP = 0.75;  // long enough to see it and duck back under
+const GATLING_CADENCE = 0.055;
+const GATLING_SPREAD = 1;
+const SEAL_DROP_SPEED = 190;  // how fast a bulkhead sinks once its panels go
 
 const RADIUS = { turret: 13, wallgun: 11, emplacement: 21, drone: 11, port: 20 };
 
@@ -122,6 +137,7 @@ export class Game {
     this.yaw = 0;
     this.shield = SHIELD_MAX;
     this.shieldMax = SHIELD_MAX;
+    this.calm = 0;
     this.score = 0;
     this.time = 0;
     this.shake = 0;
@@ -145,15 +161,20 @@ export class Game {
     this.winTimer = 0;
     this.kills = 0;
     this.hitsTaken = 0;
+    this.droppedSeals = new Set();
 
     this.drones = [];
     for (const w of this.level.drones) w.spawned = false;
+    for (const ob of this.level.obstacles) { ob.dropY = 0; ob.gone = false; ob.dropping = false; }
     for (const e of this.level.enemies) {
       e.alive = true;
       e.hp = e.maxHp;
       e.flash = 0;
       e.paint = 0;
       e.los = 1;
+      e.salvo = 0;
+      e.wind = 0;
+      e.barrel = 0;
       e.spin = hash2((e.t * 3) | 0, 9) * TAU;
     }
     if (this.level.port) {
@@ -185,6 +206,11 @@ export class Game {
       if (this.messageTimer <= 0) this.message = '';
     }
     this.hurt = Math.max(0, this.hurt - dt * 3);
+    this.calm = Math.max(0, (this.calm || 0) - dt);
+    if (this.phase === 'flying' && !this.exposed && this.calm <= 0
+        && this.shield < SHIELD_MAX) {
+      this.shield = Math.min(SHIELD_MAX, this.shield + SHIELD_REGEN * dt);
+    }
     this.shake = Math.max(0, this.shake - dt * 2.6);
     this.lockedFlash = Math.max(0, this.lockedFlash - dt * 2);
     for (const e of this.level.enemies) if (e.flash > 0) e.flash -= dt * 6;
@@ -199,7 +225,7 @@ export class Game {
     this.updateEnemies(dt, flying);
     if (flying) this.updateTargeting(dt);
 
-    this.weapons.update(dt);
+    this.weapons.update(dt, this.shipPos);
     this.collide(dt, flying);
     this.particles.update(dt);
 
@@ -217,6 +243,7 @@ export class Game {
     }
 
     this.audio.setEngine(clamp((this.speed - 200) / 400, 0, 1), flying ? 1 : 0.3);
+    this.audio.setMusicLevel(flying ? 1 : 0);
   }
 
   updateShip(dt) {
@@ -278,6 +305,7 @@ export class Game {
 
     if (this.grinding && hash2((this.time * 12) | 0, 8) < 0.25) this.audio.scrape();
 
+    this.updateSeals(dt);
     this.checkObstacles(dt);
     this.spawnDrones();
     this.updateDrones(dt);
@@ -327,6 +355,7 @@ export class Game {
   }
 
   damage(amount, flash = true) {
+    this.calm = SHIELD_CALM;
     if (this.phase !== 'flying') return;
     this.shield -= amount;
     if (flash) {
@@ -368,15 +397,11 @@ export class Game {
       if (ob.hit) continue;
       // The ship occupies a small box; grow the obstacle instead of shrinking it.
       if (this.t + 8 < ob.t || this.t - 8 > ob.t + ob.dz) continue;
-      for (const [x0, x1, y0, y1] of ob.boxes) {
-        if (this.shipX + 7 > x0 && this.shipX - 7 < x1 &&
-            this.shipY + 5 > y0 && this.shipY - 5 < y1) {
-          ob.hit = true;
-          this.damage(ob.kind === 'seal' ? 48 : 34);
-          this.boomAt(this.shipPos, 34, 170, 1, 0.55, 0.2, 0.7);
-          this.audio.smallBoom();
-          break;
-        }
+      if (hitsObstacle(ob, this.time, this.shipX, this.shipY, 7, 5)) {
+        ob.hit = true;
+        this.damage(ob.kind === 'seal' ? 48 : 34);
+        this.boomAt(this.shipPos, 34, 170, 1, 0.55, 0.2, 0.7);
+        this.audio.smallBoom();
       }
     }
   }
@@ -501,6 +526,14 @@ export class Game {
         const dist = Math.hypot(dx, dy, dz) || 1;
         e.aim = Math.atan2(this.shipX - e.x, Math.max(1, ahead));
 
+        // The two surface heavies run their own cycles rather than the shared
+        // one-bolt-per-reload loop: what makes them frightening is the shape of
+        // their fire, not its damage. A battery empties a rack; a gatling
+        // spools up in front of you and then does not stop.
+        if (e.kind === 'battery') { this.updateBattery(e, dt, ahead); continue; }
+        if (e.kind === 'gatling') { this.updateGatling(e, dt, ahead); continue; }
+        if (e.kind === 'panel') continue;
+
         let wants = false;
         let heavy = false;
         let reload = 1.4;
@@ -511,7 +544,27 @@ export class Game {
         } else if (e.kind === 'wallgun') {
           wants = !this.exposed && ahead < 620 && ahead > 30;
           reload = 1.7;
-        } else if (e.kind === 'emplacement') {
+        } else if (e.kind === 'panel') {
+      // The last panel drops the bulkhead. This is the other way through, and
+      // the reason a bulkhead is a decision: climb into the guns, or stay low
+      // and spend the time and the fire it takes to open it.
+      const left = this.level.enemies.filter(
+        (o) => o.kind === 'panel' && o.sealT === e.sealT && o.alive).length;
+      if (left > 0) {
+        this.say(`PANEL DOWN -- ${left} LEFT`, 1);
+      } else {
+        const seal = this.level.obstacles.find(
+          (o) => o.kind === 'seal' && Math.abs(o.t - e.sealT) < 1);
+        if (seal && !seal.dropping) {
+          seal.dropping = true;
+          this.droppedSeals.add(e.sealT);
+          this.score += 800;
+          this.say('BULKHEAD DOWN', 1.6);
+          this.audio.bigBoom();
+          this.shake = Math.min(1.6, this.shake + 0.8);
+        }
+      }
+    } else if (e.kind === 'emplacement') {
           wants = ahead < 900 && ahead > -40;
           heavy = true;
           reload = 1.5;
@@ -612,7 +665,10 @@ export class Game {
           if (before < 1 && e.paint >= 1) {
             this.locks.push(e);
             this.lockedFlash = 1;
-            this.audio.lockTick();
+            // A completed lock, not a tick toward one -- the painting sweep has
+            // no intermediate steps to count, so this is the only moment there
+            // is and it should sound like an answer rather than a metronome.
+            this.audio.lockOn();
             if (this.locks.length === LOCK_MAX) this.say('LOCKS FULL', 0.9);
           }
         } else if (e.paint) {
@@ -658,6 +714,93 @@ export class Game {
     this.updateGun(dt, cx, cy);
 
     if (inp.takeMissile()) this.launchMissiles();
+  }
+
+  /** Bulkheads sinking into the floor after their last panel was shot out. */
+  updateSeals(dt) {
+    for (const ob of this.level.obstacles) {
+      if (!ob.dropping || ob.gone) continue;
+      if (Math.abs(ob.t - this.t) > FAR + 400) continue;
+      ob.dropY = (ob.dropY || 0) - SEAL_DROP_SPEED * dt;
+      const depth = ob.boxes[0][3] + 40;
+      if (-ob.dropY >= depth) {
+        ob.dropY = -depth;
+        ob.gone = true;
+      }
+    }
+  }
+
+  /**
+   * A missile battery: a rack emptied one tube at a time, then a long reload.
+   *
+   * The salvo is staggered rather than simultaneous so twelve missiles arrive
+   * as a stream you have to keep answering, not as one wall you either dodge or
+   * do not. Only fires at a ship that has broken the rim -- everything up here
+   * is the cost of being up here.
+   */
+  updateBattery(e, dt, ahead) {
+    const inRange = ahead < 1500 && ahead > -260;
+    if (e.salvo > 0) {
+      // Mid-rack: keep launching regardless of what the ship does now.
+      e.salvoTimer -= dt;
+      if (e.salvoTimer <= 0) {
+        e.salvoTimer = SALVO_INTERVAL;
+        e.salvo--;
+        const up = 0.55 + hash2((e.t | 0) + e.salvo, 7) * 0.5;
+        const side = (e.x < 0 ? 1 : -1) * (0.15 + hash2(e.salvo, (e.t | 0) & 255) * 0.5);
+        // Straight up out of the cell, then it turns over and comes for you.
+        const fx = this.camR[0] * side + this.camU[0] * up + this.camF[0] * 0.25;
+        const fy = this.camR[1] * side + this.camU[1] * up + this.camF[1] * 0.25;
+        const fz = this.camR[2] * side + this.camU[2] * up + this.camF[2] * 0.25;
+        const l = Math.hypot(fx, fy, fz) || 1;
+        this.weapons.fireSeeker(e.world[0], e.world[1] + 8, e.world[2], fx / l, fy / l, fz / l);
+        this.audio.missile(0.5);
+        if (e.salvo === 0) e.cool = BATTERY_RELOAD * (0.85 + hash2(e.t | 0, 3) * 0.4);
+      }
+      return;
+    }
+    e.cool -= dt;
+    if (this.exposed && inRange && e.cool <= 0) {
+      e.salvo = e.tubes;
+      e.salvoTimer = 0.25;
+      if (e.tubes >= 6) {
+        this.say(`${e.tubes} INBOUND`, 1.2);
+        this.audio.alarm();
+      }
+    }
+  }
+
+  /**
+   * A gatling: spins up in plain sight, then hoses the rim with hot lead.
+   *
+   * The spin-up is the only warning, and it is deliberately long enough to duck
+   * back under the rim -- which is the decision the surface is supposed to keep
+   * asking. Individual rounds are cheap; standing in the stream is not.
+   */
+  updateGatling(e, dt, ahead) {
+    const wants = this.exposed && ahead < 900 && ahead > -120;
+    e.wind = clamp(e.wind + (wants ? dt / GATLING_SPINUP : -dt * 1.1), 0, 1);
+    e.barrel = (e.barrel || 0) + dt * (2 + e.wind * 26);
+    if (e.wind < 1) return;
+
+    e.cool -= dt;
+    if (e.cool > 0) return;
+    e.cool = GATLING_CADENCE;
+    const dist = Math.hypot(
+      this.shipPos[0] - e.world[0], this.shipPos[1] - e.world[1], this.shipPos[2] - e.world[2]) || 1;
+    const speed = 620;
+    const lead = dist / speed;
+    // Leads the ship, then scatters: a stream that converged perfectly would be
+    // a hitscan death sentence, and one that did not converge would be scenery.
+    const j = () => (hash2((this.time * 120) | 0, (e.t | 0) & 511) - 0.5) * GATLING_SPREAD;
+    const px = this.shipPos[0] + this.camF[0] * this.speed * lead * 0.9 + j() * 26;
+    const py = this.shipPos[1] + this.camF[1] * this.speed * lead * 0.9 + j() * 22;
+    const pz = this.shipPos[2] + this.camF[2] * this.speed * lead * 0.9;
+    let ax = px - e.world[0], ay = py - e.world[1], az = pz - e.world[2];
+    const al = Math.hypot(ax, ay, az) || 1;
+    this.weapons.fireBolt(e.world[0], e.world[1] + 11, e.world[2],
+      ax / al, ay / al, az / al, speed, false, true);
+    if (ahead < 700) this.audio.enemyShot();
   }
 
   /**
@@ -740,7 +883,7 @@ export class Game {
       const dl = Math.hypot(dx, dy, dz) || 1;
       this.weapons.fireLaser(this._p[0], this._p[1], this._p[2], dx / dl, dy / dl, dz / dl);
     }
-    this.audio.laser();
+    this.audio.gun();
   }
 
   /** Everything painted, struck at once. */
@@ -815,6 +958,18 @@ export class Game {
         }
         if (consumed) break;
       }
+      if (!consumed) {
+        for (let k = W.seekers.length - 1; k >= 0; k--) {
+          const m = W.seekers[k];
+          if (!segSphere(s.px, s.py, s.pz, s.x, s.y, s.z, m.x, m.y, m.z, 9)) continue;
+          this.boomAt([m.x, m.y, m.z], 26, 150, 1, 0.7, 0.3, 0.6);
+          this.audio.smallBoom();
+          W.seekers.splice(k, 1);
+          this.score += 40;
+          consumed = true;
+          break;
+        }
+      }
       if (!consumed && this.hitsScenery(s.x, s.y, s.z)) {
         this.particles.burst(s.x, s.y, s.z, 5, 80, 1, 0.6, 0.3, 0.3, 1.4);
         consumed = true;
@@ -828,10 +983,29 @@ export class Game {
         const s = W.bolts[i];
         if (segSphere(s.px, s.py, s.pz, s.x, s.y, s.z,
           this.shipPos[0], this.shipPos[1], this.shipPos[2], 11)) {
-          this.damage(s.heavy ? 19 : 11);
+          this.damage(s.tracer ? 5 : s.heavy ? 19 : 11);
           this.particles.burst(s.x, s.y, s.z, 10, 140, 1, 0.5, 0.25, 0.4, 1.8);
           W.bolts.splice(i, 1);
         }
+      }
+    }
+
+    // Enemy seekers. They hit hard, but they can be shot down and they die on
+    // rock, so a rack emptied at you is a problem with several answers.
+    for (let i = W.seekers.length - 1; i >= 0; i--) {
+      const m = W.seekers[i];
+      let boom = false;
+      if (flying && segSphere(m.px, m.py, m.pz, m.x, m.y, m.z,
+        this.shipPos[0], this.shipPos[1], this.shipPos[2], 12)) {
+        this.damage(26);
+        boom = true;
+      } else if (m.arm <= 0 && this.hitsScenery(m.x, m.y, m.z)) {
+        boom = true;
+      }
+      if (boom) {
+        this.boomAt([m.x, m.y, m.z], 34, 190, 1, 0.55, 0.25, 0.9);
+        this.audio.missileHit();
+        W.seekers.splice(i, 1);
       }
     }
 
@@ -853,7 +1027,7 @@ export class Game {
       }
       if (boom || this.hitsScenery(m.x, m.y, m.z)) {
         this.boomAt([m.x, m.y, m.z], 46, 210, 1, 0.7, 0.3, 1.1);
-        this.audio.smallBoom();
+        this.audio.missileHit();
         W.missiles.splice(i, 1);
       }
     }
@@ -878,9 +1052,7 @@ export class Game {
       if (ob.t > lt + 30) break;
       if (ob.t + ob.dz < lt - 30) continue;
       if (lt < ob.t || lt > ob.t + ob.dz) continue;
-      for (const [x0, x1, y0, y1] of ob.boxes) {
-        if (lx > x0 && lx < x1 && ly > y0 && ly < y1) return true;
-      }
+      if (hitsObstacle(ob, this.time, lx, ly)) return true;
     }
     return false;
   }
@@ -889,6 +1061,13 @@ export class Game {
     e.alive = false;
     this.score += e.points;
     this.kills++;
+    // World position is normally filled in by the visibility pass, but a target
+    // can die without ever having been through it -- a missile that outlives
+    // its owner's view, or a panel taken from further out than the pass runs.
+    if (!e.world) {
+      e.world = [0, 0, 0];
+      this.track.localToWorld(e.t, e.x, e.y, e.world);
+    }
     const big = e.kind === 'port' || e.kind === 'emplacement';
     this.boomAt(e.world, big ? 90 : 34, big ? 300 : 170,
       1, e.kind === 'port' ? 0.85 : 0.55, 0.25, big ? 1.6 : 0.8);
@@ -903,6 +1082,26 @@ export class Game {
       this.score += 5000;
       this.say('DIRECT HIT', 5);
       this.audio.win();
+    } else if (e.kind === 'panel') {
+      // The last panel drops the bulkhead. This is the other way through, and
+      // the reason a bulkhead is a decision: climb into the guns, or stay low
+      // and spend the time and the fire it takes to open it.
+      const left = this.level.enemies.filter(
+        (o) => o.kind === 'panel' && o.sealT === e.sealT && o.alive).length;
+      if (left > 0) {
+        this.say(`PANEL DOWN -- ${left} LEFT`, 1);
+      } else {
+        const seal = this.level.obstacles.find(
+          (o) => o.kind === 'seal' && Math.abs(o.t - e.sealT) < 1);
+        if (seal && !seal.dropping) {
+          seal.dropping = true;
+          this.droppedSeals.add(e.sealT);
+          this.score += 800;
+          this.say('BULKHEAD DOWN', 1.6);
+          this.audio.bigBoom();
+          this.shake = Math.min(1.6, this.shake + 0.8);
+        }
+      }
     } else if (e.kind === 'emplacement') {
       // Worth the trouble: a heavy kill buys back part of the launcher wait.
       this.missileCooldown = Math.max(0, this.missileCooldown - 2);
@@ -976,7 +1175,8 @@ export class Game {
         this.paintProgress, this.lockedFlash > 0.5, !!this.hoverTarget);
     }
 
-    const nextSeal = this.level.seals.find((s) => s > this.t - 40);
+    const nextSeal = this.level.seals.find(
+      (s) => s > this.t - 40 && !this.droppedSeals.has(s));
     // Warned in seconds, not units. A fixed distance means the warning gets
     // shorter exactly as the level gets faster -- at REACTOR's closing speed
     // 420 units is under a second, and the climb alone takes two thirds of one.

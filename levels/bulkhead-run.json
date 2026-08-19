@@ -22,7 +22,10 @@
       "wallguns": 0,
       "drones": 0.2,
       "seals": 0,
-      "hue": 0.13
+      "hue": 0.13,
+      "gatlings": 0.0,
+      "batteries": 0.0,
+      "panels": 2
     },
     {
       "name": "first narrowing",
@@ -38,7 +41,10 @@
       "wallguns": 0.12,
       "drones": 0.25,
       "seals": 0,
-      "hue": 0.13
+      "hue": 0.13,
+      "gatlings": 0.12,
+      "batteries": 0.08,
+      "panels": 2
     },
     {
       "name": "the narrows",
@@ -54,7 +60,10 @@
       "wallguns": 0.3,
       "drones": 0.3,
       "seals": 1,
-      "hue": 0.12
+      "hue": 0.12,
+      "gatlings": 0.28,
+      "batteries": 0.22,
+      "panels": 3
     },
     {
       "name": "deep water",
@@ -65,12 +74,15 @@
       "hilliness": 0.45,
       "roughness": 0.58,
       "obstacles": 0.48,
-      "kinds": ["fang", "gate"],
+      "kinds": ["fang", "gate", "slider"],
       "turrets": 0.45,
       "wallguns": 0.4,
       "drones": 0.28,
       "seals": 1,
-      "hue": 0.11
+      "hue": 0.11,
+      "gatlings": 0.4,
+      "batteries": 0.35,
+      "panels": 2
     },
     {
       "name": "sealed deep",
@@ -86,7 +98,10 @@
       "wallguns": 0.35,
       "drones": 0.24,
       "seals": 1,
-      "hue": 0.1
+      "hue": 0.1,
+      "gatlings": 0.55,
+      "batteries": 0.55,
+      "panels": 2
     },
     {
       "name": "the choke",
@@ -97,12 +112,15 @@
       "hilliness": 0.35,
       "roughness": 0.52,
       "obstacles": 0.5,
-      "kinds": ["ring", "gate"],
+      "kinds": ["ring", "gate", "press"],
       "turrets": 0.35,
       "wallguns": 0.45,
       "drones": 0.2,
       "seals": 0,
-      "hue": 0.09
+      "hue": 0.09,
+      "gatlings": 0.45,
+      "batteries": 0.4,
+      "panels": 2
     },
     {
       "name": "last light",
@@ -113,12 +131,15 @@
       "hilliness": 0.3,
       "roughness": 0.48,
       "obstacles": 0.45,
-      "kinds": ["ring"],
+      "kinds": ["ring", "pinwheel"],
       "turrets": 0.3,
       "wallguns": 0.4,
       "drones": 0.18,
       "seals": 0,
-      "hue": 0.08
+      "hue": 0.08,
+      "gatlings": 0.35,
+      "batteries": 0.3,
+      "panels": 2
     }
   ]
 }

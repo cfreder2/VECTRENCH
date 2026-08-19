@@ -64,18 +64,48 @@ but exposed to surface batteries — and only up there can you see them well
 enough to shoot back.
 
 A **bulkhead** is the solid red wall that seals the trench from floor to rim.
-There is no gap and no way to shoot it: the only way past is over the top, into
-the guns. The HUD calls it **3.6 seconds out** — timed rather than measured in
-distance, because a fixed distance gets shorter exactly as a level gets faster —
-and it stays red until you are actually above the lip, at which point it flips
-to **BULKHEAD — CLEAR**. The approach is kept free of obstacles so the climb is
-the only thing you have to do. Several times a run the trench is sealed by a
+Chevrons climb its face in sequence to say which way out is, the HUD calls it
+**3.6 seconds out** — timed rather than measured in distance, because a fixed
+distance gets shorter exactly as a level gets faster — and it stays red until
+you are actually above the lip, at which point it flips to **BULKHEAD — CLEAR**.
+
+Or you can open it. Every bulkhead carries **control panels** on its face, one
+to four of them, and shooting the last one drops the whole wall into the floor
+and lets you keep your altitude. That is the decision: climb into the guns, or
+stay low and spend the seconds and the fire it takes to break it open. Levels
+can weld one shut with no panels at all, and then over the top is the only way. Several times a run the trench is sealed by a
 bulkhead and the only way through is over the top — into the guns. That trade is
 the game.
 
 The run ends at an exhaust port that guns will not breach. It is a missile
 target and nothing else, so the last thing a run asks of you is the thing every
 gun on the way there was teaching: put the crosshair on it, and launch.
+
+## What is up there
+
+Above the rim is not empty and it is not a safe lane. Three things live on the
+surface, all of them killable and none of them cheap:
+
+- **Turrets** — plain guns, the baseline.
+- **Gatlings** — rotary cannon that spin up in plain sight before hosing the rim
+  with tracer. The spin-up is the only warning, and it is deliberately long
+  enough to duck back under, because that is the decision the surface exists to
+  keep asking.
+- **Missile batteries** — hulls on the skyline carrying a grid of vertical
+  launch cells, in 1, 2, 3, 6 and 12 tube variants. A battery empties its rack
+  one tube at a time rather than all at once, so twelve missiles arrive as a
+  stream you have to keep answering. The seekers turn slower than you can bank
+  and can be shot out of the air, so a full rack has several answers — but
+  standing still is not one of them.
+
+All of it only engages a ship that has broken the rim. Down in the trench the
+surface is silent; the moment you climb, it is not. That is the whole trade,
+and it is why every bulkhead has a battery and a gatling waiting on it.
+
+Shields work the same way round. They recover **only below the rim**, and only
+after a few seconds without being hit — so the trench is not merely where the
+guns cannot reach you, it is where you get well again. Staying up top costs you
+the one place that heals.
 
 ## Weapons
 
@@ -195,12 +225,13 @@ a model, or a typo can be strange but never unplayable.
 | `terrain.js` | Drawing the canyon |
 | `entities.js` | Ship, obstacles, enemies, projectiles, particles |
 | `game.js` | Physics, camera, collision, enemy fire, both weapons, scoring |
+| `collide.js` | Swept segment-sphere tests, and the moving-obstacle transform |
 | `renderer.js` | The vector display: batched glowing lines, phosphor trails |
 | `hud.js` | HUD and the level schematic |
 | `font.js` | Stroke font |
 | `input.js` | Tilt, touch, keyboard |
 | `audio.js` | Synthesised sound, no samples |
-| `collide.js` | Swept segment-sphere tests |
+| `music.js` | Flight of the Bumblebee, played on square waves |
 | `ui.js` | Screens and the authoring panel |
 | `main.js` | Bootstrap and the frame loop |
 

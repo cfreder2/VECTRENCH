@@ -26,7 +26,7 @@ const ORDER = [
   'math.js', 'collide.js', 'font.js', 'renderer.js',
   'spec.js', 'llm.js', 'nl.js', 'levels.js',
   'track.js', 'level.js', 'terrain.js', 'entities.js',
-  'hud.js', 'audio.js', 'input.js',
+  'hud.js', 'music.js', 'audio.js', 'input.js',
   'game.js', 'ui.js', 'main.js',
 ];
 
