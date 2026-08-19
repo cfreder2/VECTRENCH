@@ -67,6 +67,8 @@ const MISSILE_COOLDOWN = 5;
 const YAW_MAX = 0.52;
 const AIM_DIST = 700;         // where along the nose the crosshair is reckoned
 const RETICLE_WORLD = 34;     // its size in world units, so distance shrinks it
+const LOS_SAMPLES = 9;        // points tested along a sight line
+const LOS_FADE = 7;           // how fast a target fades in when it comes into view
 
 const RADIUS = { turret: 13, wallgun: 11, emplacement: 21, drone: 11, port: 20 };
 
@@ -150,6 +152,7 @@ export class Game {
       e.hp = e.maxHp;
       e.flash = 0;
       e.paint = 0;
+      e.los = 1;
       e.spin = hash2((e.t * 3) | 0, 9) * TAU;
     }
     if (this.level.port) {
@@ -579,6 +582,8 @@ export class Game {
         e.dist = Math.hypot(e.world[0] - this.eye[0], e.world[1] - this.eye[1],
           e.world[2] - this.eye[2]);
         e.onScreen = true;
+        e.los = approach(e.los === undefined ? 1 : e.los,
+          this.hasLineOfSight(e) ? 1 : 0, LOS_FADE, dt);
       }
     }
 
@@ -591,7 +596,9 @@ export class Game {
     let bestD = grab;
     for (const arr of cands) {
       for (const e of arr) {
-        if (!e.onScreen || !e.lockable || this.locks.includes(e)) {
+        if (!e.onScreen || !e.lockable || this.locks.includes(e) || e.los < 0.55) {
+          // Losing sight bleeds paint off rather than zeroing it: dipping
+          // behind a rim lip for a moment should cost progress, not all of it.
           if (e.paint) e.paint = Math.max(0, e.paint - dt * 2);
           continue;
         }
@@ -650,6 +657,41 @@ export class Game {
     this.updateGun(dt, cx, cy);
 
     if (inp.takeMissile()) this.launchMissiles();
+  }
+
+  /**
+   * Is there rock between the ship and this target?
+   *
+   * Sampled in canyon-local coordinates rather than world space: the canyon is
+   * a channel in (x, y) at every t, so "inside rock" is just outside the half
+   * width and below the rim -- the same rule collisions use. Interpolating
+   * locally ignores how the trench curves between here and there, which is
+   * wrong by a few units over a thousand and irrelevant to the question being
+   * asked. It is also cheap, which matters: this runs for every candidate on
+   * screen, every frame.
+   *
+   * The consequence is deliberate. A turret standing on the surface cannot be
+   * seen, painted, or locked from the trench floor -- the sight line clips the
+   * rim edge -- so fighting the surface batteries still means climbing into
+   * their fire. That trade is the game; targeting through rock quietly removed
+   * it.
+   */
+  hasLineOfSight(e) {
+    const tr = this.track;
+    const t0 = this.t, x0 = this.shipX, y0 = this.shipY;
+    const dt = e.t - t0, dx = e.x - x0, dy = e.y - y0;
+    for (let i = 1; i < LOS_SAMPLES; i++) {
+      const k = i / LOS_SAMPLES;
+      const t = t0 + dt * k;
+      const x = x0 + dx * k;
+      // Tolerance, because the wall carries an 11% breathing wobble and a gun
+      // mounted flush to it sits four units inside: without slack the noise
+      // alone would flicker sight on the very targets that are plainly there.
+      // Still nowhere near the 24 units of clearance a surface turret has.
+      if (Math.abs(x) <= tr.halfWidth(t) + 8) continue;
+      if (y0 + dy * k < tr.rim(t) - 2) return false;
+    }
+    return true;
   }
 
   /** The machine gun: infinite ammo, finite patience. */
@@ -916,7 +958,9 @@ export class Game {
       const cy = this.aimSY ?? rd.cy;
       for (const arr of arrs) {
         for (const e of arr) {
+          // A bracket on a target hidden by rock is the same lie as locking it.
           if (!e.alive || !e.onScreen || !e.lockable) continue;
+          if (!this.locks.includes(e) && e.los < 0.55) continue;
           const locked = this.locks.includes(e);
           const box = clamp(rd.focal * (RADIUS[e.kind] || 12) * 2.1
             / Math.max(60, e.dist || 400), 9 * rd.scale, 90 * rd.scale);

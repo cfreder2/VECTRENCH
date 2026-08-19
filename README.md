@@ -60,7 +60,8 @@ SHIFT or M launches.
 ## The idea
 
 Inside the trench you dodge geometry. Above the rim you are safe from geometry
-but exposed to surface batteries. Several times a run the trench is sealed by a
+but exposed to surface batteries — and only up there can you see them well
+enough to shoot back. Several times a run the trench is sealed by a
 bulkhead and the only way through is over the top — into the guns. That trade is
 the game.
 
@@ -79,7 +80,17 @@ over, so a marker on something far away is small and one on something close
 fills the frame.
 
 Anything the marker rests on is painted, and a painted target is locked until
-you spend it.
+you spend it — but only if you can actually see it. Wireframe has no occlusion,
+so without a sight test the rock in front of you hides nothing and a turret on
+the surface could be painted from the trench floor, through a wall. Sight is
+checked against the canyon itself, which means the surface batteries cannot be
+answered from cover: to paint them you have to break the rim, and breaking the
+rim is what puts you in their fire. The trade the level design is built on is
+the same trade the targeting enforces.
+
+Locks survive losing sight, though. Climb, paint what is up there, drop back
+into the trench and launch from cover — the missiles will go over the top. The
+exposure was already paid for.
 
 **The gun** fires while you touch the screen, anywhere. Ammunition is infinite
 and heat is not: about two and a half seconds of held fire overheats it, and it

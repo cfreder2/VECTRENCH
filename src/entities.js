@@ -209,6 +209,14 @@ export function drawObstacles(rd, track, obstacles, cursor, camT, far, time) {
 
 // --- enemies ------------------------------------------------------------
 
+/**
+ * `e.los` is how much of the enemy the rock is not hiding, 0 to 1, maintained
+ * by the targeting pass. Wireframe has no depth buffer, so without this a
+ * surface turret reads exactly as bright from the trench floor as it does from
+ * above the rim -- and the game's whole trade is that you have to come up into
+ * their fire to fight them. Faded rather than culled so the reveal on breaking
+ * the rim is a reveal and not a pop.
+ */
 export function drawEnemies(rd, track, enemies, camT, far, time) {
   const p = [0, 0, 0], q = [0, 0, 0];
   const col = [0, 0, 0];
@@ -218,6 +226,7 @@ export function drawEnemies(rd, track, enemies, camT, far, time) {
     const hurt = 1 - e.hp / e.maxHp;
     const flash = e.flash > 0 ? 1 : 0;
     hsv(0.02 + hurt * 0.02, 0.85 - flash * 0.85, 1, col);
+    const A = 0.1 + 0.9 * (e.los === undefined ? 1 : e.los);
 
     if (e.kind === 'turret' || e.kind === 'emplacement') {
       const R = e.kind === 'emplacement' ? 17 : 9;
@@ -226,36 +235,36 @@ export function drawEnemies(rd, track, enemies, camT, far, time) {
         const a0 = (k / n) * TAU + e.spin, a1 = ((k + 1) / n) * TAU + e.spin;
         track.localToWorld(e.t + Math.sin(a0) * R * 0.6, e.x + Math.cos(a0) * R, e.y, p);
         track.localToWorld(e.t + Math.sin(a1) * R * 0.6, e.x + Math.cos(a1) * R, e.y, q);
-        rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], 1.2, col[0], col[1], col[2], 1);
+        rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], 1.2, col[0], col[1], col[2], A);
       }
       // Barrel, swung toward the aim angle it last computed.
       track.localToWorld(e.t, e.x, e.y + R * 0.4, p);
       track.localToWorld(e.t + Math.cos(e.aim) * R * 1.1,
         e.x + Math.sin(e.aim) * R * 1.1, e.y + R * 1.3, q);
-      rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], 1.6, col[0], col[1], col[2], 1);
-      rd.dot3(q[0], q[1], q[2], 2, 1, 0.8, 0.4, 0.8 + 0.2 * Math.sin(time * 9));
+      rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], 1.6, col[0], col[1], col[2], A);
+      rd.dot3(q[0], q[1], q[2], 2, 1, 0.8, 0.4, (0.8 + 0.2 * Math.sin(time * 9)) * A);
     } else if (e.kind === 'wallgun') {
       const sgn = e.x < 0 ? 1 : -1;
       track.localToWorld(e.t - 7, e.x, e.y - 6, p);
       track.localToWorld(e.t + 7, e.x, e.y - 6, q);
-      rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], 1.1, col[0], col[1], col[2], 1);
+      rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], 1.1, col[0], col[1], col[2], A);
       track.localToWorld(e.t, e.x, e.y + 8, q);
-      rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], 1.1, col[0], col[1], col[2], 1);
+      rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], 1.1, col[0], col[1], col[2], A);
       track.localToWorld(e.t + 7, e.x, e.y - 6, p);
-      rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], 1.1, col[0], col[1], col[2], 1);
+      rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], 1.1, col[0], col[1], col[2], A);
       track.localToWorld(e.t, e.x, e.y, p);
       track.localToWorld(e.t + 4, e.x + sgn * 11, e.y, q);
-      rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], 1.5, col[0], col[1], col[2], 1);
+      rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], 1.5, col[0], col[1], col[2], A);
     } else if (e.kind === 'port') {
-      drawPort(rd, track, e, time);
+      drawPort(rd, track, e, time, A);
     } else if (e.kind === 'drone') {
-      drawDrone(rd, track, e, col, time);
+      drawDrone(rd, track, e, col, time, A);
     }
   }
 }
 
 /** The finale: a recessed exhaust vent. Concentric rings and a live core. */
-function drawPort(rd, track, e, time) {
+function drawPort(rd, track, e, time, A = 1) {
   const p = [0, 0, 0], q = [0, 0, 0];
   const pulse = 0.55 + 0.45 * Math.sin(time * 4);
   for (let ri = 0; ri < 3; ri++) {
@@ -267,20 +276,20 @@ function drawPort(rd, track, e, time) {
       const a0 = (k / seg) * TAU + spin, a1 = ((k + 1) / seg) * TAU + spin;
       track.localToWorld(e.t, e.x + Math.cos(a0) * R, e.y + Math.sin(a0) * R, p);
       track.localToWorld(e.t, e.x + Math.cos(a1) * R, e.y + Math.sin(a1) * R, q);
-      rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], 1.5, 1, 0.55 * br, 0.15, br);
+      rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], 1.5, 1, 0.55 * br, 0.15, br * A);
     }
   }
   for (let k = 0; k < 6; k++) {
     const a0 = (k / 6) * TAU + e.spin * 0.5;
     track.localToWorld(e.t, e.x + Math.cos(a0) * 13, e.y + Math.sin(a0) * 13, p);
     track.localToWorld(e.t - 22, e.x + Math.cos(a0) * 5, e.y + Math.sin(a0) * 5, q);
-    rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], 1.2, 1, 0.7, 0.25, 0.85);
+    rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], 1.2, 1, 0.7, 0.25, 0.85 * A);
   }
   track.localToWorld(e.t - 26, e.x, e.y, p);
-  rd.dot3(p[0], p[1], p[2], 6 + pulse * 5, 1, 0.95, 0.6, pulse);
+  rd.dot3(p[0], p[1], p[2], 6 + pulse * 5, 1, 0.95, 0.6, pulse * A);
 }
 
-function drawDrone(rd, track, e, col, time) {
+function drawDrone(rd, track, e, col, time, A = 1) {
   const p = [0, 0, 0], q = [0, 0, 0];
   const R = 8;
   // A blunt delta: two swept wings and a bright core.
@@ -289,10 +298,10 @@ function drawDrone(rd, track, e, col, time) {
     const a = pts[k], b = pts[(k + 1) & 3];
     track.localToWorld(e.t, e.x + a[0], e.y + a[1], p);
     track.localToWorld(e.t, e.x + b[0], e.y + b[1], q);
-    rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], 1.3, col[0], col[1], col[2], 1);
+    rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], 1.3, col[0], col[1], col[2], A);
   }
   track.localToWorld(e.t + 8, e.x, e.y, p);
-  rd.dot3(p[0], p[1], p[2], 2.6, 1, 0.6, 0.9, 0.7 + 0.3 * Math.sin(time * 12));
+  rd.dot3(p[0], p[1], p[2], 2.6, 1, 0.6, 0.9, (0.7 + 0.3 * Math.sin(time * 12)) * A);
 }
 
 // --- projectiles --------------------------------------------------------
