@@ -35,17 +35,35 @@ export const MUZZLES = [[-14.4, -1.4, 6], [14.4, -1.4, 6]];
  * Builds the ship's orientation basis: the rail frame rolled by `bank` and
  * pitched by `pitch`. Written into `basis` as [r, u, f] triples.
  */
-export function shipBasis(fr, bank, pitch, basis) {
+const _a = [0, 0, 0], _b = [0, 0, 0];
+
+/**
+ * The ship's orientation, as yaw then roll then pitch off the track frame.
+ *
+ * Yaw is what lets the nose point somewhere other than straight down the
+ * trench, and the nose is where the guns look -- so this is not only how the
+ * model sits, it is the aim.
+ */
+export function shipBasis(fr, bank, pitch, yaw, basis) {
+  const cy = Math.cos(yaw), sy = Math.sin(yaw);
   const cb = Math.cos(bank), sb = Math.sin(bank);
   const cp = Math.cos(pitch), sp = Math.sin(pitch);
   const r = basis.r, u = basis.u, f = basis.f;
+  // Yaw about the frame's up axis.
+  const ry = _a, fy = _b;
   for (let i = 0; i < 3; i++) {
-    r[i] = fr.r[i] * cb + fr.u[i] * sb;
-    u[i] = -fr.r[i] * sb + fr.u[i] * cb;
+    ry[i] = fr.r[i] * cy - fr.f[i] * sy;
+    fy[i] = fr.r[i] * sy + fr.f[i] * cy;
   }
+  // Roll about the (yawed) forward axis.
   for (let i = 0; i < 3; i++) {
-    const fi = fr.f[i] * cp + u[i] * sp;
-    const ui = -fr.f[i] * sp + u[i] * cp;
+    r[i] = ry[i] * cb + fr.u[i] * sb;
+    u[i] = -ry[i] * sb + fr.u[i] * cb;
+  }
+  // Pitch about the (rolled) right axis.
+  for (let i = 0; i < 3; i++) {
+    const fi = fy[i] * cp + u[i] * sp;
+    const ui = -fy[i] * sp + u[i] * cp;
     f[i] = fi; u[i] = ui;
   }
   return basis;
@@ -58,7 +76,6 @@ export function shipLocalToWorld(pos, basis, lx, ly, lz, out) {
   return out;
 }
 
-const _a = [0, 0, 0], _b = [0, 0, 0];
 
 export function drawShip(rd, pos, basis, thrust, time, hurt) {
   const r = 0.35 + hurt * 0.65;

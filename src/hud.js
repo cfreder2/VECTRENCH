@@ -38,21 +38,33 @@ function bar(rd, x, y, w, h, frac, segs, col, s) {
   }
 }
 
-/** Crosshair at the aim point, with a lock ring when a lock is building. */
-export function drawReticle(rd, x, y, s, lockProgress, locked, hasTarget) {
+/**
+ * The gun marker: a pair of facing brackets at the aim point.
+ *
+ * `h` is its half-size, and the caller sizes it from the range of whatever the
+ * marker is over. That is the whole reason it is drawn in world terms rather
+ * than as a fixed cross -- a marker that stays one size wherever it points
+ * reads as painted on the canopy, while one that shrinks with distance reads as
+ * being out there, on the thing.
+ */
+export function drawReticle(rd, x, y, s, h, paintProgress, locked, hasTarget) {
   const col = locked ? RED : hasTarget ? AMBER : CYAN;
-  const R = 15 * s;
-  const g = 5 * s;
-  for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
-    rd.line2(x + dx * g, y + dy * g, x + dx * R, y + dy * R,
-      1.5 * s, col[0], col[1], col[2], 0.95, 0.35);
+  const arm = h * 0.4;
+  const w = 1.6 * s;
+  for (const side of [-1, 1]) {
+    const bx = x + side * h;
+    rd.line2(bx, y - h, bx, y + h, w, col[0], col[1], col[2], 0.95, 0.95);
+    rd.line2(bx, y - h, bx - side * arm, y - h, w, col[0], col[1], col[2], 0.95, 0.5);
+    rd.line2(bx, y + h, bx - side * arm, y + h, w, col[0], col[1], col[2], 0.95, 0.5);
   }
-  rd.line2(x, y, x, y, 1.6 * s, col[0], col[1], col[2], 1, 1);
+  // A pip at the exact aim point, because the brackets deliberately leave the
+  // middle empty and something has to say where the shot actually goes.
+  rd.line2(x, y, x, y, 1.8 * s, col[0], col[1], col[2], 1, 1);
 
-  if (lockProgress > 0) {
-    const R2 = 26 * s;
+  if (paintProgress > 0) {
+    const R2 = h * 1.34;
     const n = 28;
-    const upto = Math.floor(n * clamp(lockProgress, 0, 1));
+    const upto = Math.floor(n * clamp(paintProgress, 0, 1));
     for (let i = 0; i < upto; i++) {
       const a0 = (i / n) * TAU - Math.PI / 2;
       const a1 = ((i + 0.75) / n) * TAU - Math.PI / 2;
@@ -61,7 +73,6 @@ export function drawReticle(rd, x, y, s, lockProgress, locked, hasTarget) {
         2 * s, 1, 0.5, 0.2, 1, 1);
     }
   }
-  if (locked) bracket(rd, x - 34 * s, y - 34 * s, 68 * s, 68 * s, s, RED, 1, 2 * s);
 }
 
 /**
@@ -72,17 +83,19 @@ export function drawReticle(rd, x, y, s, lockProgress, locked, hasTarget) {
  * brackets in; a completed lock snaps them tight and red, which is the only
  * thing on screen that means "this dies when you launch".
  */
-export function drawTargetBox(rd, sx, sy, s, progress, locked) {
+export function drawTargetBox(rd, sx, sy, s, size, progress, locked) {
   if (locked) {
-    bracket(rd, sx - 15 * s, sy - 15 * s, 30 * s, 30 * s, s, RED, 1, 2 * s);
+    bracket(rd, sx - size * 0.5, sy - size * 0.5, size, size, s, RED, 1, 2 * s);
     return;
   }
   if (progress > 0) {
-    const size = lerp(70, 32, clamp(progress, 0, 1)) * s;
-    bracket(rd, sx - size * 0.5, sy - size * 0.5, size, size, s, AMBER, 0.9, 1.6 * s);
+    // Closes from wide onto the target as the paint fills, so the box is the
+    // progress bar and there is no second thing to read.
+    const k = lerp(2.1, 1, clamp(progress, 0, 1)) * size;
+    bracket(rd, sx - k * 0.5, sy - k * 0.5, k, k, s, AMBER, 0.9, 1.6 * s);
     return;
   }
-  bracket(rd, sx - 22 * s, sy - 22 * s, 44 * s, 44 * s, s, DIM, 0.3, 1.2 * s);
+  bracket(rd, sx - size * 0.7, sy - size * 0.7, size * 1.4, size * 1.4, s, DIM, 0.3, 1.2 * s);
 }
 
 export function drawHud(rd, st) {
@@ -176,6 +189,7 @@ export function drawHud(rd, st) {
     drawText(rd, text, W * 0.5, wy, 15 * s, 1.8 * s, col[0], col[1], col[2], a, 0);
     wy += 24 * s;
   };
+  if (st.calibrating) warn('HOLD THE PHONE STEADY', CYAN, true);
   if (st.exposed) warn('EXPOSED', RED, true);
   if (st.wallWarn > 0) warn('PULL AWAY', AMBER, true);
   if (st.sealAhead > 0) warn('BULKHEAD -- CLIMB', AMBER, true);

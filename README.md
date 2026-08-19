@@ -45,6 +45,14 @@ first gesture is what lets the browser grant motion access and start audio, both
 of which require a user gesture. Use **CALIBRATE TILT** while holding the phone
 the way you intend to play; that posture becomes neutral.
 
+**Tilt is relative, not absolute.** Neutral is whatever posture you are holding
+when a run starts — there is no "upright", and lying on your back works as well
+as sitting up. The game takes that neutral as soon as the phone is *still*
+rather than the instant you press FLY IT, because pressing FLY IT is also when
+it asks for landscape and half the time you are mid-turn; it shows **HOLD THE
+PHONE STEADY** until it has one. **CALIBRATE TILT** on the setup panel re-takes
+it whenever you want.
+
 No tilt sensor, or permission denied? Drag one finger to steer and touch with a
 second to fire. On a desktop, arrow keys or WASD steer, click or SPACE fires, and
 SHIFT or M launches.
@@ -62,10 +70,16 @@ gun on the way there was teaching: put the crosshair on it, and launch.
 
 ## Weapons
 
-There is no aiming. The crosshair sits where the nose points and does not
-follow your finger, so putting it on something is a flying problem — which is
-the problem the game is already about. Anything the crosshair rests on is
-painted, and a painted target is locked until you spend it.
+There is no aiming. The marker sits on the ship's nose — literally, it is a
+point seven hundred units down the ship's forward axis, projected — so steering
+swings it across the frame and holding a turn holds it out to one side. Putting
+it on something is a flying problem, which is the problem the game is already
+about. It is drawn as a pair of brackets sized to the range of whatever it is
+over, so a marker on something far away is small and one on something close
+fills the frame.
+
+Anything the marker rests on is painted, and a painted target is locked until
+you spend it.
 
 **The gun** fires while you touch the screen, anywhere. Ammunition is infinite
 and heat is not: about two and a half seconds of held fire overheats it, and it

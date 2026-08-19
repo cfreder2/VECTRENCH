@@ -58,8 +58,15 @@ const LOCK_MAX = 8;
 const TARGET_RANGE = FAR;
 const PAINT_TIME = 0.24;      // crosshair dwell that turns a target into a lock
 const PAINT_RADIUS = 108;     // how wide the crosshair paints, in scale units
-const CROSSHAIR_PULL = 0.45;  // how far the crosshair drifts toward a target
+const CROSSHAIR_PULL = 0.35;  // how far the crosshair drifts toward a target
 const MISSILE_COOLDOWN = 5;
+
+// How far the nose swings off the trench axis at full steer. This is what makes
+// the crosshair something you point rather than something you carry: holding
+// the steer holds it off to one side, centring the stick brings it back.
+const YAW_MAX = 0.52;
+const AIM_DIST = 700;         // where along the nose the crosshair is reckoned
+const RETICLE_WORLD = 34;     // its size in world units, so distance shrinks it
 
 const RADIUS = { turret: 13, wallgun: 11, emplacement: 21, drone: 11, port: 20 };
 
@@ -109,6 +116,7 @@ export class Game {
     this.velY = 0;
     this.bank = 0;
     this.pitch = 0;
+    this.yaw = 0;
     this.shield = SHIELD_MAX;
     this.shieldMax = SHIELD_MAX;
     this.score = 0;
@@ -259,6 +267,10 @@ export class Game {
     const curve = tr.curveAt(this.t);
     this.bank = approach(this.bank, -inp.steerX * 0.8 - curve * 26, 6.5, dt);
     this.pitch = approach(this.pitch, inp.steerY * 0.32, 6.5, dt);
+    // Yaw is aim. It follows the steer rather than the velocity so that the
+    // crosshair answers the stick directly -- pointing somewhere should not
+    // have to wait for the ship to finish drifting there.
+    this.yaw = approach(this.yaw, inp.steerX * YAW_MAX, 7.5, dt);
 
     if (this.grinding && hash2((this.time * 12) | 0, 8) < 0.25) this.audio.scrape();
 
@@ -417,7 +429,7 @@ export class Game {
     // Ship sits ahead of the camera, in the lower third of frame.
     tr.frameAt(this.t, this.shipFrame);
     tr.localToWorldF(this.shipFrame, this.shipX, this.shipY, this.shipPos);
-    shipBasis(this.shipFrame, this.bank, this.pitch, this.basis);
+    shipBasis(this.shipFrame, this.bank, this.pitch, this.yaw, this.basis);
 
     if (this.shake > 0) {
       const s = this.shake * 7;
@@ -535,10 +547,20 @@ export class Game {
     const rd = this.rd;
     const inp = this.input;
 
-    // Where the crosshair wants to be: straight ahead, a little high, because
-    // the ship sits low in the frame.
-    const baseX = rd.cx;
-    const baseY = rd.cy - 18 * rd.scale;
+    // Where the crosshair is: along the ship's nose, projected. The camera
+    // trails the ship, so a yawed nose puts this well off centre -- which is
+    // the point. You are not carrying a crosshair around, you are pointing one.
+    shipLocalToWorld(this.shipPos, this.basis, 0, 0, AIM_DIST, this._p);
+    let baseX = rd.cx;
+    let baseY = rd.cy - 18 * rd.scale;
+    let aimDist = AIM_DIST;
+    if (rd.project(this._p[0], this._p[1], this._p[2], this._l) > 2) {
+      // Held inside the frame: a crosshair off the edge of the screen is a
+      // crosshair you cannot use, and hard steering can put the nose there.
+      const mx = rd.width * 0.34, my = rd.height * 0.3;
+      baseX = clamp(this._l[0], rd.cx - mx, rd.cx + mx);
+      baseY = clamp(this._l[1], rd.cy - my, rd.cy + my);
+    }
 
     // Project every candidate once. onScreen/sx/sy are read again by the
     // overlay, so this doubles as the frame's visibility pass.
@@ -554,6 +576,8 @@ export class Game {
         if (vz < 2) continue;
         e.sx = this._l[0];
         e.sy = this._l[1];
+        e.dist = Math.hypot(e.world[0] - this.eye[0], e.world[1] - this.eye[1],
+          e.world[2] - this.eye[2]);
         e.onScreen = true;
       }
     }
@@ -608,6 +632,12 @@ export class Game {
     this.paintTarget = best;
     this.paintProgress = best ? clamp(best.paint || 0, 0, 1) : 0;
 
+    // Sized to the range of what it is over, so the marker reads as sitting on
+    // the thing rather than floating on the glass in front of it.
+    if (best) aimDist = best.dist || AIM_DIST;
+    this.aimSize = clamp(rd.focal * RETICLE_WORLD / Math.max(60, aimDist),
+      13 * rd.scale, 84 * rd.scale);
+
     // A lock survives being flown past -- the missiles are heat-seekers and can
     // turn around -- but not by much, and not past the range it was taken at.
     this.locks = this.locks.filter((e) => {
@@ -653,7 +683,6 @@ export class Game {
     const ay = this.camF[1] + this.camR[1] * kx + this.camU[1] * ky;
     const az = this.camF[2] + this.camR[2] * kx + this.camU[2] * ky;
     const al = Math.hypot(ax, ay, az) || 1;
-    const AIM_DIST = 700;
     const tx = this.eye[0] + (ax / al) * AIM_DIST;
     const ty = this.eye[1] + (ay / al) * AIM_DIST;
     const tz = this.eye[2] + (az / al) * AIM_DIST;
@@ -889,14 +918,16 @@ export class Game {
         for (const e of arr) {
           if (!e.alive || !e.onScreen || !e.lockable) continue;
           const locked = this.locks.includes(e);
-          drawTargetBox(rd, e.sx, e.sy, rd.scale,
+          const box = clamp(rd.focal * (RADIUS[e.kind] || 12) * 2.1
+            / Math.max(60, e.dist || 400), 9 * rd.scale, 90 * rd.scale);
+          drawTargetBox(rd, e.sx, e.sy, rd.scale, box,
             locked ? 0 : clamp(e.paint || 0, 0, 1), locked);
           if (locked) {
             rd.line2(cx, cy, e.sx, e.sy, 1 * rd.scale, 1, 0.55, 0.2, 0.16, 0.4);
           }
         }
       }
-      drawReticle(rd, cx, cy, rd.scale,
+      drawReticle(rd, cx, cy, rd.scale, this.aimSize || 30 * rd.scale,
         this.paintProgress, this.lockedFlash > 0.5, !!this.hoverTarget);
     }
 
@@ -918,6 +949,11 @@ export class Game {
       ceiling: this.ceiling || tr.rim(this.t) + 92,
       exposed: this.exposed,
       wallWarn: this.wallWarn,
+      // Only while a sensor is actually reporting. Desktop Chrome defines
+      // DeviceMotionEvent and never fires one, so 'granted' alone would nag a
+      // keyboard player to hold their phone still forever.
+      calibrating: this.input.motion === 'granted' && this.input.needsCalibration
+        && this.input.hasReading,
       sealAhead: nextSeal !== undefined && nextSeal - this.t < 420 && nextSeal > this.t ? 1 : 0,
       portAhead: port ? tr.portT - this.t < 700 && tr.portT > this.t : false,
       portAlive: port ? port.alive : false,

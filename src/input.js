@@ -19,6 +19,13 @@ const FULL_TILT_X = 3.6;
 const FULL_TILT_Y = 2.8;
 const DEADZONE = 0.05;
 
+// Calibration waits for stillness: this many consecutive readings within this
+// tolerance, or this many readings total before it settles for what it has.
+// DeviceMotion runs near 60Hz, so 20 readings is about a third of a second.
+const STEADY_TOL = 0.35;
+const STEADY_READINGS = 20;
+const STEADY_GIVE_UP = 150;
+
 /** Deadzone plus a mild expo curve: precise near centre, quick at the edges. */
 function shape(v) {
   const s = Math.sign(v);
@@ -48,6 +55,9 @@ export class Input {
     this.nx = 0; this.ny = 0;      // calibrated neutral
     this.hasReading = false;
     this.needsCalibration = true;
+    this._steady = 0;              // consecutive still readings, while calibrating
+    this._waited = 0;              // readings since calibration was asked for
+    this._lastRaw = [0, 0];
 
     this.keys = new Set();
     this.pointers = new Map();
@@ -135,7 +145,28 @@ export class Input {
     this.gx += (sx - this.gx) * k;
     this.gy += (sy - this.gy) * k;
     this.hasReading = true;
-    if (this.needsCalibration) this.calibrate();
+    if (this.needsCalibration) this._settle(sx, sy);
+  }
+
+  /**
+   * Adopts neutral once the phone has stopped moving.
+   *
+   * Calibration is asked for at the moment a run starts -- which is also the
+   * moment the game asks for landscape, so the player is very often part way
+   * through turning the phone. Taking the next reading as neutral froze a
+   * posture nobody was holding, and every run after that fought it. Wait for
+   * the pose to be still instead, and give up waiting rather than never
+   * steering at all.
+   */
+  _settle(sx, sy) {
+    const moved = Math.hypot(sx - this._lastRaw[0], sy - this._lastRaw[1]);
+    this._lastRaw[0] = sx;
+    this._lastRaw[1] = sy;
+    this._waited++;
+    this._steady = moved > STEADY_TOL ? 0 : this._steady + 1;
+    if (this._steady >= STEADY_READINGS || this._waited >= STEADY_GIVE_UP) {
+      this.calibrate();
+    }
   }
 
   /** Adopts the current posture as neutral. */
@@ -144,7 +175,16 @@ export class Input {
     this.nx = this.gx;
     this.ny = this.gy;
     this.needsCalibration = false;
+    this._steady = 0;
+    this._waited = 0;
     return true;
+  }
+
+  /** Asks for a fresh neutral, taken as soon as the phone is held still. */
+  recalibrate() {
+    this.needsCalibration = true;
+    this._steady = 0;
+    this._waited = 0;
   }
 
   _pos(e) {

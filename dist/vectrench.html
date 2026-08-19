@@ -213,10 +213,12 @@
             <span class="toggle"><input type="checkbox" id="crt" checked> CRT GLOW</span>
           </div>
           <div class="note">
-            You do not aim. The crosshair sits where the nose points, and flying it
-            across a target paints it; painted targets stay locked until you press
-            MISSILES, and every lock is struck at once. Touching anywhere fires the
-            gun, which overheats if you hold it.<br><br>
+            You do not aim. The marker rides the ship's nose, so steering swings it
+            across the frame, and flying it across a target paints it; painted targets
+            stay locked until you press MISSILES, and every lock is struck at once.
+            Touching anywhere fires the gun, which overheats if you hold it.<br><br>
+            Tilt neutral is however you are holding the phone when a run starts, taken
+            as soon as you hold still. Use CALIBRATE TILT to re-take it.<br><br>
             No tilt sensor? Drag one finger to steer, and touch with a second to
             fire. On a desktop, arrow keys or WASD steer, click or SPACE fires, and
             SHIFT or M launches.
@@ -2730,17 +2732,35 @@ const MUZZLES = [[-14.4, -1.4, 6], [14.4, -1.4, 6]];
  * Builds the ship's orientation basis: the rail frame rolled by `bank` and
  * pitched by `pitch`. Written into `basis` as [r, u, f] triples.
  */
-function shipBasis(fr, bank, pitch, basis) {
+const _a = [0, 0, 0], _b = [0, 0, 0];
+
+/**
+ * The ship's orientation, as yaw then roll then pitch off the track frame.
+ *
+ * Yaw is what lets the nose point somewhere other than straight down the
+ * trench, and the nose is where the guns look -- so this is not only how the
+ * model sits, it is the aim.
+ */
+function shipBasis(fr, bank, pitch, yaw, basis) {
+  const cy = Math.cos(yaw), sy = Math.sin(yaw);
   const cb = Math.cos(bank), sb = Math.sin(bank);
   const cp = Math.cos(pitch), sp = Math.sin(pitch);
   const r = basis.r, u = basis.u, f = basis.f;
+  // Yaw about the frame's up axis.
+  const ry = _a, fy = _b;
   for (let i = 0; i < 3; i++) {
-    r[i] = fr.r[i] * cb + fr.u[i] * sb;
-    u[i] = -fr.r[i] * sb + fr.u[i] * cb;
+    ry[i] = fr.r[i] * cy - fr.f[i] * sy;
+    fy[i] = fr.r[i] * sy + fr.f[i] * cy;
   }
+  // Roll about the (yawed) forward axis.
   for (let i = 0; i < 3; i++) {
-    const fi = fr.f[i] * cp + u[i] * sp;
-    const ui = -fr.f[i] * sp + u[i] * cp;
+    r[i] = ry[i] * cb + fr.u[i] * sb;
+    u[i] = -ry[i] * sb + fr.u[i] * cb;
+  }
+  // Pitch about the (rolled) right axis.
+  for (let i = 0; i < 3; i++) {
+    const fi = fy[i] * cp + u[i] * sp;
+    const ui = -fy[i] * sp + u[i] * cp;
     f[i] = fi; u[i] = ui;
   }
   return basis;
@@ -2753,7 +2773,6 @@ function shipLocalToWorld(pos, basis, lx, ly, lz, out) {
   return out;
 }
 
-const _a = [0, 0, 0], _b = [0, 0, 0];
 
 function drawShip(rd, pos, basis, thrust, time, hurt) {
   const r = 0.35 + hurt * 0.65;
@@ -3176,21 +3195,33 @@ function bar(rd, x, y, w, h, frac, segs, col, s) {
   }
 }
 
-/** Crosshair at the aim point, with a lock ring when a lock is building. */
-function drawReticle(rd, x, y, s, lockProgress, locked, hasTarget) {
+/**
+ * The gun marker: a pair of facing brackets at the aim point.
+ *
+ * `h` is its half-size, and the caller sizes it from the range of whatever the
+ * marker is over. That is the whole reason it is drawn in world terms rather
+ * than as a fixed cross -- a marker that stays one size wherever it points
+ * reads as painted on the canopy, while one that shrinks with distance reads as
+ * being out there, on the thing.
+ */
+function drawReticle(rd, x, y, s, h, paintProgress, locked, hasTarget) {
   const col = locked ? RED : hasTarget ? AMBER : CYAN;
-  const R = 15 * s;
-  const g = 5 * s;
-  for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
-    rd.line2(x + dx * g, y + dy * g, x + dx * R, y + dy * R,
-      1.5 * s, col[0], col[1], col[2], 0.95, 0.35);
+  const arm = h * 0.4;
+  const w = 1.6 * s;
+  for (const side of [-1, 1]) {
+    const bx = x + side * h;
+    rd.line2(bx, y - h, bx, y + h, w, col[0], col[1], col[2], 0.95, 0.95);
+    rd.line2(bx, y - h, bx - side * arm, y - h, w, col[0], col[1], col[2], 0.95, 0.5);
+    rd.line2(bx, y + h, bx - side * arm, y + h, w, col[0], col[1], col[2], 0.95, 0.5);
   }
-  rd.line2(x, y, x, y, 1.6 * s, col[0], col[1], col[2], 1, 1);
+  // A pip at the exact aim point, because the brackets deliberately leave the
+  // middle empty and something has to say where the shot actually goes.
+  rd.line2(x, y, x, y, 1.8 * s, col[0], col[1], col[2], 1, 1);
 
-  if (lockProgress > 0) {
-    const R2 = 26 * s;
+  if (paintProgress > 0) {
+    const R2 = h * 1.34;
     const n = 28;
-    const upto = Math.floor(n * clamp(lockProgress, 0, 1));
+    const upto = Math.floor(n * clamp(paintProgress, 0, 1));
     for (let i = 0; i < upto; i++) {
       const a0 = (i / n) * TAU - Math.PI / 2;
       const a1 = ((i + 0.75) / n) * TAU - Math.PI / 2;
@@ -3199,7 +3230,6 @@ function drawReticle(rd, x, y, s, lockProgress, locked, hasTarget) {
         2 * s, 1, 0.5, 0.2, 1, 1);
     }
   }
-  if (locked) bracket(rd, x - 34 * s, y - 34 * s, 68 * s, 68 * s, s, RED, 1, 2 * s);
 }
 
 /**
@@ -3210,17 +3240,19 @@ function drawReticle(rd, x, y, s, lockProgress, locked, hasTarget) {
  * brackets in; a completed lock snaps them tight and red, which is the only
  * thing on screen that means "this dies when you launch".
  */
-function drawTargetBox(rd, sx, sy, s, progress, locked) {
+function drawTargetBox(rd, sx, sy, s, size, progress, locked) {
   if (locked) {
-    bracket(rd, sx - 15 * s, sy - 15 * s, 30 * s, 30 * s, s, RED, 1, 2 * s);
+    bracket(rd, sx - size * 0.5, sy - size * 0.5, size, size, s, RED, 1, 2 * s);
     return;
   }
   if (progress > 0) {
-    const size = lerp(70, 32, clamp(progress, 0, 1)) * s;
-    bracket(rd, sx - size * 0.5, sy - size * 0.5, size, size, s, AMBER, 0.9, 1.6 * s);
+    // Closes from wide onto the target as the paint fills, so the box is the
+    // progress bar and there is no second thing to read.
+    const k = lerp(2.1, 1, clamp(progress, 0, 1)) * size;
+    bracket(rd, sx - k * 0.5, sy - k * 0.5, k, k, s, AMBER, 0.9, 1.6 * s);
     return;
   }
-  bracket(rd, sx - 22 * s, sy - 22 * s, 44 * s, 44 * s, s, DIM, 0.3, 1.2 * s);
+  bracket(rd, sx - size * 0.7, sy - size * 0.7, size * 1.4, size * 1.4, s, DIM, 0.3, 1.2 * s);
 }
 
 function drawHud(rd, st) {
@@ -3314,6 +3346,7 @@ function drawHud(rd, st) {
     drawText(rd, text, W * 0.5, wy, 15 * s, 1.8 * s, col[0], col[1], col[2], a, 0);
     wy += 24 * s;
   };
+  if (st.calibrating) warn('HOLD THE PHONE STEADY', CYAN, true);
   if (st.exposed) warn('EXPOSED', RED, true);
   if (st.wallWarn > 0) warn('PULL AWAY', AMBER, true);
   if (st.sealAhead > 0) warn('BULKHEAD -- CLIMB', AMBER, true);
@@ -3717,6 +3750,13 @@ const FULL_TILT_X = 3.6;
 const FULL_TILT_Y = 2.8;
 const DEADZONE = 0.05;
 
+// Calibration waits for stillness: this many consecutive readings within this
+// tolerance, or this many readings total before it settles for what it has.
+// DeviceMotion runs near 60Hz, so 20 readings is about a third of a second.
+const STEADY_TOL = 0.35;
+const STEADY_READINGS = 20;
+const STEADY_GIVE_UP = 150;
+
 /** Deadzone plus a mild expo curve: precise near centre, quick at the edges. */
 function shape(v) {
   const s = Math.sign(v);
@@ -3746,6 +3786,9 @@ class Input {
     this.nx = 0; this.ny = 0;      // calibrated neutral
     this.hasReading = false;
     this.needsCalibration = true;
+    this._steady = 0;              // consecutive still readings, while calibrating
+    this._waited = 0;              // readings since calibration was asked for
+    this._lastRaw = [0, 0];
 
     this.keys = new Set();
     this.pointers = new Map();
@@ -3833,7 +3876,28 @@ class Input {
     this.gx += (sx - this.gx) * k;
     this.gy += (sy - this.gy) * k;
     this.hasReading = true;
-    if (this.needsCalibration) this.calibrate();
+    if (this.needsCalibration) this._settle(sx, sy);
+  }
+
+  /**
+   * Adopts neutral once the phone has stopped moving.
+   *
+   * Calibration is asked for at the moment a run starts -- which is also the
+   * moment the game asks for landscape, so the player is very often part way
+   * through turning the phone. Taking the next reading as neutral froze a
+   * posture nobody was holding, and every run after that fought it. Wait for
+   * the pose to be still instead, and give up waiting rather than never
+   * steering at all.
+   */
+  _settle(sx, sy) {
+    const moved = Math.hypot(sx - this._lastRaw[0], sy - this._lastRaw[1]);
+    this._lastRaw[0] = sx;
+    this._lastRaw[1] = sy;
+    this._waited++;
+    this._steady = moved > STEADY_TOL ? 0 : this._steady + 1;
+    if (this._steady >= STEADY_READINGS || this._waited >= STEADY_GIVE_UP) {
+      this.calibrate();
+    }
   }
 
   /** Adopts the current posture as neutral. */
@@ -3842,7 +3906,16 @@ class Input {
     this.nx = this.gx;
     this.ny = this.gy;
     this.needsCalibration = false;
+    this._steady = 0;
+    this._waited = 0;
     return true;
+  }
+
+  /** Asks for a fresh neutral, taken as soon as the phone is held still. */
+  recalibrate() {
+    this.needsCalibration = true;
+    this._steady = 0;
+    this._waited = 0;
   }
 
   _pos(e) {
@@ -4015,8 +4088,15 @@ const LOCK_MAX = 8;
 const TARGET_RANGE = FAR;
 const PAINT_TIME = 0.24;      // crosshair dwell that turns a target into a lock
 const PAINT_RADIUS = 108;     // how wide the crosshair paints, in scale units
-const CROSSHAIR_PULL = 0.45;  // how far the crosshair drifts toward a target
+const CROSSHAIR_PULL = 0.35;  // how far the crosshair drifts toward a target
 const MISSILE_COOLDOWN = 5;
+
+// How far the nose swings off the trench axis at full steer. This is what makes
+// the crosshair something you point rather than something you carry: holding
+// the steer holds it off to one side, centring the stick brings it back.
+const YAW_MAX = 0.52;
+const AIM_DIST = 700;         // where along the nose the crosshair is reckoned
+const RETICLE_WORLD = 34;     // its size in world units, so distance shrinks it
 
 const RADIUS = { turret: 13, wallgun: 11, emplacement: 21, drone: 11, port: 20 };
 
@@ -4066,6 +4146,7 @@ class Game {
     this.velY = 0;
     this.bank = 0;
     this.pitch = 0;
+    this.yaw = 0;
     this.shield = SHIELD_MAX;
     this.shieldMax = SHIELD_MAX;
     this.score = 0;
@@ -4216,6 +4297,10 @@ class Game {
     const curve = tr.curveAt(this.t);
     this.bank = approach(this.bank, -inp.steerX * 0.8 - curve * 26, 6.5, dt);
     this.pitch = approach(this.pitch, inp.steerY * 0.32, 6.5, dt);
+    // Yaw is aim. It follows the steer rather than the velocity so that the
+    // crosshair answers the stick directly -- pointing somewhere should not
+    // have to wait for the ship to finish drifting there.
+    this.yaw = approach(this.yaw, inp.steerX * YAW_MAX, 7.5, dt);
 
     if (this.grinding && hash2((this.time * 12) | 0, 8) < 0.25) this.audio.scrape();
 
@@ -4374,7 +4459,7 @@ class Game {
     // Ship sits ahead of the camera, in the lower third of frame.
     tr.frameAt(this.t, this.shipFrame);
     tr.localToWorldF(this.shipFrame, this.shipX, this.shipY, this.shipPos);
-    shipBasis(this.shipFrame, this.bank, this.pitch, this.basis);
+    shipBasis(this.shipFrame, this.bank, this.pitch, this.yaw, this.basis);
 
     if (this.shake > 0) {
       const s = this.shake * 7;
@@ -4492,10 +4577,20 @@ class Game {
     const rd = this.rd;
     const inp = this.input;
 
-    // Where the crosshair wants to be: straight ahead, a little high, because
-    // the ship sits low in the frame.
-    const baseX = rd.cx;
-    const baseY = rd.cy - 18 * rd.scale;
+    // Where the crosshair is: along the ship's nose, projected. The camera
+    // trails the ship, so a yawed nose puts this well off centre -- which is
+    // the point. You are not carrying a crosshair around, you are pointing one.
+    shipLocalToWorld(this.shipPos, this.basis, 0, 0, AIM_DIST, this._p);
+    let baseX = rd.cx;
+    let baseY = rd.cy - 18 * rd.scale;
+    let aimDist = AIM_DIST;
+    if (rd.project(this._p[0], this._p[1], this._p[2], this._l) > 2) {
+      // Held inside the frame: a crosshair off the edge of the screen is a
+      // crosshair you cannot use, and hard steering can put the nose there.
+      const mx = rd.width * 0.34, my = rd.height * 0.3;
+      baseX = clamp(this._l[0], rd.cx - mx, rd.cx + mx);
+      baseY = clamp(this._l[1], rd.cy - my, rd.cy + my);
+    }
 
     // Project every candidate once. onScreen/sx/sy are read again by the
     // overlay, so this doubles as the frame's visibility pass.
@@ -4511,6 +4606,8 @@ class Game {
         if (vz < 2) continue;
         e.sx = this._l[0];
         e.sy = this._l[1];
+        e.dist = Math.hypot(e.world[0] - this.eye[0], e.world[1] - this.eye[1],
+          e.world[2] - this.eye[2]);
         e.onScreen = true;
       }
     }
@@ -4565,6 +4662,12 @@ class Game {
     this.paintTarget = best;
     this.paintProgress = best ? clamp(best.paint || 0, 0, 1) : 0;
 
+    // Sized to the range of what it is over, so the marker reads as sitting on
+    // the thing rather than floating on the glass in front of it.
+    if (best) aimDist = best.dist || AIM_DIST;
+    this.aimSize = clamp(rd.focal * RETICLE_WORLD / Math.max(60, aimDist),
+      13 * rd.scale, 84 * rd.scale);
+
     // A lock survives being flown past -- the missiles are heat-seekers and can
     // turn around -- but not by much, and not past the range it was taken at.
     this.locks = this.locks.filter((e) => {
@@ -4610,7 +4713,6 @@ class Game {
     const ay = this.camF[1] + this.camR[1] * kx + this.camU[1] * ky;
     const az = this.camF[2] + this.camR[2] * kx + this.camU[2] * ky;
     const al = Math.hypot(ax, ay, az) || 1;
-    const AIM_DIST = 700;
     const tx = this.eye[0] + (ax / al) * AIM_DIST;
     const ty = this.eye[1] + (ay / al) * AIM_DIST;
     const tz = this.eye[2] + (az / al) * AIM_DIST;
@@ -4846,14 +4948,16 @@ class Game {
         for (const e of arr) {
           if (!e.alive || !e.onScreen || !e.lockable) continue;
           const locked = this.locks.includes(e);
-          drawTargetBox(rd, e.sx, e.sy, rd.scale,
+          const box = clamp(rd.focal * (RADIUS[e.kind] || 12) * 2.1
+            / Math.max(60, e.dist || 400), 9 * rd.scale, 90 * rd.scale);
+          drawTargetBox(rd, e.sx, e.sy, rd.scale, box,
             locked ? 0 : clamp(e.paint || 0, 0, 1), locked);
           if (locked) {
             rd.line2(cx, cy, e.sx, e.sy, 1 * rd.scale, 1, 0.55, 0.2, 0.16, 0.4);
           }
         }
       }
-      drawReticle(rd, cx, cy, rd.scale,
+      drawReticle(rd, cx, cy, rd.scale, this.aimSize || 30 * rd.scale,
         this.paintProgress, this.lockedFlash > 0.5, !!this.hoverTarget);
     }
 
@@ -4875,6 +4979,11 @@ class Game {
       ceiling: this.ceiling || tr.rim(this.t) + 92,
       exposed: this.exposed,
       wallWarn: this.wallWarn,
+      // Only while a sensor is actually reporting. Desktop Chrome defines
+      // DeviceMotionEvent and never fires one, so 'granted' alone would nag a
+      // keyboard player to hold their phone still forever.
+      calibrating: this.input.motion === 'granted' && this.input.needsCalibration
+        && this.input.hasReading,
       sealAhead: nextSeal !== undefined && nextSeal - this.t < 420 && nextSeal > this.t ? 1 : 0,
       portAhead: port ? tr.portT - this.t < 700 && tr.portT > this.t : false,
       portAlive: port ? port.alive : false,
@@ -5201,7 +5310,7 @@ class UI {
       }
       await screen.orientation?.lock?.('landscape');
     } catch { /* browsers may refuse either; the game plays fine regardless */ }
-    if (this.input.motion === 'granted') this.input.needsCalibration = true;
+    if (this.input.motion === 'granted') this.input.recalibrate();
     this.game.reset();
     this.show('flight');
   }

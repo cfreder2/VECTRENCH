@@ -284,7 +284,7 @@ export class UI {
       }
       await screen.orientation?.lock?.('landscape');
     } catch { /* browsers may refuse either; the game plays fine regardless */ }
-    if (this.input.motion === 'granted') this.input.needsCalibration = true;
+    if (this.input.motion === 'granted') this.input.recalibrate();
     this.game.reset();
     this.show('flight');
   }
