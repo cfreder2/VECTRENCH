@@ -1,0 +1,4520 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>VECTRENCH</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#02060a">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="description" content="A vector rails shooter. Describe a canyon in plain language, then fly it.">
+<style>
+  :root {
+    --cyan: #6fe6ff;
+    --amber: #ffb74d;
+    --red: #ff5a49;
+    --dim: #5b8494;
+    --panel: rgba(4, 12, 18, 0.9);
+    --line: rgba(111, 230, 255, 0.28);
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    margin: 0; padding: 0; height: 100%; overflow: hidden;
+    background: #02060a; color: var(--cyan);
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    overscroll-behavior: none;
+  }
+  #stage { position: fixed; inset: 0; }
+  canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+
+  .layer {
+    position: absolute; inset: 0; display: none;
+    padding: max(14px, env(safe-area-inset-top)) max(14px, env(safe-area-inset-right))
+             max(14px, env(safe-area-inset-bottom)) max(14px, env(safe-area-inset-left));
+  }
+  .layer.on { display: flex; }
+
+  /* --- boot --- */
+  #boot { flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 18px; }
+  #boot h1 {
+    margin: 0; font-size: clamp(34px, 11vw, 82px); letter-spacing: 0.22em;
+    font-weight: 400; color: var(--cyan); text-shadow: 0 0 24px rgba(111,230,255,0.55);
+  }
+  #boot .sub { color: var(--dim); font-size: clamp(11px, 3vw, 14px); letter-spacing: 0.16em; max-width: 30em; line-height: 1.7; }
+  .pulse { animation: pulse 1.6s ease-in-out infinite; }
+  @keyframes pulse { 0%,100% { opacity: 0.35; } 50% { opacity: 1; } }
+  /* The flight itself is motion by definition, but the ambient chrome need not
+     be. Hold the pulse steady for anyone who asked for less movement. */
+  @media (prefers-reduced-motion: reduce) {
+    .pulse { animation: none; opacity: 0.8; }
+  }
+
+  /* --- design --- */
+  #design { flex-direction: column; gap: 10px; pointer-events: none; }
+  #design > * { pointer-events: auto; }
+  #topbar { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; }
+  #topbar .title { font-size: 15px; letter-spacing: 0.22em; }
+  #topbar .hint { color: var(--dim); font-size: 11px; letter-spacing: 0.08em; }
+  #spacer { flex: 1; min-height: 0; }
+
+  #sheet {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 4px;
+    padding: 12px; display: flex; flex-direction: column; gap: 10px;
+    max-height: 54vh; overflow-y: auto; backdrop-filter: blur(3px);
+  }
+  #sheet.collapsed { max-height: none; }
+  #sheet.collapsed .foldable { display: none; }
+
+  label { display: block; font-size: 10px; letter-spacing: 0.16em; color: var(--dim); margin-bottom: 5px; }
+  textarea, input[type=text], input[type=password] {
+    width: 100%; background: rgba(0,0,0,0.55); color: var(--cyan);
+    border: 1px solid var(--line); border-radius: 3px; padding: 9px;
+    font-family: inherit; font-size: 13px; line-height: 1.55; resize: vertical;
+  }
+  textarea { min-height: 74px; }
+  textarea:focus, input:focus { outline: none; border-color: var(--cyan); }
+
+  .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  button {
+    background: rgba(111,230,255,0.09); color: var(--cyan);
+    border: 1px solid var(--line); border-radius: 3px;
+    padding: 9px 14px; font-family: inherit; font-size: 12px;
+    letter-spacing: 0.14em; cursor: pointer; transition: background 0.12s, border-color 0.12s;
+  }
+  button:hover:not(:disabled) { background: rgba(111,230,255,0.2); border-color: var(--cyan); }
+  button:active:not(:disabled) { background: rgba(111,230,255,0.32); }
+  button:disabled { opacity: 0.35; cursor: default; }
+  button:focus-visible, textarea:focus-visible, input:focus-visible,
+  summary:focus-visible {
+    outline: 2px solid var(--cyan); outline-offset: 2px;
+  }
+  button.primary {
+    background: rgba(255,183,77,0.14); color: var(--amber);
+    border-color: rgba(255,183,77,0.5); font-size: 13px; padding: 11px 22px;
+  }
+  button.primary:hover:not(:disabled) { background: rgba(255,183,77,0.3); border-color: var(--amber); }
+  button.chip { padding: 6px 10px; font-size: 10.5px; letter-spacing: 0.1em; }
+
+  #report {
+    font-size: 10.5px; line-height: 1.65; color: var(--dim);
+    white-space: pre-wrap; max-height: 22vh; overflow-y: auto;
+    border-left: 2px solid var(--line); padding-left: 9px;
+  }
+  #report .warn { color: var(--red); }
+  #report .ok { color: var(--amber); }
+
+  details summary {
+    cursor: pointer; font-size: 10px; letter-spacing: 0.16em;
+    color: var(--dim); padding: 4px 0; list-style: none;
+  }
+  details summary::-webkit-details-marker { display: none; }
+  details summary::before { content: "+ "; }
+  details[open] summary::before { content: "- "; }
+  details .body { padding: 9px 0 3px; display: flex; flex-direction: column; gap: 10px; }
+  .toggle { display: flex; align-items: center; gap: 7px; font-size: 11px; color: var(--cyan); }
+  input[type=checkbox] { accent-color: #6fe6ff; width: 15px; height: 15px; }
+  input[type=range] { accent-color: #6fe6ff; flex: 1; min-width: 110px; }
+  .note { font-size: 10px; color: var(--dim); line-height: 1.6; }
+  a { color: var(--amber); }
+
+  /* --- flight --- */
+  #flight { display: none; pointer-events: none; }
+  #pause {
+    position: absolute; right: max(12px, env(safe-area-inset-right));
+    bottom: max(12px, env(safe-area-inset-bottom));
+    pointer-events: auto; opacity: 0.4; padding: 7px 11px; font-size: 10.5px;
+  }
+  #pause:hover { opacity: 1; }
+  #flight.on { display: block; }
+  #err { color: var(--red); font-size: 11px; line-height: 1.6; }
+</style>
+</head>
+<body>
+<div id="stage">
+  <canvas id="c"></canvas>
+
+  <div id="boot" class="layer on">
+    <h1>VECTRENCH</h1>
+    <div class="sub">
+      Describe a canyon in plain language. Fly it at five hundred units a second.<br>
+      Tilt to steer &middot; tap to shoot &middot; hold on a target to lock a missile.
+    </div>
+    <button id="begin" class="primary">TAP TO BEGIN</button>
+    <div class="sub pulse" id="bootnote">enables motion controls and sound</div>
+  </div>
+
+  <div id="design" class="layer">
+    <div id="topbar">
+      <span class="title">VECTRENCH</span>
+      <span class="hint" id="statusline">describe a level, then build it</span>
+    </div>
+    <div id="spacer"></div>
+    <div id="sheet">
+      <div class="foldable">
+        <label for="prose">LEVEL DESCRIPTION</label>
+        <textarea id="prose" spellcheck="false"
+          placeholder="e.g. start wide and open, then tighten into a deep twisting trench packed with hanging fangs and irises, seal it twice with heavy turret cover on the surface, finish with a narrow choke and an exhaust port"></textarea>
+      </div>
+      <div class="row foldable" id="examples"></div>
+      <div class="row">
+        <button id="build" class="primary">BUILD</button>
+        <button id="fly" class="primary" disabled>FLY IT</button>
+        <button id="reroll" class="chip" disabled>RESEED</button>
+        <button id="fold" class="chip">SCHEMATIC</button>
+        <button id="share" class="chip" disabled>COPY LINK</button>
+      </div>
+      <div id="report" class="foldable">no level built yet</div>
+      <details class="foldable">
+        <summary>CONTROLS &amp; SETUP</summary>
+        <div class="body">
+          <div class="row">
+            <button id="calibrate" class="chip">CALIBRATE TILT</button>
+            <span class="note" id="motionstate">motion: unknown</span>
+          </div>
+          <label>TILT SENSITIVITY</label>
+          <div class="row"><input type="range" id="sens" min="0.5" max="2.2" step="0.1" value="1"><span class="note" id="sensval">1.0</span></div>
+          <div class="row">
+            <span class="toggle"><input type="checkbox" id="invx"> INVERT LEFT/RIGHT</span>
+            <span class="toggle"><input type="checkbox" id="invy"> INVERT UP/DOWN</span>
+          </div>
+          <div class="row">
+            <span class="toggle"><input type="checkbox" id="mute"> MUTE</span>
+            <span class="toggle"><input type="checkbox" id="crt" checked> CRT GLOW</span>
+          </div>
+          <div class="note">
+            No tilt sensor? Hold one finger to aim and shoot, and drag a second finger
+            anywhere to steer. On a desktop, arrow keys or WASD steer and the mouse aims.
+          </div>
+        </div>
+      </details>
+      <details class="foldable">
+        <summary>USE CLAUDE TO DESIGN THE LEVEL (OPTIONAL)</summary>
+        <div class="body">
+          <div class="note">
+            The offline parser above understands a fixed vocabulary and always works.
+            Turn this on to have Claude read freeform prose instead and fill in the same
+            level spec. Your key is stored only in this browser and is sent only to
+            Anthropic's API from your own device.
+          </div>
+          <span class="toggle"><input type="checkbox" id="usellm"> USE CLAUDE</span>
+          <div>
+            <label for="apikey">ANTHROPIC API KEY</label>
+            <input type="password" id="apikey" spellcheck="false" autocomplete="off" placeholder="sk-ant-...">
+          </div>
+          <div id="err"></div>
+        </div>
+      </details>
+    </div>
+  </div>
+
+  <div id="flight" class="layer">
+    <button id="pause" class="chip">MENU</button>
+  </div>
+</div>
+<script type="module">
+// ---- math.js -------------------------------------------------------
+// Minimal vector helpers. Everything is scalar-in / scalar-out or writes into a
+// caller-owned array, because this runs thousands of times per frame and the
+// allocator is the only thing here fast enough to matter.
+
+const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
+const lerp = (a, b, t) => a + (b - a) * t;
+const smoothstep = (e0, e1, x) => {
+  const t = clamp((x - e0) / (e1 - e0), 0, 1);
+  return t * t * (3 - 2 * t);
+};
+const TAU = Math.PI * 2;
+
+/** Frame-rate independent exponential approach: pulls `a` toward `b`. */
+const approach = (a, b, rate, dt) => a + (b - a) * (1 - Math.exp(-rate * dt));
+
+/** Deterministic hash in [0,1) from two integers. Stable across sessions. */
+function hash2(x, y) {
+  let n = (x | 0) * 374761393 + (y | 0) * 668265263;
+  n = (n ^ (n >>> 13)) * 1274126177;
+  n = n ^ (n >>> 16);
+  return (n >>> 0) / 4294967296;
+}
+
+/** Signed variant, in [-1,1). */
+const shash2 = (x, y) => hash2(x, y) * 2 - 1;
+
+/** Small seeded PRNG (mulberry32) for level construction. */
+function rng(seed) {
+  let a = seed >>> 0;
+  return function () {
+    a = (a + 0x6d2b79f5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function normalize3(v) {
+  const l = Math.hypot(v[0], v[1], v[2]) || 1;
+  v[0] /= l;
+  v[1] /= l;
+  v[2] /= l;
+  return v;
+}
+
+function cross3(out, a, b) {
+  const x = a[1] * b[2] - a[2] * b[1];
+  const y = a[2] * b[0] - a[0] * b[2];
+  const z = a[0] * b[1] - a[1] * b[0];
+  out[0] = x;
+  out[1] = y;
+  out[2] = z;
+  return out;
+}
+
+/** HSV -> RGB, all components 0..1. Writes into `out` and returns it. */
+function hsv(h, s, v, out) {
+  h = ((h % 1) + 1) % 1;
+  const i = Math.floor(h * 6);
+  const f = h * 6 - i;
+  const p = v * (1 - s);
+  const q = v * (1 - s * f);
+  const t = v * (1 - s * (1 - f));
+  switch (i % 6) {
+    case 0: out[0] = v; out[1] = t; out[2] = p; break;
+    case 1: out[0] = q; out[1] = v; out[2] = p; break;
+    case 2: out[0] = p; out[1] = v; out[2] = t; break;
+    case 3: out[0] = p; out[1] = q; out[2] = v; break;
+    case 4: out[0] = t; out[1] = p; out[2] = v; break;
+    default: out[0] = v; out[1] = p; out[2] = q; break;
+  }
+  return out;
+}
+
+// ---- collide.js ----------------------------------------------------
+// Swept collision. Projectiles here move further per frame than their targets
+// are wide, so every hit test is segment-versus-sphere rather than
+// point-versus-sphere: a point test lets a laser tunnel clean through a drone.
+
+/** True if segment AB comes within `r` of the sphere at C. */
+function segSphere(ax, ay, az, bx, by, bz, cx, cy, cz, r) {
+  const dx = bx - ax, dy = by - ay, dz = bz - az;
+  const len2 = dx * dx + dy * dy + dz * dz;
+  let t = 0;
+  if (len2 > 1e-9) {
+    t = ((cx - ax) * dx + (cy - ay) * dy + (cz - az) * dz) / len2;
+    t = t < 0 ? 0 : t > 1 ? 1 : t;
+  }
+  const px = ax + dx * t - cx;
+  const py = ay + dy * t - cy;
+  const pz = az + dz * t - cz;
+  return px * px + py * py + pz * pz <= r * r;
+}
+
+// ---- font.js -------------------------------------------------------
+// A stroke font, because a bitmap font next to glowing vectors looks like a
+// sticker on a CRT. Glyphs are polylines on a 4x6 grid, y up.
+
+const GLYPHS = {
+  A: [[0, 0, 0, 4, 2, 6, 4, 4, 4, 0], [0, 2, 4, 2]],
+  B: [[0, 0, 0, 6, 3, 6, 4, 5, 4, 4, 3, 3, 0, 3], [3, 3, 4, 2, 4, 1, 3, 0, 0, 0]],
+  C: [[4, 5, 3, 6, 1, 6, 0, 5, 0, 1, 1, 0, 3, 0, 4, 1]],
+  D: [[0, 0, 0, 6, 3, 6, 4, 5, 4, 1, 3, 0, 0, 0]],
+  E: [[4, 6, 0, 6, 0, 0, 4, 0], [0, 3, 3, 3]],
+  F: [[4, 6, 0, 6, 0, 0], [0, 3, 3, 3]],
+  GLYPHS: [[4, 5, 3, 6, 1, 6, 0, 5, 0, 1, 1, 0, 3, 0, 4, 1, 4, 3, 2, 3]],
+  H: [[0, 0, 0, 6], [4, 0, 4, 6], [0, 3, 4, 3]],
+  I: [[1, 0, 3, 0], [2, 0, 2, 6], [1, 6, 3, 6]],
+  J: [[3, 6, 3, 1, 2, 0, 1, 0, 0, 1]],
+  K: [[0, 0, 0, 6], [4, 6, 0, 3, 4, 0]],
+  L: [[0, 6, 0, 0, 4, 0]],
+  M: [[0, 0, 0, 6, 2, 3, 4, 6, 4, 0]],
+  N: [[0, 0, 0, 6, 4, 0, 4, 6]],
+  O: [[1, 0, 0, 1, 0, 5, 1, 6, 3, 6, 4, 5, 4, 1, 3, 0, 1, 0]],
+  P: [[0, 0, 0, 6, 3, 6, 4, 5, 4, 4, 3, 3, 0, 3]],
+  Q: [[1, 0, 0, 1, 0, 5, 1, 6, 3, 6, 4, 5, 4, 1, 3, 0, 1, 0], [2, 2, 4, 0]],
+  R: [[0, 0, 0, 6, 3, 6, 4, 5, 4, 4, 3, 3, 0, 3], [2, 3, 4, 0]],
+  S: [[0, 1, 1, 0, 3, 0, 4, 1, 4, 2, 3, 3, 1, 3, 0, 4, 0, 5, 1, 6, 3, 6, 4, 5]],
+  T: [[0, 6, 4, 6], [2, 6, 2, 0]],
+  U: [[0, 6, 0, 1, 1, 0, 3, 0, 4, 1, 4, 6]],
+  V: [[0, 6, 2, 0, 4, 6]],
+  W: [[0, 6, 1, 0, 2, 3, 3, 0, 4, 6]],
+  X: [[0, 0, 4, 6], [0, 6, 4, 0]],
+  Y: [[0, 6, 2, 3, 4, 6], [2, 3, 2, 0]],
+  Z: [[0, 6, 4, 6, 0, 0, 4, 0]],
+  0: [[1, 0, 0, 1, 0, 5, 1, 6, 3, 6, 4, 5, 4, 1, 3, 0, 1, 0], [0, 1, 4, 5]],
+  1: [[0, 4, 2, 6, 2, 0], [0, 0, 4, 0]],
+  2: [[0, 5, 1, 6, 3, 6, 4, 5, 4, 4, 0, 0, 4, 0]],
+  3: [[0, 6, 4, 6, 2, 3], [2, 3, 4, 2, 4, 1, 3, 0, 1, 0, 0, 1]],
+  4: [[3, 0, 3, 6, 0, 2, 4, 2]],
+  5: [[4, 6, 0, 6, 0, 3, 3, 3, 4, 2, 4, 1, 3, 0, 1, 0, 0, 1]],
+  6: [[4, 5, 3, 6, 1, 6, 0, 5, 0, 1, 1, 0, 3, 0, 4, 1, 4, 2, 3, 3, 0, 3]],
+  7: [[0, 6, 4, 6, 1, 0]],
+  8: [[1, 3, 0, 4, 0, 5, 1, 6, 3, 6, 4, 5, 4, 4, 3, 3, 1, 3, 0, 2, 0, 1, 1, 0, 3, 0, 4, 1, 4, 2, 3, 3]],
+  9: [[0, 1, 1, 0, 3, 0, 4, 1, 4, 5, 3, 6, 1, 6, 0, 5, 0, 4, 1, 3, 4, 3]],
+  '.': [[2, 0, 2, 1]],
+  ',': [[2, 1, 1, -1]],
+  '-': [[0, 3, 4, 3]],
+  '_': [[0, 0, 4, 0]],
+  '+': [[2, 1, 2, 5], [0, 3, 4, 3]],
+  ':': [[2, 1, 2, 2], [2, 4, 2, 5]],
+  '!': [[2, 2, 2, 6], [2, 0, 2, 1]],
+  '?': [[0, 5, 1, 6, 3, 6, 4, 5, 4, 4, 2, 3, 2, 2], [2, 0, 2, 1]],
+  '/': [[0, 0, 4, 6]],
+  '%': [[0, 0, 4, 6], [0, 4, 1, 6], [3, 0, 4, 2]],
+  '(': [[3, 6, 1, 4, 1, 2, 3, 0]],
+  ')': [[1, 6, 3, 4, 3, 2, 1, 0]],
+  '[': [[3, 6, 1, 6, 1, 0, 3, 0]],
+  ']': [[1, 6, 3, 6, 3, 0, 1, 0]],
+  '<': [[3, 5, 1, 3, 3, 1]],
+  '>': [[1, 5, 3, 3, 1, 1]],
+  '*': [[0, 1, 4, 5], [0, 5, 4, 1], [2, 0, 2, 6]],
+  "'": [[2, 5, 2, 6]],
+  '=': [[0, 2, 4, 2], [0, 4, 4, 4]],
+};
+
+const ADVANCE = 6.2; // in grid units, including the gap
+
+function textWidth(str, size) {
+  const u = size / 6;
+  return str.length > 0 ? (str.length * ADVANCE - (ADVANCE - 4)) * u : 0;
+}
+
+/**
+ * Draws `str` with its baseline at `y`. `align` is -1 left, 0 centre, 1 right.
+ */
+function drawText(rd, str, x, y, size, w, r, g, b, a = 1, align = -1) {
+  const u = size / 6;
+  let ox = x;
+  if (align === 0) ox -= textWidth(str, size) * 0.5;
+  else if (align === 1) ox -= textWidth(str, size);
+
+  for (let i = 0; i < str.length; i++) {
+    const ch = str[i];
+    const glyph = GLYPHS[ch];
+    if (glyph) {
+      for (let p = 0; p < glyph.length; p++) {
+        const pl = glyph[p];
+        for (let k = 0; k + 3 < pl.length; k += 2) {
+          rd.line2(
+            ox + pl[k] * u, y - pl[k + 1] * u,
+            ox + pl[k + 2] * u, y - pl[k + 3] * u,
+            w, r, g, b, a, a,
+          );
+        }
+      }
+    }
+    ox += ADVANCE * u;
+  }
+}
+
+// ---- renderer.js ---------------------------------------------------
+// Vector display renderer.
+//
+// Every visible thing in this game is a glowing line segment. Segments are
+// transformed and near-clipped on the CPU, then emitted as screen-space quads
+// into one big buffer and drawn in a single additive pass. Additive blending is
+// order independent, so there is no depth buffer and no sorting -- which is
+// both faster and exactly how a real vector display behaves.
+//
+// The scene renders into a persistent framebuffer that is only partially faded
+// each frame. That leftover light is the phosphor trail: it costs one quad and
+// does most of the work of selling speed.
+
+const MAX_SEG = 24000;
+const FLOATS_PER_VERT = 7; // x y u r g b a
+const NEAR = 1.2;
+
+const LINE_VS = `
+precision highp float;
+attribute vec2 aPos;
+attribute float aU;
+attribute vec4 aColor;
+uniform vec2 uRes;
+varying float vU;
+varying vec4 vColor;
+void main() {
+  vU = aU;
+  vColor = aColor;
+  vec2 ndc = aPos / uRes * 2.0 - 1.0;
+  gl_Position = vec4(ndc.x, -ndc.y, 0.0, 1.0);
+}`;
+
+// Bright thin core plus a wide exponential halo. The halo is what makes
+// crossing lines bloom into each other instead of just overlapping.
+const LINE_FS = `
+precision highp float;
+varying float vU;
+varying vec4 vColor;
+void main() {
+  float d = abs(vU);
+  float core = smoothstep(1.0, 0.0, d * 3.1);
+  float halo = exp(-d * 3.4) * 0.42;
+  float a = core + halo;
+  gl_FragColor = vec4(vColor.rgb * vColor.a * a, a);
+}`;
+
+const QUAD_VS = `
+precision highp float;
+attribute vec2 aPos;
+varying vec2 vUv;
+void main() {
+  vUv = aPos * 0.5 + 0.5;
+  gl_Position = vec4(aPos, 0.0, 1.0);
+}`;
+
+const FADE_FS = `
+precision highp float;
+uniform float uFade;
+void main() { gl_FragColor = vec4(0.0, 0.0, 0.0, uFade); }`;
+
+// Composite: vignette plus a faint scanline. Deliberately gentle -- the glow
+// already carries the CRT read, and heavy post turns thin lines to mush.
+const BLIT_FS = `
+precision highp float;
+varying vec2 vUv;
+uniform sampler2D uTex;
+uniform vec2 uRes;
+uniform float uScan;
+void main() {
+  vec3 c = texture2D(uTex, vUv).rgb;
+  vec2 q = vUv - 0.5;
+  float vig = 1.0 - dot(q, q) * 0.75;
+  float scan = 1.0 - uScan * (0.5 - 0.5 * cos(vUv.y * uRes.y * 3.14159));
+  gl_FragColor = vec4(c * vig * scan, 1.0);
+}`;
+
+function compile(gl, type, src) {
+  const s = gl.createShader(type);
+  gl.shaderSource(s, src);
+  gl.compileShader(s);
+  if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) {
+    throw new Error('shader: ' + gl.getShaderInfoLog(s));
+  }
+  return s;
+}
+
+function program(gl, vs, fs) {
+  const p = gl.createProgram();
+  gl.attachShader(p, compile(gl, gl.VERTEX_SHADER, vs));
+  gl.attachShader(p, compile(gl, gl.FRAGMENT_SHADER, fs));
+  gl.linkProgram(p);
+  if (!gl.getProgramParameter(p, gl.LINK_STATUS)) {
+    throw new Error('link: ' + gl.getProgramInfoLog(p));
+  }
+  return p;
+}
+
+class Renderer {
+  constructor(canvas) {
+    this.canvas = canvas;
+    const opts = {
+      alpha: false,
+      antialias: false,
+      depth: false,
+      stencil: false,
+      powerPreference: 'high-performance',
+      preserveDrawingBuffer: false,
+    };
+    let gl = canvas.getContext('webgl2', opts);
+    this.gl2 = !!gl;
+    if (!gl) {
+      gl = canvas.getContext('webgl', opts) || canvas.getContext('experimental-webgl', opts);
+      if (!gl) throw new Error('WebGL is not available on this device.');
+      if (!gl.getExtension('OES_element_index_uint')) {
+        throw new Error('WebGL is too limited on this device.');
+      }
+    }
+    this.gl = gl;
+
+    this.lineProg = program(gl, LINE_VS, LINE_FS);
+    this.fadeProg = program(gl, QUAD_VS, FADE_FS);
+    this.blitProg = program(gl, QUAD_VS, BLIT_FS);
+
+    this.uRes = gl.getUniformLocation(this.lineProg, 'uRes');
+    this.uFade = gl.getUniformLocation(this.fadeProg, 'uFade');
+    this.uTex = gl.getUniformLocation(this.blitProg, 'uTex');
+    this.uBlitRes = gl.getUniformLocation(this.blitProg, 'uRes');
+    this.uScan = gl.getUniformLocation(this.blitProg, 'uScan');
+
+    this.aPos = gl.getAttribLocation(this.lineProg, 'aPos');
+    this.aU = gl.getAttribLocation(this.lineProg, 'aU');
+    this.aColor = gl.getAttribLocation(this.lineProg, 'aColor');
+    this.aQuad = gl.getAttribLocation(this.fadeProg, 'aPos');
+    this.aQuadBlit = gl.getAttribLocation(this.blitProg, 'aPos');
+
+    this.verts = new Float32Array(MAX_SEG * 4 * FLOATS_PER_VERT);
+    this.vbo = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.vbo);
+    gl.bufferData(gl.ARRAY_BUFFER, this.verts.byteLength, gl.DYNAMIC_DRAW);
+
+    const idx = new Uint32Array(MAX_SEG * 6);
+    for (let i = 0; i < MAX_SEG; i++) {
+      const v = i * 4;
+      const o = i * 6;
+      idx[o] = v;
+      idx[o + 1] = v + 1;
+      idx[o + 2] = v + 2;
+      idx[o + 3] = v;
+      idx[o + 4] = v + 2;
+      idx[o + 5] = v + 3;
+    }
+    this.ibo = gl.createBuffer();
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.ibo);
+    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, idx, gl.STATIC_DRAW);
+
+    this.quad = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.quad);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
+
+    this.fbo = gl.createFramebuffer();
+    this.tex = gl.createTexture();
+
+    this.segCount = 0;
+    this.dropped = 0;
+    this.width = 0;
+    this.height = 0;
+    this.scanline = 0.08;
+    this.trail = 0.34;
+
+    // Camera state, written by setCamera.
+    this.ex = 0; this.ey = 0; this.ez = 0;
+    this.rx = 1; this.ry = 0; this.rz = 0;
+    this.ux = 0; this.uy = 1; this.uz = 0;
+    this.fx = 0; this.fy = 0; this.fz = 1;
+    this.focal = 500;
+    this.cx = 0;
+    this.cy = 0;
+    this.far = 1200;
+    this.fogNear = 240;
+  }
+
+  resize(cssW, cssH, maxPixels = 2_100_000) {
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    let w = Math.max(1, Math.round(cssW * dpr));
+    let h = Math.max(1, Math.round(cssH * dpr));
+    const px = w * h;
+    if (px > maxPixels) {
+      const k = Math.sqrt(maxPixels / px);
+      w = Math.max(1, Math.round(w * k));
+      h = Math.max(1, Math.round(h * k));
+    }
+    if (w === this.width && h === this.height) return;
+    this.width = w;
+    this.height = h;
+    this.canvas.width = w;
+    this.canvas.height = h;
+
+    const gl = this.gl;
+    gl.bindTexture(gl.TEXTURE_2D, this.tex);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, this.fbo);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, this.tex, 0);
+    gl.clearColor(0, 0, 0, 1);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    this.cx = w * 0.5;
+    this.cy = h * 0.5;
+  }
+
+  /** Pixels per CSS pixel, so HUD line widths stay physically consistent. */
+  get scale() {
+    return this.height / 720;
+  }
+
+  setCamera(eye, right, up, fwd, fovY, far) {
+    this.ex = eye[0]; this.ey = eye[1]; this.ez = eye[2];
+    this.rx = right[0]; this.ry = right[1]; this.rz = right[2];
+    this.ux = up[0]; this.uy = up[1]; this.uz = up[2];
+    this.fx = fwd[0]; this.fy = fwd[1]; this.fz = fwd[2];
+    this.focal = this.height * 0.5 / Math.tan(fovY * 0.5);
+    this.far = far;
+    this.fogNear = far * 0.2;
+  }
+
+  beginFrame(fade = this.trail) {
+    const gl = this.gl;
+    gl.bindFramebuffer(gl.FRAMEBUFFER, this.fbo);
+    gl.viewport(0, 0, this.width, this.height);
+    gl.disable(gl.DEPTH_TEST);
+
+    gl.useProgram(this.fadeProg);
+    gl.uniform1f(this.uFade, fade);
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.quad);
+    gl.enableVertexAttribArray(this.aQuad);
+    gl.vertexAttribPointer(this.aQuad, 2, gl.FLOAT, false, 0, 0);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+
+    this.segCount = 0;
+    this.dropped = 0;
+  }
+
+  endFrame() {
+    this.flush();
+    const gl = this.gl;
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.viewport(0, 0, this.width, this.height);
+    gl.disable(gl.BLEND);
+    gl.useProgram(this.blitProg);
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, this.tex);
+    gl.uniform1i(this.uTex, 0);
+    gl.uniform2f(this.uBlitRes, this.width, this.height);
+    gl.uniform1f(this.uScan, this.scanline);
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.quad);
+    gl.enableVertexAttribArray(this.aQuadBlit);
+    gl.vertexAttribPointer(this.aQuadBlit, 2, gl.FLOAT, false, 0, 0);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+  }
+
+  flush() {
+    if (this.segCount === 0) return;
+    const gl = this.gl;
+    gl.useProgram(this.lineProg);
+    gl.uniform2f(this.uRes, this.width, this.height);
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.ONE, gl.ONE);
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.vbo);
+    gl.bufferSubData(gl.ARRAY_BUFFER, 0, this.verts.subarray(0, this.segCount * 4 * FLOATS_PER_VERT));
+    const stride = FLOATS_PER_VERT * 4;
+    gl.enableVertexAttribArray(this.aPos);
+    gl.vertexAttribPointer(this.aPos, 2, gl.FLOAT, false, stride, 0);
+    gl.enableVertexAttribArray(this.aU);
+    gl.vertexAttribPointer(this.aU, 1, gl.FLOAT, false, stride, 8);
+    gl.enableVertexAttribArray(this.aColor);
+    gl.vertexAttribPointer(this.aColor, 4, gl.FLOAT, false, stride, 12);
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.ibo);
+    gl.drawElements(gl.TRIANGLES, this.segCount * 6, gl.UNSIGNED_INT, 0);
+    this.segCount = 0;
+  }
+
+  /**
+   * Screen-space segment. Colours are per-endpoint so callers can fade a line
+   * into the distance without splitting it.
+   */
+  line2(x0, y0, x1, y1, w, r, g, b, a0, a1) {
+    if (this.segCount >= MAX_SEG) {
+      this.dropped++;
+      return;
+    }
+    // Reject offscreen work early; the margin covers the halo.
+    const m = w * 3 + 4;
+    if ((x0 < -m && x1 < -m) || (x0 > this.width + m && x1 > this.width + m)) return;
+    if ((y0 < -m && y1 < -m) || (y0 > this.height + m && y1 > this.height + m)) return;
+
+    let dx = x1 - x0;
+    let dy = y1 - y0;
+    const len = Math.hypot(dx, dy);
+    if (len < 1e-4) {
+      dx = 1;
+      dy = 0;
+    } else {
+      dx /= len;
+      dy /= len;
+    }
+    // Widen the quad well past the core so the halo has room, and cap the ends
+    // so zero-length segments still render as round dots.
+    const hw = w * 2.3 + 0.75;
+    const px = -dy * hw;
+    const py = dx * hw;
+    const ex = dx * hw * 0.55;
+    const ey = dy * hw * 0.55;
+    const ax = x0 - ex;
+    const ay = y0 - ey;
+    const bx = x1 + ex;
+    const by = y1 + ey;
+
+    const v = this.verts;
+    let o = this.segCount * 4 * FLOATS_PER_VERT;
+    v[o] = ax + px; v[o + 1] = ay + py; v[o + 2] = 1; v[o + 3] = r; v[o + 4] = g; v[o + 5] = b; v[o + 6] = a0; o += 7;
+    v[o] = ax - px; v[o + 1] = ay - py; v[o + 2] = -1; v[o + 3] = r; v[o + 4] = g; v[o + 5] = b; v[o + 6] = a0; o += 7;
+    v[o] = bx - px; v[o + 1] = by - py; v[o + 2] = -1; v[o + 3] = r; v[o + 4] = g; v[o + 5] = b; v[o + 6] = a1; o += 7;
+    v[o] = bx + px; v[o + 1] = by + py; v[o + 2] = 1; v[o + 3] = r; v[o + 4] = g; v[o + 5] = b; v[o + 6] = a1;
+    this.segCount++;
+  }
+
+  /** World-space point to view space. Returns depth; writes sx/sy on success. */
+  project(x, y, z, out) {
+    const dx = x - this.ex;
+    const dy = y - this.ey;
+    const dz = z - this.ez;
+    const vz = dx * this.fx + dy * this.fy + dz * this.fz;
+    if (vz < NEAR) return vz;
+    const vx = dx * this.rx + dy * this.ry + dz * this.rz;
+    const vy = dx * this.ux + dy * this.uy + dz * this.uz;
+    const k = this.focal / vz;
+    out[0] = this.cx + vx * k;
+    out[1] = this.cy - vy * k;
+    return vz;
+  }
+
+  /** Depth attenuation: things emerge out of the dark rather than popping in. */
+  fogAt(vz) {
+    if (vz >= this.far) return 0;
+    if (vz <= this.fogNear) return 1;
+    const t = 1 - (vz - this.fogNear) / (this.far - this.fogNear);
+    return t * t;
+  }
+
+  /**
+   * World-space segment. Handles the near plane by clipping rather than
+   * skipping, so walls stay attached as they sweep past the camera.
+   */
+  line3(x0, y0, z0, x1, y1, z1, w, r, g, b, a = 1) {
+    let ax = x0 - this.ex, ay = y0 - this.ey, az = z0 - this.ez;
+    let bx = x1 - this.ex, by = y1 - this.ey, bz = z1 - this.ez;
+    let az_ = ax * this.fx + ay * this.fy + az * this.fz;
+    let bz_ = bx * this.fx + by * this.fy + bz * this.fz;
+
+    if (az_ < NEAR && bz_ < NEAR) return;
+    if (az_ > this.far && bz_ > this.far) return;
+
+    if (az_ < NEAR) {
+      const t = (NEAR - az_) / (bz_ - az_);
+      ax += (bx - ax) * t; ay += (by - ay) * t; az += (bz - az) * t;
+      az_ = NEAR;
+    } else if (bz_ < NEAR) {
+      const t = (NEAR - bz_) / (az_ - bz_);
+      bx += (ax - bx) * t; by += (ay - by) * t; bz += (az - bz) * t;
+      bz_ = NEAR;
+    }
+
+    const fa = this.fogAt(az_) * a;
+    const fb = this.fogAt(bz_) * a;
+    if (fa < 0.004 && fb < 0.004) return;
+
+    const ka = this.focal / az_;
+    const kb = this.focal / bz_;
+    const sx0 = this.cx + (ax * this.rx + ay * this.ry + az * this.rz) * ka;
+    const sy0 = this.cy - (ax * this.ux + ay * this.uy + az * this.uz) * ka;
+    const sx1 = this.cx + (bx * this.rx + by * this.ry + bz * this.rz) * kb;
+    const sy1 = this.cy - (bx * this.ux + by * this.uy + bz * this.uz) * kb;
+    this.line2(sx0, sy0, sx1, sy1, w, r, g, b, fa, fb);
+  }
+
+  /** A world-space point drawn as a screen-sized dot (stars, sparks, tracers). */
+  dot3(x, y, z, w, r, g, b, a = 1) {
+    const p = _tmp;
+    const vz = this.project(x, y, z, p);
+    if (vz < NEAR || vz > this.far) return;
+    const f = this.fogAt(vz) * a;
+    if (f < 0.004) return;
+    this.line2(p[0], p[1], p[0], p[1], w, r, g, b, f, f);
+  }
+}
+
+const _tmp = [0, 0];
+
+// ---- spec.js -------------------------------------------------------
+// The level spec: the contract between "what a level is" and everything that
+// realizes one.
+//
+// A spec is plain JSON. Natural language compiles *into* this; the track and
+// level compilers read *out of* it. Keeping a single declarative form in the
+// middle is what lets prose, the URL hash, hand-editing, and the built-in
+// examples all be the same kind of thing.
+//
+// Every numeric field is clamped on the way in, so a spec from an untrusted
+// source (a URL, a model, a typo) can be nonsense but never unplayable.
+
+
+
+const OBSTACLE_KINDS = ['pylon', 'fang', 'gate', 'ring', 'stack'];
+
+/** Field ranges. Also the documentation the NL layer and the model are given. */
+const FIELDS = {
+  length:    { min: 400,  max: 6000, def: 2000, unit: 'units of track' },
+  width:     { min: 26,   max: 150,  def: 62,   unit: 'trench half-width' },
+  depth:     { min: 50,   max: 240,  def: 118,  unit: 'rim height above floor' },
+  curviness: { min: 0,    max: 1,    def: 0.4 },
+  hilliness: { min: 0,    max: 1,    def: 0.35 },
+  roughness: { min: 0,    max: 1,    def: 0.5 },
+  obstacles: { min: 0,    max: 1,    def: 0.4 },
+  turrets:   { min: 0,    max: 1,    def: 0.3 },
+  wallguns:  { min: 0,    max: 1,    def: 0.32 },
+  drones:    { min: 0,    max: 1,    def: 0.3 },
+  seals:     { min: 0,    max: 6,    def: 0 },
+  hue:       { min: 0,    max: 1,    def: 0.5 },
+};
+
+const num = (v, f) => (Number.isFinite(+v) ? clamp(+v, f.min, f.max) : f.def);
+
+function normalizeSection(raw = {}) {
+  const kinds = Array.isArray(raw.kinds)
+    ? raw.kinds.filter((k) => OBSTACLE_KINDS.includes(k))
+    : [];
+  return {
+    name: String(raw.name ?? 'section').slice(0, 32),
+    length: num(raw.length, FIELDS.length),
+    width: num(raw.width, FIELDS.width),
+    depth: num(raw.depth, FIELDS.depth),
+    curviness: num(raw.curviness, FIELDS.curviness),
+    hilliness: num(raw.hilliness, FIELDS.hilliness),
+    roughness: num(raw.roughness, FIELDS.roughness),
+    obstacles: num(raw.obstacles, FIELDS.obstacles),
+    kinds: kinds.length ? kinds : ['pylon', 'fang'],
+    turrets: num(raw.turrets, FIELDS.turrets),
+    wallguns: num(raw.wallguns, FIELDS.wallguns),
+    drones: num(raw.drones, FIELDS.drones),
+    seals: Math.round(num(raw.seals, FIELDS.seals)),
+    hue: num(raw.hue, FIELDS.hue),
+  };
+}
+
+function normalizeSpec(raw = {}) {
+  const sections = (Array.isArray(raw.sections) && raw.sections.length
+    ? raw.sections
+    : [{}]
+  )
+    .slice(0, 24)
+    .map(normalizeSection);
+
+  return {
+    name: String(raw.name ?? 'UNTITLED RUN').slice(0, 40).toUpperCase(),
+    seed: Number.isFinite(+raw.seed) ? (+raw.seed | 0) : 1337,
+    speed: {
+      start: clamp(+(raw.speed?.start ?? 300) || 300, 120, 700),
+      end: clamp(+(raw.speed?.end ?? 430) || 430, 120, 900),
+    },
+    // A run with no finale just ends; 'port' adds the missile target.
+    finale: raw.finale === 'none' ? 'none' : 'port',
+    sections,
+  };
+}
+
+/** Total track length, excluding the finale run-out the compiler appends. */
+const specLength = (spec) => spec.sections.reduce((a, s) => a + s.length, 0);
+
+/** Round-trips through the URL hash so a level is a link. */
+function encodeSpec(spec) {
+  const json = JSON.stringify(spec);
+  const bytes = new TextEncoder().encode(json);
+  let bin = '';
+  for (const b of bytes) bin += String.fromCharCode(b);
+  return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+function decodeSpec(str) {
+  const b64 = str.replace(/-/g, '+').replace(/_/g, '/');
+  const bin = atob(b64);
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return normalizeSpec(JSON.parse(new TextDecoder().decode(bytes)));
+}
+
+/**
+ * Built-in levels. The first is the brief this game was built to: a long,
+ * tightening trench run with sealed bulkheads and a port at the end.
+ */
+const EXAMPLES = [
+  {
+    label: 'TRENCH RUN',
+    prose:
+      'Start wide and open for a bit to get your bearings, then tighten into a ' +
+      'deep trench with columns and hanging fangs. Seal the trench once and put ' +
+      'heavy turret cover on the surface. Then a long, very tight, twisting ' +
+      'section with gates and irises and wall guns. Seal it twice more. ' +
+      'Finish with a fast narrow choke and an exhaust port.',
+  },
+  {
+    label: 'CATHEDRAL',
+    prose:
+      'A huge cavernous shallow canyon, almost straight, with enormous spires ' +
+      'and lots of drones. Then a short claustrophobic tunnel section, ' +
+      'extremely tight and very twisty, packed with irises. End with a port.',
+  },
+  {
+    label: 'GAUNTLET',
+    prose:
+      'Very fast. Narrow and hilly the whole way, heavy staggered slabs and ' +
+      'gates, wall guns everywhere, sealed four times. Glowing red. ' +
+      'Ends with a reactor port.',
+  },
+  {
+    label: 'FIRST LIGHT',
+    prose:
+      'A gentle wide winding canyon, shallow, a few scattered columns and ' +
+      'almost no guns. Icy blue. No port, just fly it.',
+  },
+];
+
+// ---- llm.js --------------------------------------------------------
+// Optional: compile prose into a level spec with Claude.
+//
+// The offline interpreter in nl.js handles the vocabulary it knows and always
+// works. This path handles arbitrary prose -- metaphors, references, pacing
+// described in prose rather than adjectives -- by asking a model to fill in the
+// same spec the rest of the game already consumes. Nothing downstream can tell
+// which front-end produced a spec.
+//
+// The SDK is imported lazily from an ESM CDN so the game stays a self-contained
+// offline page unless the player actually turns this on. The key lives only in
+// this browser's localStorage.
+
+
+
+const SDK_URL = 'https://esm.sh/@anthropic-ai/sdk@0.119.0';
+const MODEL = 'claude-opus-5';
+const KEY_STORE = 'vectrench.apikey';
+
+const getKey = () => {
+  try { return localStorage.getItem(KEY_STORE) || ''; } catch { return ''; }
+};
+
+const setKey = (k) => {
+  try {
+    if (k) localStorage.setItem(KEY_STORE, k);
+    else localStorage.removeItem(KEY_STORE);
+  } catch { /* private browsing; the key just will not persist */ }
+};
+
+// Structured outputs reject numeric bounds, so ranges are stated in the prompt
+// and enforced by normalizeSpec on the way back in.
+const SECTION_SCHEMA = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['name', 'length', 'width', 'depth', 'curviness', 'hilliness',
+    'roughness', 'obstacles', 'kinds', 'turrets', 'wallguns', 'drones', 'seals', 'hue'],
+  properties: {
+    name: { type: 'string' },
+    length: { type: 'number' },
+    width: { type: 'number' },
+    depth: { type: 'number' },
+    curviness: { type: 'number' },
+    hilliness: { type: 'number' },
+    roughness: { type: 'number' },
+    obstacles: { type: 'number' },
+    kinds: { type: 'array', items: { type: 'string', enum: OBSTACLE_KINDS } },
+    turrets: { type: 'number' },
+    wallguns: { type: 'number' },
+    drones: { type: 'number' },
+    seals: { type: 'integer' },
+    hue: { type: 'number' },
+  },
+};
+
+const SPEC_SCHEMA = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['name', 'seed', 'speed', 'finale', 'sections', 'notes'],
+  properties: {
+    name: { type: 'string' },
+    seed: { type: 'integer' },
+    speed: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['start', 'end'],
+      properties: { start: { type: 'number' }, end: { type: 'number' } },
+    },
+    finale: { type: 'string', enum: ['port', 'none'] },
+    sections: { type: 'array', items: SECTION_SCHEMA },
+    notes: { type: 'string' },
+  },
+};
+
+const SYSTEM = `You design levels for a vector-graphics rails shooter. The player flies a fixed
+path at 300-500 units per second down a canyon trench. They tilt to move within the
+cross-section, tap to shoot, and hold on a target to lock a missile.
+
+The core tension: inside the trench you must dodge geometry; above the rim you are safe
+from geometry but exposed to surface turrets. A "seal" is a bulkhead across the whole
+trench that forces the player up over the rim, so seals and turrets are a pair -- a seal
+with no turrets near it is free, and that is boring.
+
+Translate the player's description into a sequence of sections, flown in order.
+
+Field meanings and ranges (values outside these are clamped):
+- length ${FIELDS.length.min}-${FIELDS.length.max}: track units. At ~380 u/s, 1800 units is roughly 5 seconds.
+- width ${FIELDS.width.min}-${FIELDS.width.max}: trench half-width. 30 is a knife-edge slot, 62 normal, 125 cavernous.
+- depth ${FIELDS.depth.min}-${FIELDS.depth.max}: rim height above the floor. Deeper means climbing out takes longer and costs more.
+- curviness 0-1: lateral turning. 0 is dead straight, 1 is continuous hard turns.
+- hilliness 0-1: vertical rise and fall of the whole canyon.
+- roughness 0-1: surface panel detail and spires on the deck. Visual only.
+- obstacles 0-1: density of blocking geometry in the trench.
+- kinds: which obstacles appear. pylon = column from the floor. fang = spike from the
+  ceiling down. gate = bulkhead with one window to thread. ring = circular aperture.
+  stack = staggered half-height slabs, alternating sides.
+- turrets 0-1: density of surface batteries, which only fire when the player is above the rim.
+- wallguns 0-1: density of guns mounted on the trench walls, which fire when the player is below the rim.
+- drones 0-1: density of flying enemy waves inside the trench.
+- seals 0-6: full bulkheads in this section, spaced evenly. Each forces a climb over the rim.
+- hue 0-1: colour wheel. 0 red, 0.08 orange, 0.33 green, 0.5 cyan, 0.62 blue, 0.79 violet.
+
+Design guidance:
+- Use 3 to 7 sections for a described run. One section is flat and dull.
+- Build an arc: open and legible first so the player learns the controls, then escalate.
+- Vary the axis of difficulty between sections. Two sections that are both "tighter and
+  denser" feel like one long section.
+- Put turrets near every seal.
+- Honour what the player asked for, including when it is extreme. If they ask for
+  claustrophobic, go to 30, not 45.
+- Set finale to "port" unless they say they do not want an end target.
+- notes: one short sentence on the intended arc. Keep it under 140 characters.`;
+
+/**
+ * Compiles prose into a spec with Claude.
+ * Throws an Error with a human-readable message on any failure.
+ */
+async function parseProseLLM(prose, { key, onStatus } = {}) {
+  const apiKey = key || getKey();
+  if (!apiKey) throw new Error('No API key set.');
+
+  onStatus?.('loading sdk');
+  let Anthropic;
+  try {
+    const mod = await import(/* @vite-ignore */ SDK_URL);
+    Anthropic = mod.default ?? mod.Anthropic;
+  } catch {
+    throw new Error('Could not load the Claude SDK (offline or blocked). Use the offline parser.');
+  }
+  if (!Anthropic) throw new Error('Claude SDK loaded but exported nothing usable.');
+
+  const client = new Anthropic({ apiKey, dangerouslyAllowBrowser: true });
+
+  onStatus?.('designing');
+  let response;
+  try {
+    response = await client.messages.create({
+      model: MODEL,
+      max_tokens: 16000,
+      system: SYSTEM,
+      output_config: {
+        effort: 'medium',
+        format: { type: 'json_schema', schema: SPEC_SCHEMA },
+      },
+      messages: [{ role: 'user', content: `Design this level:\n\n${prose}` }],
+    });
+  } catch (err) {
+    const status = err?.status;
+    if (status === 401) throw new Error('API key rejected (401).');
+    if (status === 429) throw new Error('Rate limited (429). Try again shortly.');
+    if (status === 400) throw new Error(`Request rejected: ${err?.message ?? '400'}`);
+    throw new Error(err?.message || 'Network error talking to the API.');
+  }
+
+  if (response.stop_reason === 'refusal') {
+    throw new Error('The model declined this request.');
+  }
+  if (response.stop_reason === 'max_tokens') {
+    throw new Error('Response was cut off. Try a shorter description.');
+  }
+
+  const text = response.content.find((b) => b.type === 'text')?.text;
+  if (!text) throw new Error('No level came back.');
+
+  let raw;
+  try {
+    raw = JSON.parse(text);
+  } catch {
+    throw new Error('The level came back malformed.');
+  }
+
+  const spec = normalizeSpec(raw);
+  const report = [
+    `${spec.sections.length} sections, ${spec.sections.reduce((a, s) => a + s.length, 0) | 0} units`,
+    `designed by ${MODEL}`,
+  ];
+  if (raw.notes) report.push(String(raw.notes).slice(0, 160));
+  for (const s of spec.sections) {
+    report.push(`${s.name}: w${Math.round(s.width)} d${Math.round(s.depth)} ` +
+      `cur${s.curviness.toFixed(1)} obs${s.obstacles.toFixed(1)} ` +
+      `${s.kinds.join('/')}${s.seals ? ` seal x${s.seals}` : ''}`);
+  }
+  return { spec, report };
+}
+
+// ---- nl.js ---------------------------------------------------------
+// Natural language -> level spec, entirely in the browser.
+//
+// This is a deliberate grammar rather than a guess-the-meaning machine: prose is
+// split into ordered segments on sequence markers ("then", "after that",
+// "finally"), and each segment votes on the parameters of one section. Because
+// the spec clamps everything, a misread produces a different level, never a
+// broken one.
+//
+// Every recognized phrase is reported back to the player, so the interface can
+// show what it actually understood instead of silently inventing a level.
+
+
+
+
+const NUMBER_WORDS = {
+  zero: 0, one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7,
+  eight: 8, nine: 9, ten: 10, eleven: 11, twelve: 12, a: 1, an: 1, once: 1,
+  twice: 2, thrice: 3, single: 1, double: 2, triple: 3, couple: 2, few: 3,
+};
+
+const AMPLIFY = /\b(?:very|extremely|insanely|super|really|absurdly|utterly|brutally|incredibly|impossibly|ridiculously|totally|completely|hugely|massively)\b/;
+const DIMINISH = /\b(?:slightly|somewhat|mildly|fairly|barely|a bit|a little|kind of|sort of|moderately|gently|reasonably)\b/;
+
+// param, phrase pattern, target value. Order matters only in that every match
+// is applied; later matches on the same param win.
+const RULES = [
+  // --- trench half-width ---
+  ['width', /\b(?:claustrophobic|needle|hairline|suffocating|coffin)\b/, 30],
+  ['width', /\b(?:tight|narrow|cramped|tunnel|slot|close|confined|choked?)\b/, 40],
+  ['width', /\b(?:snug|moderate width)\b/, 48],
+  ['width', /\b(?:tighten(?:s|ing)?|narrow(?:s|ing)|closes? in|chokes? (?:down|in))\b/, 44],
+  ['width', /\b(?:wide|open|broad|roomy|spacious)\b/, 88],
+  ['width', /\b(?:cavernous|enormous|vast|colossal|immense|gigantic|huge|massive)\b/, 125],
+
+  // --- rim height (how deep the trench is) ---
+  ['depth', /\b(?:shallow|ditch|gully|gutter|scratch)\b/, 66],
+  ['depth', /\b(?:deep)\b/, 152],
+  ['depth', /\b(?:bottomless|abyss(?:al)?|chasm|fathomless|cavern deep)\b/, 210],
+
+  // --- lateral curvature ---
+  ['curviness', /\b(?:dead straight|straight|arrow[- ]?straight|linear|ruler)\b/, 0.02],
+  ['curviness', /\b(?:lazy|sweeping|gentle curve|meandering)\b/, 0.28],
+  ['curviness', /\b(?:winding|curving|curvy|bending|bendy|curved)\b/, 0.55],
+  ['curviness', /\b(?:twisty|twisting|serpentine|snaking|writhing|corkscrew)\b/, 0.82],
+  ['curviness', /\b(?:hairpin|switchback|violent turns?)\b/, 1],
+
+  // --- vertical relief ---
+  ['hilliness', /\b(?:flat|level|even)\b/, 0.05],
+  ['hilliness', /\b(?:rolling|undulating|wavy|swelling|billowing)\b/, 0.5],
+  ['hilliness', /\b(?:hilly|steep|plunging|diving|climbing|rollercoaster)\b/, 0.82],
+
+  // --- surface detail ---
+  ['roughness', /\b(?:smooth|clean|polished|bare|blank|featureless)\b/, 0.12],
+  ['roughness', /\b(?:detailed|greebled?|industrial|mechanical|technical|cluttered|busy)\b/, 0.8],
+  ['roughness', /\b(?:rough|jagged|broken|shattered|ragged|craggy)\b/, 0.92],
+
+  // --- obstacle density ---
+  ['obstacles', /\b(?:no obstacles|empty|clear|nothing in the way|unobstructed|obstacle[- ]free)\b/, 0],
+  ['obstacles', /\b(?:sparse|scattered|a few|few|light|occasional|the odd|handful)\b/, 0.18],
+  ['obstacles', /\b(?:some|moderate|a fair (?:few|amount))\b/, 0.4],
+  ['obstacles', /\b(?:dense|lots of|plenty of|packed|heavy|thick|full of|loads of|littered|studded|forest of)\b/, 0.75],
+  ['obstacles', /\b(?:wall[- ]to[- ]wall|relentless|brutal|nonstop|non[- ]stop|unbroken|solid)\b/, 1],
+
+  // --- enemy density ---
+  ['turrets', /\b(?:no turrets|undefended|no guns|unguarded|no defen[cs]es)\b/, 0],
+  ['turrets', /\b(?:turret|batter(?:y|ies)|emplacement|surface gun|anti[- ]air|flak|ack[- ]ack|triple[- ]?a|defen[cs]es|cannon)\b/, 0.45],
+  ['wallguns', /\b(?:wall ?gun|gun ?port|wall turret|side gun|embrasure|pill ?box|wall[- ]mounted)\b/, 0.5],
+  ['drones', /\b(?:no drones|no fighters)\b/, 0],
+  ['drones', /\b(?:drone|fighter|interceptor|tie|enemy ship|bogey|swarm|squadron|wing of)\b/, 0.5],
+
+  // --- length ---
+  ['length', /\b(?:brief|short|quick|snap|momentary)\b/, 900],
+  ['length', /\b(?:long|extended|drawn[- ]out|lengthy|sustained)\b/, 3000],
+  ['length', /\b(?:the whole way|throughout|all the way)\b/, 3200],
+  ['length', /\b(?:endless|interminable|marathon|forever)\b/, 5000],
+];
+
+// Obstacle kinds. A mention implies presence, so matching one also lifts density.
+const KIND_RULES = [
+  ['pylon', /\b(?:pylon|column|pillar|spire|tower|stalagmite|obelisk|monolith|post|mast|girder)(?:e?s)?\b/],
+  ['fang', /\b(?:fang|stalactite|icicle|tooth|teeth|hanging|dangling|overhead spike|dropper|pendant)(?:e?s)?\b/],
+  ['gate', /\b(?:gate|bulkhead|door|hatch|window|blast ?door|panel|shutter|barricade)(?:e?s)?\b/],
+  ['ring', /\b(?:ring|iris|hoop|torus|aperture|portal|donut|doughnut|eye)(?:e?s)?\b/],
+  ['stack', /\b(?:slab|stagger(?:ed)?|zigzag|zig[- ]zag|chicane|alternating|stepped|step|block)(?:e?s)?\b/],
+];
+
+const SEAL_RE = /\b(?:seal(?:ed|s|ing)?|walled off|blocked off|closed off|bulkhead across|barrier across|dead ?end|no way through|forced (?:up|over)|must (?:go|fly) (?:up|over)|completely blocks?)\b/;
+
+const HUES = [
+  [/\b(?:red|crimson|molten|lava|blood|scarlet|ember|hellish|infernal)\b/, 0.01],
+  [/\b(?:orange|amber|rust|copper|bronze|sodium)\b/, 0.07],
+  [/\b(?:yellow|gold(?:en)?|sulphur|sulfur|brass)\b/, 0.14],
+  [/\b(?:green|toxic|acid|emerald|jade|radioactive|viridian)\b/, 0.33],
+  [/\b(?:cyan|teal|aqua|ice|icy|frozen|glacial|turquoise)\b/, 0.5],
+  [/\b(?:blue|cobalt|azure|sapphire)\b/, 0.62],
+  [/\b(?:indigo|violet|purple|magenta|pink|neon|ultraviolet)\b/, 0.79],
+  [/\b(?:white|silver|chrome|steel|monochrome|grey|gray|bone)\b/, 0.46],
+];
+
+const SPLIT_RE = /\b(?:and then|then|after that|after which|followed by|finally|next up|next|later on|later)\b|[;\n]|(?:\s|^)\d+[.)]\s|(?:^|\s)[-*•]\s/i;
+
+const numberBefore = (text, re) => {
+  const m = text.match(new RegExp(
+    `(\\d+|${Object.keys(NUMBER_WORDS).join('|')})\\s+(?:\\w+\\s+){0,2}?${re.source}`, 'i'));
+  if (!m) return null;
+  return Number.isFinite(+m[1]) ? +m[1] : NUMBER_WORDS[m[1].toLowerCase()] ?? null;
+};
+
+const numberAfter = (text, re) => {
+  const m = text.match(new RegExp(
+    `${re.source}\\s+(?:\\w+\\s+){0,2}?(\\d+|${Object.keys(NUMBER_WORDS).join('|')})`, 'i'));
+  if (!m) return null;
+  return Number.isFinite(+m[1]) ? +m[1] : NUMBER_WORDS[m[1].toLowerCase()] ?? null;
+};
+
+/** Nudge a matched value further out or back toward the default. */
+function applyIntensity(text, idx, param, value) {
+  const f = FIELDS[param];
+  if (!f) return value;
+  const before = text.slice(Math.max(0, idx - 26), idx);
+  // Adjacent only: in "very tight twisty", "very" modifies "tight".
+  const adjacent = (re) => new RegExp(`(?:${re.source})\\s*$`).test(before);
+  if (adjacent(AMPLIFY)) {
+    const target = value >= f.def ? f.max : f.min;
+    return lerp(value, target, 0.6);
+  }
+  if (adjacent(DIMINISH)) return lerp(value, f.def, 0.5);
+  return value;
+}
+
+function parseSegment(text) {
+  const found = {};
+  const notes = [];
+  const kinds = [];
+
+  for (const [param, re, value] of RULES) {
+    const m = text.match(re);
+    if (!m) continue;
+    found[param] = applyIntensity(text, m.index, param, value);
+    notes.push(m[0].trim());
+  }
+
+  for (const [kind, re] of KIND_RULES) {
+    const m = text.match(re);
+    if (!m) continue;
+    kinds.push(kind);
+    notes.push(m[0].trim());
+  }
+  if (kinds.length) {
+    found.kinds = kinds;
+    // Naming an obstacle implies you want to meet some.
+    if (found.obstacles === undefined || found.obstacles < 0.3) {
+      found.obstacles = Math.max(found.obstacles ?? 0, 0.5);
+    }
+  }
+
+  // Seals, with a count if one is given ("sealed three times", "two bulkheads").
+  const sealM = text.match(SEAL_RE);
+  if (sealM) {
+    const n = numberAfter(text, SEAL_RE)
+      ?? numberBefore(text, /times?/)
+      ?? numberBefore(text, SEAL_RE)
+      ?? 1;
+    found.seals = clamp(Math.round(n), 1, FIELDS.seals.max);
+    notes.push(`${found.seals}x sealed`);
+  }
+
+  // Colour.
+  for (const [re, hue] of HUES) {
+    const m = text.match(re);
+    if (!m) continue;
+    found.hue = hue;
+    notes.push(m[0].trim());
+    break;
+  }
+
+  // Explicit magnitudes override the qualitative reads.
+  const units = text.match(/(\d{3,5})\s*(?:units?|long|metres?|meters?|m\b)/i);
+  if (units) { found.length = +units[1]; notes.push(`${units[1]} long`); }
+  const secs = text.match(/(\d{1,3})\s*(?:seconds?|secs?|s)\b/i);
+  if (secs && !units) { found.length = +secs[1] * 360; notes.push(`${secs[1]}s`); }
+  const wideN = text.match(/(\d{2,3})\s*(?:wide|across)/i);
+  if (wideN) { found.width = +wideN[1]; notes.push(`width ${wideN[1]}`); }
+  const deepN = text.match(/(\d{2,3})\s*deep/i);
+  if (deepN) { found.depth = +deepN[1]; notes.push(`depth ${deepN[1]}`); }
+
+  for (const [param, re] of [['turrets', /turrets?|batter(?:y|ies)|emplacements?/],
+    ['drones', /drones?|fighters?|interceptors?/],
+    ['wallguns', /wall ?guns?|gun ?ports?/]]) {
+    const n = numberBefore(text, new RegExp(re.source));
+    if (n !== null && n > 0) {
+      // A count is a rate hint: more named guns means a denser section.
+      found[param] = clamp(n / 8, 0.08, 1);
+      notes.push(`${n} ${param}`);
+    }
+  }
+
+  return { found, notes, recognized: notes.length };
+}
+
+/** Global directives that are not per-section. */
+function parseGlobals(text) {
+  const g = { notes: [] };
+
+  if (/\b(?:ludicrous|insane|blistering|breakneck|hypersonic|absurdly fast)\b/.test(text)) {
+    g.speed = { start: 400, end: 600 }; g.notes.push('ludicrous speed');
+  } else if (/\b(?:very fast|extremely fast|flat out|balls out|screaming)\b/.test(text)) {
+    g.speed = { start: 370, end: 540 }; g.notes.push('very fast');
+  } else if (/\bfast\b/.test(text)) {
+    g.speed = { start: 330, end: 470 }; g.notes.push('fast');
+  } else if (/\b(?:slow|gentle pace|relaxed|leisurely|sedate)\b/.test(text)) {
+    g.speed = { start: 200, end: 270 }; g.notes.push('slow');
+  }
+
+  if (/\b(?:no port|no boss|no target|no finale|just fly|free ?flight|endless)\b/.test(text)) {
+    g.finale = 'none'; g.notes.push('no finale');
+  } else if (/\b(?:exhaust port|reactor|thermal exhaust|vent|core|port|boss|target at the end|final target)\b/.test(text)) {
+    g.finale = 'port'; g.notes.push('port finale');
+  }
+
+  const named = text.match(/\b(?:called|named|titled)\s+["']?([\w '-]{2,32})["']?/i)
+    || text.match(/^["']([^"']{2,32})["']/);
+  if (named) { g.name = named[1].trim(); g.notes.push(`name "${g.name}"`); }
+
+  const seed = text.match(/\bseed\s*[:=]?\s*(\d{1,9})\b/i);
+  if (seed) { g.seed = +seed[1]; g.notes.push(`seed ${seed[1]}`); }
+
+  return g;
+}
+
+/**
+ * Compiles prose into a spec.
+ * Returns { spec, report } where report explains what was understood.
+ */
+function parseProse(prose) {
+  const text = String(prose || '').toLowerCase().replace(/\s+/g, ' ').trim();
+  const report = [];
+  if (!text) {
+    return { spec: normalizeSpec({ name: 'EMPTY RUN' }), report: ['nothing to read'] };
+  }
+
+  const globals = parseGlobals(text);
+
+  const rawSegments = text.split(SPLIT_RE).map((s) => (s || '').trim()).filter(Boolean);
+  const parsed = [];
+  for (const seg of rawSegments) {
+    const r = parseSegment(seg);
+    // A fragment that says nothing about shape is not a section. But keep it if
+    // it is the only thing we have.
+    if (r.recognized === 0 && seg.length < 24) continue;
+    parsed.push({ seg, ...r });
+  }
+  if (parsed.length === 0) parsed.push({ seg: text, ...parseSegment(text) });
+
+  // Carry values forward: "then tighter, then twisty" should keep the earlier
+  // depth and colour rather than snapping back to defaults.
+  const sections = [];
+  let carry = {};
+  parsed.forEach((p, i) => {
+    const merged = { ...carry, ...p.found };
+    // Seals and explicit lengths are per-section, never inherited.
+    delete carry.seals;
+    merged.name = `S${i + 1}`;
+    if (p.found.seals === undefined) delete merged.seals;
+    sections.push(merged);
+    carry = { ...merged };
+    delete carry.length;
+    delete carry.seals;
+    report.push(`${i + 1}. ${p.notes.length ? p.notes.join(', ') : 'default shape'}`);
+  });
+
+  // A stated progression with only one segment becomes a real arc.
+  const progresses = /\b(?:tighten(?:s|ing)?|narrow(?:s|ing)?|closes? in|gets? (?:tighter|narrower|worse|harder)|escalat|ramps? up|builds? up|deteriorat)\b/.test(text);
+  if (progresses && sections.length < 3) {
+    const base = sections[0];
+    const w0 = base.width ?? FIELDS.width.def;
+    // Spread the requested seals over the later sections; piling them all into
+    // the last one just loses the overflow to the compiler's spacing floor.
+    const totalSeals = base.seals ?? 0;
+    const share = [0, Math.floor(totalSeals / 3), totalSeals - Math.floor(totalSeals / 3)];
+    const out = [];
+    for (let i = 0; i < 3; i++) {
+      const k = i / 2;
+      out.push({
+        ...base,
+        name: `S${i + 1}`,
+        width: lerp(Math.max(w0, 78), 34, k),
+        obstacles: clamp((base.obstacles ?? 0.4) * (0.55 + k), 0, 1),
+        curviness: clamp((base.curviness ?? 0.4) * (0.7 + 0.6 * k), 0, 1),
+        seals: share[i],
+        length: (base.length ?? FIELDS.length.def),
+      });
+    }
+    sections.length = 0;
+    sections.push(...out);
+    report.push('progression detected: expanded into three tightening sections');
+  }
+
+  const spec = normalizeSpec({
+    name: globals.name || deriveName(text),
+    seed: globals.seed,
+    speed: globals.speed,
+    finale: globals.finale ?? 'port',
+    sections,
+  });
+
+  if (globals.notes.length) report.unshift(globals.notes.join(', '));
+  report.unshift(`${spec.sections.length} section${spec.sections.length === 1 ? '' : 's'}, ${Math.round(specTotal(spec))} units`);
+  return { spec, report };
+}
+
+const specTotal = (spec) => spec.sections.reduce((a, s) => a + s.length, 0);
+
+function deriveName(text) {
+  const words = text.replace(/[^a-z0-9 ]/g, ' ').split(/\s+/)
+    .filter((w) => w.length > 3 && !STOP.has(w));
+  return (words.slice(0, 3).join(' ') || 'untitled run').toUpperCase();
+}
+
+const STOP = new Set(['then', 'with', 'that', 'this', 'into', 'over', 'from', 'they',
+  'have', 'been', 'were', 'will', 'your', 'start', 'starts', 'after', 'some', 'very',
+  'lots', 'just', 'like', 'make', 'want', 'good', 'more', 'also', 'much', 'along',
+  'while', 'about', 'their', 'there', 'where', 'which', 'what', 'when']);
+
+// ---- track.js ------------------------------------------------------
+// Compiles a level spec into queryable canyon geometry.
+//
+// The centreline is C(t) = (X(t), Y(t), t): the world z axis doubles as the
+// track parameter, so every cross-section is a plane of constant t and terrain
+// slices, obstacle collision and the ship's position all share one coordinate.
+//
+// Curviness is applied to the centreline's *slope* rather than its position,
+// then clamped and smoothed before being integrated. That is what makes the
+// spec safe: a section can ask for maximum curviness and still produce a track
+// whose walls never fold back through the camera.
+//
+// Canyon-local coordinates are (x, y): x is lateral offset from the centreline,
+// y is height above the trench floor. The rim sits at y = rim(t).
+
+
+
+
+const GRID = 20;              // grid step for the precomputed profile
+const RUNOUT = 1100;       // extra track past the last section, for the finale
+const MAX_SLOPE_X = 0.55;
+const MAX_SLOPE_Y = 0.30;
+const BLEND = 260;         // transition length between sections
+
+function vnoise(t, wl, salt) {
+  const p = t / wl;
+  const i = Math.floor(p);
+  const f = p - i;
+  const a = hash2(i, salt) * 2 - 1;
+  const b = hash2(i + 1, salt) * 2 - 1;
+  return a + (b - a) * (f * f * (3 - 2 * f));
+}
+
+/** Catmull-Rom over a uniform grid, clamped at the ends. */
+function sample(arr, gi, f) {
+  const n = arr.length;
+  const i1 = clamp(gi, 0, n - 1);
+  const i0 = clamp(gi - 1, 0, n - 1);
+  const i2 = clamp(gi + 1, 0, n - 1);
+  const i3 = clamp(gi + 2, 0, n - 1);
+  const p0 = arr[i0], p1 = arr[i1], p2 = arr[i2], p3 = arr[i3];
+  const a = 0.5 * (p2 - p0);
+  const b = 2 * p0 - 5 * p1 + 4 * p2 - p3;
+  const c = -p0 + 3 * p1 - 3 * p2 + p3;
+  return p1 + f * a + f * f * 0.5 * b + f * f * f * 0.5 * c;
+}
+
+function smoothPass(arr, passes) {
+  const n = arr.length;
+  const tmp = new Float32Array(n);
+  for (let p = 0; p < passes; p++) {
+    for (let i = 0; i < n; i++) {
+      const a = arr[Math.max(0, i - 1)];
+      const b = arr[i];
+      const c = arr[Math.min(n - 1, i + 1)];
+      tmp[i] = (a + 2 * b + c) * 0.25;
+    }
+    arr.set(tmp);
+  }
+}
+
+function makeFrame() {
+  return { t: 0, p: [0, 0, 0], r: [1, 0, 0], u: [0, 1, 0], f: [0, 0, 1], railY: 56 };
+}
+
+class Track {
+  constructor(spec) {
+    this.spec = spec;
+    this.bodyLength = specLength(spec);
+    this.total = this.bodyLength + RUNOUT;
+    this.portT = spec.finale === 'port' ? this.bodyLength + 720 : -1;
+
+    // Section boundaries, so a t can be resolved back to authored intent.
+    this.bounds = [0];
+    for (const s of spec.sections) this.bounds.push(this.bounds[this.bounds.length - 1] + s.length);
+
+    const n = Math.ceil(this.total / GRID) + 4;
+    this.n = n;
+    const width = new Float32Array(n);
+    const depth = new Float32Array(n);
+    const rough = new Float32Array(n);
+    const hue = new Float32Array(n);
+    const curv = new Float32Array(n);
+    const hill = new Float32Array(n);
+
+    for (let i = 0; i < n; i++) {
+      const t = i * GRID;
+      const p = this.blendParams(t);
+      // A gentle breathing term keeps an authored constant width from reading
+      // as a corridor extruded by a machine.
+      width[i] = p.width * (1 + 0.11 * vnoise(t, 520, 11));
+      depth[i] = p.depth * (1 + 0.07 * vnoise(t, 900, 12));
+      rough[i] = p.roughness;
+      hue[i] = p.hue;
+      curv[i] = p.curviness;
+      hill[i] = p.hilliness;
+    }
+
+    // The finale choke: walls close in on the port regardless of what the last
+    // section asked for, so the missile shot always reads as threading a needle.
+    if (this.portT > 0) {
+      for (let i = 0; i < n; i++) {
+        const t = i * GRID;
+        const k = smoothstep(this.portT - 950, this.portT - 150, t);
+        if (k > 0) width[i] = lerp(width[i], 34, k);
+      }
+    }
+
+    smoothPass(width, 2);
+    smoothPass(depth, 2);
+
+    // Slope-first construction: noise -> scale by curviness -> clamp -> smooth
+    // -> integrate. Bounded turns by construction.
+    const sx = new Float32Array(n);
+    const sy = new Float32Array(n);
+    for (let i = 0; i < n; i++) {
+      const t = i * GRID;
+      const nx = 0.55 * vnoise(t, 1400, 1) + 0.3 * vnoise(t, 620, 2) + 0.15 * vnoise(t, 300, 3);
+      const ny = 0.6 * vnoise(t, 1700, 4) + 0.4 * vnoise(t, 700, 5);
+      sx[i] = clamp(curv[i] * nx * 1.35, -MAX_SLOPE_X, MAX_SLOPE_X);
+      sy[i] = clamp(hill[i] * ny * 0.9, -MAX_SLOPE_Y, MAX_SLOPE_Y);
+    }
+    smoothPass(sx, 3);
+    smoothPass(sy, 3);
+
+    const X = new Float32Array(n);
+    const Y = new Float32Array(n);
+    for (let i = 1; i < n; i++) {
+      X[i] = X[i - 1] + sx[i - 1] * GRID;
+      Y[i] = Y[i - 1] + sy[i - 1] * GRID;
+    }
+
+    this.W = width; this.D = depth; this.R = rough; this.H = hue;
+    this.X = X; this.Y = Y; this.SX = sx; this.SY = sy;
+    this._scratch = makeFrame();
+    this._scratch2 = makeFrame();
+  }
+
+  /**
+   * Section parameters at t, smoothly blended across boundaries so the canyon
+   * morphs between authored shapes instead of stepping.
+   */
+  blendParams(t) {
+    const secs = this.spec.sections;
+    let i = 0;
+    while (i < secs.length - 1 && t >= this.bounds[i + 1]) i++;
+    const cur = secs[i];
+    const start = this.bounds[i];
+    const end = this.bounds[i + 1];
+    const out = { ...cur };
+
+    const half = Math.min(BLEND, cur.length * 0.45);
+    if (i > 0 && t - start < half) {
+      const k = smoothstep(0, 1, (t - start) / half) * 0.5 + 0.5;
+      const prev = secs[i - 1];
+      for (const key of NUMERIC) out[key] = lerp(prev[key], cur[key], k);
+    } else if (i < secs.length - 1 && end - t < half) {
+      const k = smoothstep(0, 1, (end - t) / half) * 0.5 + 0.5;
+      const next = secs[i + 1];
+      for (const key of NUMERIC) out[key] = lerp(next[key], cur[key], k);
+    }
+    return out;
+  }
+
+  sectionIndexAt(t) {
+    let i = 0;
+    while (i < this.spec.sections.length - 1 && t >= this.bounds[i + 1]) i++;
+    return i;
+  }
+
+  sectionAt(t) {
+    return this.spec.sections[this.sectionIndexAt(t)];
+  }
+
+  _gi(t) {
+    const p = clamp(t / GRID, 0, this.n - 1);
+    const gi = Math.floor(p);
+    return [gi, p - gi];
+  }
+
+  x(t) { const [i, f] = this._gi(t); return sample(this.X, i, f); }
+  y(t) { const [i, f] = this._gi(t); return sample(this.Y, i, f); }
+  dx(t) { const [i, f] = this._gi(t); return sample(this.SX, i, f); }
+  dy(t) { const [i, f] = this._gi(t); return sample(this.SY, i, f); }
+  halfWidth(t) { const [i, f] = this._gi(t); return sample(this.W, i, f); }
+  rim(t) { const [i, f] = this._gi(t); return sample(this.D, i, f); }
+  rough(t) { const [i, f] = this._gi(t); return sample(this.R, i, f); }
+  hue(t) { const [i, f] = this._gi(t); return sample(this.H, i, f); }
+
+  /** Height of the rail itself: a little under half-way up the trench. */
+  railY(t) { return this.rim(t) * 0.46; }
+
+  /**
+   * How fast the ship travels at t.
+   *
+   * The run accelerates to the spec's end speed, then eases off on the final
+   * approach to the port. Without that easing the port is visible for about a
+   * second and a half and the lock takes one -- technically possible, and no
+   * fun. The slowdown is also the beat the whole level has been building to.
+   */
+  speedAt(t) {
+    const k = clamp(t / Math.max(1, this.bodyLength), 0, 1);
+    let v = lerp(this.spec.speed.start, this.spec.speed.end, k);
+    if (this.portT > 0) {
+      const ease = smoothstep(this.portT - 1050, this.portT - 250, t);
+      v *= 1 - 0.46 * ease;
+    }
+    return v;
+  }
+
+  /** Curvature signal, for banking the camera into turns. */
+  curveAt(t) { return (this.dx(t + 70) - this.dx(t - 70)) / 140; }
+
+  /** Fills an orthonormal frame at track position t. */
+  frameAt(t, fr) {
+    const dx = this.dx(t);
+    const dy = this.dy(t);
+    const L = Math.hypot(dx, dy, 1);
+    const fx = dx / L, fy = dy / L, fz = 1 / L;
+    fr.f[0] = fx; fr.f[1] = fy; fr.f[2] = fz;
+
+    // right = normalize(cross(worldUp, fwd)); has no y term, so lateral motion
+    // stays horizontal however the track pitches.
+    const rl = Math.hypot(fz, fx);
+    fr.r[0] = fz / rl; fr.r[1] = 0; fr.r[2] = -fx / rl;
+
+    // up = cross(fwd, right)
+    fr.u[0] = fy * fr.r[2] - fz * fr.r[1];
+    fr.u[1] = fz * fr.r[0] - fx * fr.r[2];
+    fr.u[2] = fx * fr.r[1] - fy * fr.r[0];
+
+    fr.t = t;
+    fr.p[0] = this.x(t);
+    fr.p[1] = this.y(t);
+    fr.p[2] = t;
+    fr.railY = this.railY(t);
+    return fr;
+  }
+
+  localToWorldF(fr, x, y, out) {
+    const h = y - fr.railY;
+    out[0] = fr.p[0] + fr.r[0] * x + fr.u[0] * h;
+    out[1] = fr.p[1] + fr.r[1] * x + fr.u[1] * h;
+    out[2] = fr.p[2] + fr.r[2] * x + fr.u[2] * h;
+    return out;
+  }
+
+  localToWorld(t, x, y, out) {
+    return this.localToWorldF(this.frameAt(t, this._scratch), x, y, out);
+  }
+
+  /**
+   * World -> canyon-local (t, x, y). Because the centreline's z *is* t, world z
+   * is already a good first guess; one refinement along the local forward axis
+   * is enough for collision work.
+   */
+  worldToLocal(wx, wy, wz, out) {
+    let t = wz;
+    const fr = this._scratch2;
+    for (let i = 0; i < 2; i++) {
+      this.frameAt(t, fr);
+      const dx = wx - fr.p[0], dy = wy - fr.p[1], dz = wz - fr.p[2];
+      t += dx * fr.f[0] + dy * fr.f[1] + dz * fr.f[2];
+    }
+    this.frameAt(t, fr);
+    const dx = wx - fr.p[0], dy = wy - fr.p[1], dz = wz - fr.p[2];
+    out[0] = t;
+    out[1] = dx * fr.r[0] + dy * fr.r[1] + dz * fr.r[2];
+    out[2] = dx * fr.u[0] + dy * fr.u[1] + dz * fr.u[2] + fr.railY;
+    return out;
+  }
+
+  /** Floor relief: small, but enough that the trench bottom is not a mirror. */
+  floorAt(t, x) {
+    const i = Math.floor(t / 240);
+    const f = t / 240 - i;
+    const a = hash2(i, 7) - 0.5;
+    const b = hash2(i + 1, 7) - 0.5;
+    return (a + (b - a) * (f * f * (3 - 2 * f))) * 9 + Math.sin(x * 0.05) * 1.5;
+  }
+}
+
+const NUMERIC = ['width', 'depth', 'curviness', 'hilliness', 'roughness', 'hue'];
+
+// ---- level.js ------------------------------------------------------
+// Realizes a spec into the things you actually collide with and shoot at.
+//
+// Densities in the spec are per-unit rates rather than counts, so a section can
+// be lengthened or shortened without re-tuning its feel. Seals are the one
+// authored-by-position element: each is a full bulkhead across the trench, and
+// each pulls extra surface batteries toward it, because a forced climb over the
+// rim is only interesting if the surface is defended.
+
+
+
+// Obstacles must not crowd a bulkhead's approach, but guns near one are the
+// point: they punish the climb the bulkhead forces. Hence two clearances.
+const OB_CLEARANCE = 260;
+const GUN_CLEARANCE = 150;
+const MIN_OB_GAP = 110;      // no unavoidable stacked pairs
+const SEAL_PITCH = 900;      // minimum track per seal in a section
+
+function obstacle(t, dz, kind, boxes, extra) {
+  return { t, dz, kind, boxes, hit: false, ...extra };
+}
+
+function enemy(kind, t, x, y, over) {
+  return {
+    kind, t, x, y,
+    hp: 3, maxHp: 3, alive: true, lockable: false, points: 150,
+    cool: 0.5, spin: 0, aim: 0, flash: 0,
+    ...over,
+  };
+}
+
+/** Spacing in track units for a 0..1 density, or Infinity when off. */
+const spacing = (density, base, gain) =>
+  density <= 0.001 ? Infinity : base / (0.12 + density * gain);
+
+function buildLevel(spec, track) {
+  const rand = rng(spec.seed);
+  const obstacles = [];
+  const enemies = [];
+  const drones = [];
+  const seals = [];
+
+  // Seals first: everything else is placed around them.
+  spec.sections.forEach((sec, si) => {
+    if (sec.seals <= 0) return;
+    const start = track.bounds[si];
+    const count = Math.max(1, Math.min(sec.seals, Math.floor(sec.length / SEAL_PITCH)));
+    for (let k = 0; k < count; k++) {
+      const t = start + (sec.length * (k + 0.5)) / count;
+      if (track.portT > 0 && t > track.portT - 1200) continue;
+      const hw = track.halfWidth(t);
+      const rim = track.rim(t);
+      obstacles.push(obstacle(t, 46, 'seal', [[-hw - 60, hw + 60, -30, rim - 1]]));
+      seals.push(t);
+      // Cover fire for the forced climb.
+      const n = 3 + Math.floor(rand() * 3);
+      for (let j = 0; j < n; j++) {
+        const side = j % 2 === 0 ? -1 : 1;
+        enemies.push(enemy('turret', t - 360 + j * 200 + rand() * 90,
+          side * (hw + 28 + rand() * 190), track.rim(t),
+          { hp: 3, maxHp: 3, lockable: true, points: 250, cool: 0.5 + rand() }));
+      }
+    }
+  });
+
+  const nearSeal = (t) => seals.some((s) => Math.abs(s - t) < OB_CLEARANCE);
+  const nearSealGun = (t) => seals.some((s) => Math.abs(s - t) < GUN_CLEARANCE);
+  const nearPort = (t) => track.portT > 0 && t > track.portT - 620;
+
+  // Per-section placement.
+  spec.sections.forEach((sec, si) => {
+    const start = track.bounds[si];
+    const end = track.bounds[si + 1];
+
+    // Trench obstacles.
+    const og = spacing(sec.obstacles, 1000, 6.2);
+    let lastOb = -Infinity;
+    for (let t = start + og * rand(); t < end; t += og * (0.72 + rand() * 0.56)) {
+      if (nearSeal(t) || nearPort(t)) continue;
+      if (t - lastOb < MIN_OB_GAP) continue;
+      lastOb = t;
+      const hw = track.halfWidth(t);
+      const rim = track.rim(t);
+      const kind = sec.kinds[Math.floor(rand() * sec.kinds.length) % sec.kinds.length];
+
+      if (kind === 'pylon') {
+        const boxes = [];
+        const n = 1 + Math.floor(rand() * 2.4);
+        for (let i = 0; i < n; i++) {
+          const w = 11 + rand() * 15;
+          const cx = -hw + 18 + rand() * (hw * 2 - 36);
+          boxes.push([cx - w, cx + w, -12, 38 + rand() * (rim - 48)]);
+        }
+        obstacles.push(obstacle(t, 22 + rand() * 18, 'pylon', boxes));
+      } else if (kind === 'fang') {
+        const boxes = [];
+        const n = 1 + Math.floor(rand() * 2.4);
+        for (let i = 0; i < n; i++) {
+          const w = 11 + rand() * 16;
+          const cx = -hw + 18 + rand() * (hw * 2 - 36);
+          boxes.push([cx - w, cx + w, 26 + rand() * (rim * 0.45), rim + 14]);
+        }
+        obstacles.push(obstacle(t, 22 + rand() * 18, 'fang', boxes));
+      } else if (kind === 'gate') {
+        const gw = clamp(24 + rand() * 16, 20, hw - 10);
+        const gh = 32 + rand() * 20;
+        const gx = (rand() * 2 - 1) * Math.max(0, hw - gw - 8);
+        const gy = 14 + rand() * Math.max(8, rim - gh - 28);
+        obstacles.push(obstacle(t, 16, 'gate', [
+          [-hw - 30, gx - gw, -30, rim + 14],
+          [gx + gw, hw + 30, -30, rim + 14],
+          [gx - gw, gx + gw, gy + gh, rim + 14],
+          [gx - gw, gx + gw, -30, gy],
+        ], { window: { gx, gy, gw, gh } }));
+      } else if (kind === 'ring') {
+        const r = clamp(28 + rand() * 12, 22, hw - 12);
+        const cx = (rand() * 2 - 1) * Math.max(0, hw - r - 12);
+        const cy = clamp(30 + rand() * 46, r + 4, rim - r - 4);
+        obstacles.push(obstacle(t, 14, 'ring', [
+          [-hw - 30, cx - r, -30, rim + 14],
+          [cx + r, hw + 30, -30, rim + 14],
+          [cx - r, cx + r, cy + r, rim + 14],
+          [cx - r, cx + r, -30, cy - r],
+        ], { ring: { cx, cy, r } }));
+      } else {
+        // Staggered slabs: two half-blocks in quick succession, alternating.
+        const low = rand() < 0.5;
+        const mid = rim * 0.45;
+        obstacles.push(obstacle(t, 18, 'stack',
+          [low ? [-hw - 30, 5, -30, mid] : [-hw - 30, 5, mid, rim + 14]]));
+        const t2 = t + 95;
+        lastOb = t2;
+        if (!nearSeal(t2) && !nearPort(t2)) {
+          obstacles.push(obstacle(t2, 18, 'stack',
+            [low ? [-5, hw + 30, mid, rim + 14] : [-5, hw + 30, -30, mid]]));
+        }
+      }
+    }
+
+    // Surface batteries.
+    const tg = spacing(sec.turrets, 1200, 4.2);
+    for (let t = start + tg * rand(); t < end; t += tg * (0.7 + rand() * 0.6)) {
+      if (nearPort(t)) continue;
+      const hw = track.halfWidth(t);
+      enemies.push(enemy('turret', t, (rand() < 0.5 ? -1 : 1) * (hw + 24 + rand() * 200),
+        track.rim(t), { hp: 3, maxHp: 3, lockable: true, points: 250, cool: 0.6 + rand() }));
+    }
+
+    // Wall guns inside the trench.
+    const wg = spacing(sec.wallguns, 1400, 6.5);
+    for (let t = start + wg * rand(); t < end; t += wg * (0.7 + rand() * 0.6)) {
+      if (nearSealGun(t) || nearPort(t)) continue;
+      const hw = track.halfWidth(t);
+      const rim = track.rim(t);
+      enemies.push(enemy('wallgun', t, (rand() < 0.5 ? -1 : 1) * (hw - 4),
+        22 + rand() * (rim - 40),
+        { hp: 2, maxHp: 2, points: 120, cool: 1 + rand() * 1.4 }));
+    }
+
+    // Drone waves.
+    const dg = spacing(sec.drones, 1600, 2.6);
+    for (let t = start + dg * rand(); t < end; t += dg * (0.7 + rand() * 0.6)) {
+      if (nearPort(t)) continue;
+      drones.push({ t, n: 1 + Math.floor(rand() * 3), spawned: false });
+    }
+  });
+
+  // Two heavy emplacements ahead of the port, to teach the lock before it counts.
+  if (track.portT > 0) {
+    for (const off of [1750, 1050]) {
+      const t = track.portT - off;
+      if (t < 400) continue;
+      const hw = track.halfWidth(t);
+      const side = off === 1750 ? -1 : 1;
+      enemies.push(enemy('emplacement', t, side * (hw - 14), track.rim(t) * 0.5,
+        { hp: 14, maxHp: 14, lockable: true, points: 900, cool: 1.2 }));
+    }
+  }
+
+  const port = track.portT > 0
+    ? enemy('port', track.portT, 0, track.rim(track.portT) * 0.44,
+      { hp: 1, maxHp: 1, lockable: true, points: 5000, iris: 0 })
+    : null;
+
+  obstacles.sort((a, b) => a.t - b.t);
+  enemies.sort((a, b) => a.t - b.t);
+  drones.sort((a, b) => a.t - b.t);
+  return { obstacles, enemies, drones, port, seals };
+}
+
+// ---- terrain.js ----------------------------------------------------
+// Draws the canyon.
+//
+// The trench is emitted as a ladder of cross-sections: every slice caches the
+// world position of a fixed set of canyon-local "tracks" (floor edges, wall
+// bands, rim lips, surface plating), and consecutive slices are joined by
+// longitudinal lines. That single cache is what keeps the whole canyon inside a
+// few thousand segments -- cheap enough to run flat out on a phone.
+
+
+
+const SLICE = 14;          // track units between cross-sections
+const DRAW = 1180;         // draw distance
+const BEHIND = 60;
+const NTRACK = 15;
+const STARS = 150;
+
+// Canyon-local track layout, resolved per slice against that slice's hw/rim.
+// [lateral sign, lateral offset, height fraction of rim, height offset]
+const TRACKS = [
+  [-1, 0, 0, 0],       // 0  floor left
+  [1, 0, 0, 0],        // 1  floor right
+  [-1, 0, 0.34, 0],    // 2  wall band low, left
+  [1, 0, 0.34, 0],     // 3
+  [-1, 0, 0.68, 0],    // 4  wall band high, left
+  [1, 0, 0.68, 0],     // 5
+  [-1, 0, 1, 0],       // 6  rim lip left
+  [1, 0, 1, 0],        // 7
+  [-1, 70, 1, 0],      // 8  surface plating
+  [1, 70, 1, 0],       // 9
+  [-1, 185, 1, 0],     // 10
+  [1, 185, 1, 0],      // 11
+  [-1, 355, 1, 0],     // 12
+  [1, 355, 1, 0],      // 13
+  [0, 0, 0, 0],        // 14 floor centreline (chevron strip)
+];
+
+class TerrainRenderer {
+  constructor(track) {
+    this.track = track;
+    this.frames = [];
+    this.pts = new Float32Array(0);
+    this.meta = [];
+    this.stars = new Float32Array(STARS * 3);
+    for (let i = 0; i < STARS; i++) {
+      // Deterministic points on a hemisphere, biased upward so they read as sky.
+      const u = hash2(i, 101) * 2 - 1;
+      const a = hash2(i, 102) * Math.PI * 2;
+      const r = Math.sqrt(Math.max(0, 1 - u * u));
+      this.stars[i * 3] = r * Math.cos(a);
+      this.stars[i * 3 + 1] = Math.abs(u) * 0.9 + 0.1;
+      this.stars[i * 3 + 2] = r * Math.sin(a);
+    }
+    this.c = { wall: [0, 0, 0], band: [0, 0, 0], rim: [0, 0, 0], floor: [0, 0, 0], deck: [0, 0, 0] };
+  }
+
+  /** Palette for a slice, derived from the section's authored hue. */
+  palette(h, alarm) {
+    const c = this.c;
+    hsv(h, 0.78, 0.40, c.wall);
+    hsv(h, 0.62, 0.62, c.band);
+    hsv(h, 0.30, 1.00, c.rim);
+    hsv(h + 0.02, 0.82, 0.34, c.floor);
+    // The surface deck flushes hostile while you are exposed on top of it.
+    hsv(h - 0.05 + alarm * -0.1, 0.55 + alarm * 0.4, 0.46 + alarm * 0.5, c.deck);
+    return c;
+  }
+
+  draw(rd, camT, exposed, time, deckAlpha = 1) {
+    const tr = this.track;
+    const i0 = Math.floor((camT - BEHIND) / SLICE);
+    const i1 = Math.ceil((camT + DRAW) / SLICE);
+    const n = i1 - i0 + 1;
+
+    if (this.pts.length < n * NTRACK * 3) this.pts = new Float32Array(n * NTRACK * 3);
+    while (this.frames.length < n) this.frames.push({ t: 0, p: [0, 0, 0], r: [1, 0, 0], u: [0, 1, 0], f: [0, 0, 1], railY: 0 });
+    while (this.meta.length < n) this.meta.push({ hw: 0, rim: 0, rough: 0, hue: 0 });
+
+    const alarm = exposed ? 0.5 + 0.5 * Math.sin(time * 11) : 0;
+    const out = [0, 0, 0];
+
+    // Pass 1: resolve every slice's tracks into world space.
+    for (let k = 0; k < n; k++) {
+      const t = (i0 + k) * SLICE;
+      const fr = tr.frameAt(t, this.frames[k]);
+      const hw = tr.halfWidth(t);
+      const rim = tr.rim(t);
+      const m = this.meta[k];
+      m.hw = hw; m.rim = rim; m.rough = tr.rough(t); m.hue = tr.hue(t);
+
+      const base = k * NTRACK * 3;
+      for (let j = 0; j < NTRACK; j++) {
+        const [sgn, off, hf, hoff] = TRACKS[j];
+        const x = sgn * (hw + off);
+        let y = rim * hf + hoff;
+        if (hf === 0) y += tr.floorAt(t, x);
+        tr.localToWorldF(fr, x, y, out);
+        this.pts[base + j * 3] = out[0];
+        this.pts[base + j * 3 + 1] = out[1];
+        this.pts[base + j * 3 + 2] = out[2];
+      }
+    }
+
+    this.drawStars(rd);
+
+    // Pass 2: join consecutive slices, and add per-slice detail.
+    const P = this.pts;
+    for (let k = 0; k < n - 1; k++) {
+      const a = k * NTRACK * 3;
+      const b = (k + 1) * NTRACK * 3;
+      const m = this.meta[k];
+      const c = this.palette(m.hue, alarm);
+      const gi = i0 + k;
+
+      // Longitudinal rails. The rim lips are brightest because they are the
+      // line the player is judging their altitude against.
+      this.rail(rd, P, a, b, 0, c.floor, 1.0);
+      this.rail(rd, P, a, b, 1, c.floor, 1.0);
+      this.rail(rd, P, a, b, 2, c.wall, 0.9);
+      this.rail(rd, P, a, b, 3, c.wall, 0.9);
+      this.rail(rd, P, a, b, 4, c.band, 1.0);
+      this.rail(rd, P, a, b, 5, c.band, 1.0);
+      this.rail(rd, P, a, b, 6, c.rim, 1.45);
+      this.rail(rd, P, a, b, 7, c.rim, 1.45);
+      for (let j = 8; j <= 13; j++) this.rail(rd, P, a, b, j, c.deck, 0.85, deckAlpha);
+
+      // Cross ties on the floor.
+      if (gi % 2 === 0) {
+        rd.line3(P[a], P[a + 1], P[a + 2], P[a + 3], P[a + 4], P[a + 5],
+          0.9, c.floor[0], c.floor[1], c.floor[2], 0.75);
+      }
+
+      // Wall ribs, floor to rim.
+      if (gi % 3 === 0) {
+        rd.line3(P[a], P[a + 1], P[a + 2], P[a + 18], P[a + 19], P[a + 20],
+          0.85, c.wall[0], c.wall[1], c.wall[2], 0.85);
+        rd.line3(P[a + 3], P[a + 4], P[a + 5], P[a + 21], P[a + 22], P[a + 23],
+          0.85, c.wall[0], c.wall[1], c.wall[2], 0.85);
+      }
+
+      // Surface deck cross-plating, outward from each rim lip.
+      if (gi % 4 === 0) {
+        rd.line3(P[a + 18], P[a + 19], P[a + 20], P[a + 36], P[a + 37], P[a + 38],
+          0.8, c.deck[0], c.deck[1], c.deck[2], 0.8 * deckAlpha);
+        rd.line3(P[a + 21], P[a + 22], P[a + 23], P[a + 39], P[a + 40], P[a + 41],
+          0.8, c.deck[0], c.deck[1], c.deck[2], 0.8 * deckAlpha);
+      }
+
+      if (m.rough > 0.05) this.greeble(rd, gi, m, this.frames[k], c);
+      if (m.rough > 0.25 && gi % 5 === 0 && deckAlpha > 0.12) {
+        this.tower(rd, gi, m, this.frames[k], c, deckAlpha);
+      }
+    }
+
+    this.chevrons(rd, camT, i0 * SLICE, (i1) * SLICE);
+  }
+
+  rail(rd, P, a, b, j, col, w, a1 = 1) {
+    const o = j * 3;
+    rd.line3(P[a + o], P[a + o + 1], P[a + o + 2], P[b + o], P[b + o + 1], P[b + o + 2],
+      w, col[0], col[1], col[2], a1);
+  }
+
+  /** Panel detail on the wall faces. Cheap, hash-driven, stable frame to frame. */
+  greeble(rd, gi, m, fr, c) {
+    const tr = this.track;
+    const count = m.rough > 0.6 ? 2 : 1;
+    const p0 = [0, 0, 0], p1 = [0, 0, 0], p2 = [0, 0, 0], p3 = [0, 0, 0];
+    for (let s = 0; s < 2; s++) {
+      const sgn = s === 0 ? -1 : 1;
+      for (let i = 0; i < count; i++) {
+        const h = hash2(gi * 7 + i, s * 31 + 5);
+        if (h > m.rough) continue;
+        const y0 = 8 + hash2(gi + i, s + 17) * (m.rim - 30);
+        const hh = 6 + hash2(gi + i, s + 23) * 16;
+        const dz = 5 + hash2(gi + i, s + 29) * 7;
+        const x = sgn * (m.hw - 1);
+        const t = fr.t;
+        tr.localToWorld(t, x, y0, p0);
+        tr.localToWorld(t, x, y0 + hh, p1);
+        tr.localToWorld(t + dz, x, y0 + hh, p2);
+        tr.localToWorld(t + dz, x, y0, p3);
+        const a = 0.7;
+        rd.line3(p0[0], p0[1], p0[2], p1[0], p1[1], p1[2], 0.7, c.band[0], c.band[1], c.band[2], a);
+        rd.line3(p1[0], p1[1], p1[2], p2[0], p2[1], p2[2], 0.7, c.band[0], c.band[1], c.band[2], a);
+        rd.line3(p2[0], p2[1], p2[2], p3[0], p3[1], p3[2], 0.7, c.band[0], c.band[1], c.band[2], a);
+        rd.line3(p3[0], p3[1], p3[2], p0[0], p0[1], p0[2], 0.7, c.band[0], c.band[1], c.band[2], a);
+      }
+    }
+  }
+
+  /** Spires on the surface deck: the reason being up top feels like a place. */
+  tower(rd, gi, m, fr, c, alpha = 1) {
+    const tr = this.track;
+    const h = hash2(gi, 71);
+    if (h > 0.35) return;
+    const sgn = hash2(gi, 72) < 0.5 ? -1 : 1;
+    const x = sgn * (m.hw + 130 + hash2(gi, 73) * 260);
+    const height = 60 + hash2(gi, 74) * 190;
+    const w = 9 + hash2(gi, 75) * 13;
+    const t = fr.t;
+    const a = [0, 0, 0], b = [0, 0, 0];
+    for (const dx of [-w, w]) {
+      tr.localToWorld(t, x + dx, m.rim, a);
+      tr.localToWorld(t, x + dx, m.rim + height, b);
+      rd.line3(a[0], a[1], a[2], b[0], b[1], b[2], 0.9,
+        c.deck[0], c.deck[1], c.deck[2], 0.95 * alpha);
+    }
+    tr.localToWorld(t, x - w, m.rim + height, a);
+    tr.localToWorld(t, x + w, m.rim + height, b);
+    rd.line3(a[0], a[1], a[2], b[0], b[1], b[2], 0.9,
+      c.deck[0], c.deck[1], c.deck[2], 0.95 * alpha);
+    // A blinking hazard lamp on top.
+    if (hash2(gi, 76) < 0.45) {
+      tr.localToWorld(t, x, m.rim + height + 6, a);
+      rd.dot3(a[0], a[1], a[2], 2.2, 1, 0.35, 0.2, 0.9 * alpha);
+    }
+  }
+
+  /** Amber chevrons streaming down the trench floor: the speed cue. */
+  chevrons(rd, camT, tStart, tEnd) {
+    const tr = this.track;
+    const STEP = 64;
+    const a = [0, 0, 0], b = [0, 0, 0], c = [0, 0, 0];
+    let t = Math.ceil(tStart / STEP) * STEP;
+    for (; t < tEnd; t += STEP) {
+      const fade = smoothstep(0, 120, t - camT);
+      if (fade <= 0) continue;
+      tr.localToWorld(t, -20, tr.floorAt(t, -20), a);
+      tr.localToWorld(t + 30, 0, tr.floorAt(t + 30, 0), b);
+      tr.localToWorld(t, 20, tr.floorAt(t, 20), c);
+      rd.line3(a[0], a[1], a[2], b[0], b[1], b[2], 1.2, 1, 0.55, 0.12, fade * 0.8);
+      rd.line3(b[0], b[1], b[2], c[0], c[1], c[2], 1.2, 1, 0.55, 0.12, fade * 0.8);
+    }
+  }
+
+  /**
+   * Stars, projected straight from direction. They bypass the depth pipeline
+   * because a star has no distance -- it is a bearing.
+   */
+  drawStars(rd) {
+    const S = this.stars;
+    for (let i = 0; i < STARS; i++) {
+      const dx = S[i * 3], dy = S[i * 3 + 1], dz = S[i * 3 + 2];
+      const vz = dx * rd.fx + dy * rd.fy + dz * rd.fz;
+      if (vz < 0.08) continue;
+      const vx = dx * rd.rx + dy * rd.ry + dz * rd.rz;
+      const vy = dx * rd.ux + dy * rd.uy + dz * rd.uz;
+      const k = rd.focal / vz;
+      const sx = rd.cx + vx * k;
+      const sy = rd.cy - vy * k;
+      const b = 0.3 + hash2(i, 55) * 0.7;
+      rd.line2(sx, sy, sx, sy, 0.8 + b * 0.7, 0.75, 0.85, 1, b * 0.5, b * 0.5);
+    }
+  }
+}
+
+const CANYON = { SLICE, DRAW };
+
+// ---- entities.js ---------------------------------------------------
+// Everything that is not terrain: the ship, the obstacles, the guns, the shots
+// and the debris.
+//
+// Enemy fire and player fire both live in world space, because that is the only
+// frame where a shot fired at an angle across a bending trench travels straight.
+// Collision with the canyon converts back to canyon-local via Track.worldToLocal.
+
+
+
+// --- ship ---------------------------------------------------------------
+
+// Polylines in ship-local space: x right, y up, z forward.
+// Seen from behind at maybe fifty pixels tall, so it is drawn as a silhouette
+// rather than a model: a hull outline, the wings, the cannons, two fins. The
+// earlier version had a second fuselage shell and a canopy, and at this size
+// they only added overlapping strokes that read as noise.
+const SHIP = [
+  // hull
+  [0, 0, 15, -2.6, 1.4, 2, -2.6, 1.4, -9, 2.6, 1.4, -9, 2.6, 1.4, 2, 0, 0, 15],
+  [-2.6, 1.4, 2, -2.2, -1.2, -1, -2.2, -1.2, -9, -2.6, 1.4, -9],
+  [2.6, 1.4, 2, 2.2, -1.2, -1, 2.2, -1.2, -9, 2.6, 1.4, -9],
+  // wings, swept back
+  [-2.6, 0.6, 1, -15, -1.4, -5, -12.5, -1.4, -10, -2.6, 0.6, -9],
+  [2.6, 0.6, 1, 15, -1.4, -5, 12.5, -1.4, -10, 2.6, 0.6, -9],
+  // wingtip cannons
+  [-15, -1.4, -5, -14.4, -1.4, 6], [15, -1.4, -5, 14.4, -1.4, 6],
+  // fins
+  [-2.4, 1.4, -8, -4.6, 8.5, -10, -2, 8.5, -10],
+  [2.4, 1.4, -8, 4.6, 8.5, -10, 2, 8.5, -10],
+];
+
+const MUZZLES = [[-14.4, -1.4, 6], [14.4, -1.4, 6]];
+
+/**
+ * Builds the ship's orientation basis: the rail frame rolled by `bank` and
+ * pitched by `pitch`. Written into `basis` as [r, u, f] triples.
+ */
+function shipBasis(fr, bank, pitch, basis) {
+  const cb = Math.cos(bank), sb = Math.sin(bank);
+  const cp = Math.cos(pitch), sp = Math.sin(pitch);
+  const r = basis.r, u = basis.u, f = basis.f;
+  for (let i = 0; i < 3; i++) {
+    r[i] = fr.r[i] * cb + fr.u[i] * sb;
+    u[i] = -fr.r[i] * sb + fr.u[i] * cb;
+  }
+  for (let i = 0; i < 3; i++) {
+    const fi = fr.f[i] * cp + u[i] * sp;
+    const ui = -fr.f[i] * sp + u[i] * cp;
+    f[i] = fi; u[i] = ui;
+  }
+  return basis;
+}
+
+function shipLocalToWorld(pos, basis, lx, ly, lz, out) {
+  out[0] = pos[0] + basis.r[0] * lx + basis.u[0] * ly + basis.f[0] * lz;
+  out[1] = pos[1] + basis.r[1] * lx + basis.u[1] * ly + basis.f[1] * lz;
+  out[2] = pos[2] + basis.r[2] * lx + basis.u[2] * ly + basis.f[2] * lz;
+  return out;
+}
+
+const _a = [0, 0, 0], _b = [0, 0, 0];
+
+function drawShip(rd, pos, basis, thrust, time, hurt) {
+  const r = 0.35 + hurt * 0.65;
+  const g = 0.95 - hurt * 0.55;
+  const b = 1 - hurt * 0.5;
+  for (const pl of SHIP) {
+    for (let i = 0; i + 5 < pl.length; i += 3) {
+      shipLocalToWorld(pos, basis, pl[i], pl[i + 1], pl[i + 2], _a);
+      shipLocalToWorld(pos, basis, pl[i + 3], pl[i + 4], pl[i + 5], _b);
+      rd.line3(_a[0], _a[1], _a[2], _b[0], _b[1], _b[2], 1.25, r, g, b, 1);
+    }
+  }
+  // Engine flare: length tracks throttle, flicker keeps it alive.
+  const flick = 0.75 + 0.25 * Math.sin(time * 47) + 0.15 * hash2((time * 60) | 0, 3);
+  const len = (10 + thrust * 22) * flick;
+  for (const sx of [-3, 3]) {
+    shipLocalToWorld(pos, basis, sx, 0, -9, _a);
+    shipLocalToWorld(pos, basis, sx, 0, -9 - len, _b);
+    rd.line3(_a[0], _a[1], _a[2], _b[0], _b[1], _b[2], 2, 0.4, 0.72, 1, 0.7);
+    rd.dot3(_a[0], _a[1], _a[2], 2.8, 0.75, 0.92, 1, 0.95);
+  }
+}
+
+// --- obstacles ----------------------------------------------------------
+
+const OB_COL = {
+  pylon: [1, 0.45, 0.14], fang: [1, 0.38, 0.2], gate: [1, 0.52, 0.16],
+  ring: [0.4, 0.95, 1], stack: [1, 0.48, 0.15], seal: [1, 0.22, 0.16],
+};
+
+function box(rd, track, t, dz, x0, x1, y0, y1, col, w, a) {
+  const p = _obp;
+  // Front and back rectangles plus the four connecting edges.
+  for (const [tt, idx] of [[t, 0], [t + dz, 4]]) {
+    track.localToWorld(tt, x0, y0, p[idx]);
+    track.localToWorld(tt, x1, y0, p[idx + 1]);
+    track.localToWorld(tt, x1, y1, p[idx + 2]);
+    track.localToWorld(tt, x0, y1, p[idx + 3]);
+  }
+  for (const o of [0, 4]) {
+    for (let i = 0; i < 4; i++) {
+      const A = p[o + i], B = p[o + ((i + 1) & 3)];
+      rd.line3(A[0], A[1], A[2], B[0], B[1], B[2], w, col[0], col[1], col[2], a);
+    }
+  }
+  for (let i = 0; i < 4; i++) {
+    const A = p[i], B = p[4 + i];
+    rd.line3(A[0], A[1], A[2], B[0], B[1], B[2], w * 0.8, col[0], col[1], col[2], a * 0.8);
+  }
+}
+const _obp = Array.from({ length: 8 }, () => [0, 0, 0]);
+
+function drawObstacles(rd, track, obstacles, cursor, camT, far, time) {
+  const p = [0, 0, 0], q = [0, 0, 0];
+  for (let i = cursor; i < obstacles.length; i++) {
+    const ob = obstacles[i];
+    if (ob.t > camT + far) break;
+    if (ob.t + ob.dz < camT - 40) continue;
+    const col = OB_COL[ob.kind] || OB_COL.pylon;
+
+    if (ob.kind === 'seal') {
+      const [x0, x1, y0, y1] = ob.boxes[0];
+      box(rd, track, ob.t, ob.dz, x0, x1, y0, y1, col, 1.5, 1);
+      // Panel grid, so a bulkhead reads as built rather than as a hole.
+      for (let k = 1; k < 6; k++) {
+        const x = x0 + ((x1 - x0) * k) / 6;
+        track.localToWorld(ob.t, x, y0, p);
+        track.localToWorld(ob.t, x, y1, q);
+        rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], 0.9, col[0], col[1], col[2], 0.55);
+      }
+      for (let k = 1; k < 4; k++) {
+        const y = y0 + ((y1 - y0) * k) / 4;
+        track.localToWorld(ob.t, x0, y, p);
+        track.localToWorld(ob.t, x1, y, q);
+        rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], 0.9, col[0], col[1], col[2], 0.55);
+      }
+      // Hazard flashers along the lip: the "go up" instruction.
+      const blink = 0.45 + 0.55 * Math.sin(time * 8);
+      for (let k = 0; k <= 8; k++) {
+        const x = x0 + ((x1 - x0) * k) / 8;
+        track.localToWorld(ob.t, x, y1, p);
+        rd.dot3(p[0], p[1], p[2], 2.6, 1, 0.75, 0.2, blink);
+      }
+      continue;
+    }
+
+    if (ob.kind === 'ring' && ob.ring) {
+      const { cx, cy, r } = ob.ring;
+      // Aperture: an octagon at both ends, plus a bright inner lip.
+      for (const tt of [ob.t, ob.t + ob.dz]) {
+        for (let k = 0; k < 8; k++) {
+          const a0 = (k / 8) * TAU, a1 = ((k + 1) / 8) * TAU;
+          track.localToWorld(tt, cx + Math.cos(a0) * r, cy + Math.sin(a0) * r, p);
+          track.localToWorld(tt, cx + Math.cos(a1) * r, cy + Math.sin(a1) * r, q);
+          rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], 1.4, col[0], col[1], col[2], 1);
+        }
+      }
+      for (let k = 0; k < 8; k++) {
+        const a0 = (k / 8) * TAU;
+        const px = cx + Math.cos(a0) * r, py = cy + Math.sin(a0) * r;
+        track.localToWorld(ob.t, px, py, p);
+        track.localToWorld(ob.t + ob.dz, px, py, q);
+        rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], 1, col[0], col[1], col[2], 0.7);
+        // Radial struts out to the surrounding rock.
+        const ex = cx + Math.cos(a0) * (r + 22), ey = cy + Math.sin(a0) * (r + 22);
+        track.localToWorld(ob.t, ex, ey, q);
+        rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], 0.8, 1, 0.5, 0.2, 0.55);
+      }
+      continue;
+    }
+
+    if (ob.kind === 'gate' && ob.window) {
+      const { gx, gy, gw, gh } = ob.window;
+      // Draw the window, not the blocks: the gap is the information.
+      box(rd, track, ob.t, ob.dz, gx - gw, gx + gw, gy, gy + gh, [0.4, 1, 0.95], 1.6, 1);
+      const hw = track.halfWidth(ob.t);
+      const rim = track.rim(ob.t);
+      for (const [ax0, ax1] of [[-hw, gx - gw], [gx + gw, hw]]) {
+        box(rd, track, ob.t, ob.dz * 0.7, ax0, ax1, 0, rim, col, 1.1, 0.85);
+      }
+      box(rd, track, ob.t, ob.dz * 0.7, gx - gw, gx + gw, gy + gh, rim, col, 1.1, 0.85);
+      box(rd, track, ob.t, ob.dz * 0.7, gx - gw, gx + gw, 0, gy, col, 1.1, 0.85);
+      continue;
+    }
+
+    for (const [x0, x1, y0, y1] of ob.boxes) {
+      box(rd, track, ob.t, ob.dz, x0, x1, y0, y1, col, 1.2, 1);
+    }
+  }
+}
+
+// --- enemies ------------------------------------------------------------
+
+function drawEnemies(rd, track, enemies, camT, far, time) {
+  const p = [0, 0, 0], q = [0, 0, 0];
+  const col = [0, 0, 0];
+  for (const e of enemies) {
+    if (!e.alive) continue;
+    if (e.t > camT + far || e.t < camT - 60) continue;
+    const hurt = 1 - e.hp / e.maxHp;
+    const flash = e.flash > 0 ? 1 : 0;
+    hsv(0.02 + hurt * 0.02, 0.85 - flash * 0.85, 1, col);
+
+    if (e.kind === 'turret' || e.kind === 'emplacement') {
+      const R = e.kind === 'emplacement' ? 17 : 9;
+      const n = e.kind === 'emplacement' ? 8 : 6;
+      for (let k = 0; k < n; k++) {
+        const a0 = (k / n) * TAU + e.spin, a1 = ((k + 1) / n) * TAU + e.spin;
+        track.localToWorld(e.t + Math.sin(a0) * R * 0.6, e.x + Math.cos(a0) * R, e.y, p);
+        track.localToWorld(e.t + Math.sin(a1) * R * 0.6, e.x + Math.cos(a1) * R, e.y, q);
+        rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], 1.2, col[0], col[1], col[2], 1);
+      }
+      // Barrel, swung toward the aim angle it last computed.
+      track.localToWorld(e.t, e.x, e.y + R * 0.4, p);
+      track.localToWorld(e.t + Math.cos(e.aim) * R * 1.1,
+        e.x + Math.sin(e.aim) * R * 1.1, e.y + R * 1.3, q);
+      rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], 1.6, col[0], col[1], col[2], 1);
+      rd.dot3(q[0], q[1], q[2], 2, 1, 0.8, 0.4, 0.8 + 0.2 * Math.sin(time * 9));
+    } else if (e.kind === 'wallgun') {
+      const sgn = e.x < 0 ? 1 : -1;
+      track.localToWorld(e.t - 7, e.x, e.y - 6, p);
+      track.localToWorld(e.t + 7, e.x, e.y - 6, q);
+      rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], 1.1, col[0], col[1], col[2], 1);
+      track.localToWorld(e.t, e.x, e.y + 8, q);
+      rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], 1.1, col[0], col[1], col[2], 1);
+      track.localToWorld(e.t + 7, e.x, e.y - 6, p);
+      rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], 1.1, col[0], col[1], col[2], 1);
+      track.localToWorld(e.t, e.x, e.y, p);
+      track.localToWorld(e.t + 4, e.x + sgn * 11, e.y, q);
+      rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], 1.5, col[0], col[1], col[2], 1);
+    } else if (e.kind === 'port') {
+      drawPort(rd, track, e, time);
+    } else if (e.kind === 'drone') {
+      drawDrone(rd, track, e, col, time);
+    }
+  }
+}
+
+/** The finale: a recessed exhaust vent. Concentric rings and a live core. */
+function drawPort(rd, track, e, time) {
+  const p = [0, 0, 0], q = [0, 0, 0];
+  const pulse = 0.55 + 0.45 * Math.sin(time * 4);
+  for (let ri = 0; ri < 3; ri++) {
+    const R = 13 + ri * 9;
+    const seg = 10;
+    const spin = e.spin * (ri % 2 === 0 ? 1 : -1);
+    const br = ri === 0 ? 1 : 0.7;
+    for (let k = 0; k < seg; k++) {
+      const a0 = (k / seg) * TAU + spin, a1 = ((k + 1) / seg) * TAU + spin;
+      track.localToWorld(e.t, e.x + Math.cos(a0) * R, e.y + Math.sin(a0) * R, p);
+      track.localToWorld(e.t, e.x + Math.cos(a1) * R, e.y + Math.sin(a1) * R, q);
+      rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], 1.5, 1, 0.55 * br, 0.15, br);
+    }
+  }
+  for (let k = 0; k < 6; k++) {
+    const a0 = (k / 6) * TAU + e.spin * 0.5;
+    track.localToWorld(e.t, e.x + Math.cos(a0) * 13, e.y + Math.sin(a0) * 13, p);
+    track.localToWorld(e.t - 22, e.x + Math.cos(a0) * 5, e.y + Math.sin(a0) * 5, q);
+    rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], 1.2, 1, 0.7, 0.25, 0.85);
+  }
+  track.localToWorld(e.t - 26, e.x, e.y, p);
+  rd.dot3(p[0], p[1], p[2], 6 + pulse * 5, 1, 0.95, 0.6, pulse);
+}
+
+function drawDrone(rd, track, e, col, time) {
+  const p = [0, 0, 0], q = [0, 0, 0];
+  const R = 8;
+  // A blunt delta: two swept wings and a bright core.
+  const pts = [[-R, 0], [0, R * 0.6], [R, 0], [0, -R * 0.5]];
+  for (let k = 0; k < 4; k++) {
+    const a = pts[k], b = pts[(k + 1) & 3];
+    track.localToWorld(e.t, e.x + a[0], e.y + a[1], p);
+    track.localToWorld(e.t, e.x + b[0], e.y + b[1], q);
+    rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], 1.3, col[0], col[1], col[2], 1);
+  }
+  track.localToWorld(e.t + 8, e.x, e.y, p);
+  rd.dot3(p[0], p[1], p[2], 2.6, 1, 0.6, 0.9, 0.7 + 0.3 * Math.sin(time * 12));
+}
+
+// --- projectiles --------------------------------------------------------
+
+class Weapons {
+  constructor() {
+    this.lasers = [];   // player fire
+    this.bolts = [];    // enemy fire
+    this.missiles = [];
+  }
+
+  fireLaser(x, y, z, dx, dy, dz, speed = 1500) {
+    this.lasers.push({ x, y, z, px: x, py: y, pz: z, dx, dy, dz, speed, life: 1.1 });
+  }
+
+  fireBolt(x, y, z, dx, dy, dz, speed = 430, heavy = false) {
+    this.bolts.push({ x, y, z, px: x, py: y, pz: z, dx, dy, dz, speed, life: 3.2, heavy });
+  }
+
+  fireMissile(x, y, z, dx, dy, dz, target) {
+    this.missiles.push({
+      x, y, z, px: x, py: y, pz: z, dx, dy, dz, speed: 620, life: 6, target,
+    });
+  }
+
+  update(dt) {
+    for (const arr of [this.lasers, this.bolts]) {
+      let w = 0;
+      for (let i = 0; i < arr.length; i++) {
+        const s = arr[i];
+        s.life -= dt;
+        if (s.life <= 0) continue;
+        const d = s.speed * dt;
+        // Previous position is kept so hit tests can sweep the whole step.
+        s.px = s.x; s.py = s.y; s.pz = s.z;
+        s.x += s.dx * d; s.y += s.dy * d; s.z += s.dz * d;
+        arr[w++] = s;
+      }
+      arr.length = w;
+    }
+
+    let w = 0;
+    for (let i = 0; i < this.missiles.length; i++) {
+      const m = this.missiles[i];
+      m.life -= dt;
+      if (m.life <= 0) continue;
+      // Limited-rate homing, so a missile can be outrun but rarely is.
+      const tg = m.target;
+      if (tg && tg.alive && tg.world) {
+        let ax = tg.world[0] - m.x, ay = tg.world[1] - m.y, az = tg.world[2] - m.z;
+        const L = Math.hypot(ax, ay, az) || 1;
+        ax /= L; ay /= L; az /= L;
+        const k = clamp(4.2 * dt, 0, 1);
+        m.dx += (ax - m.dx) * k; m.dy += (ay - m.dy) * k; m.dz += (az - m.dz) * k;
+        const n = Math.hypot(m.dx, m.dy, m.dz) || 1;
+        m.dx /= n; m.dy /= n; m.dz /= n;
+      }
+      const d = m.speed * dt;
+      m.px = m.x; m.py = m.y; m.pz = m.z;
+      m.x += m.dx * d; m.y += m.dy * d; m.z += m.dz * d;
+      this.missiles[w++] = m;
+    }
+    this.missiles.length = w;
+  }
+
+  draw(rd) {
+    for (const s of this.lasers) {
+      const L = 30;
+      rd.line3(s.x, s.y, s.z, s.x - s.dx * L, s.y - s.dy * L, s.z - s.dz * L,
+        2.2, 0.6, 1, 0.75, 1);
+    }
+    for (const s of this.bolts) {
+      const L = s.heavy ? 22 : 14;
+      const w = s.heavy ? 2.6 : 1.8;
+      rd.line3(s.x, s.y, s.z, s.x - s.dx * L, s.y - s.dy * L, s.z - s.dz * L,
+        w, 1, s.heavy ? 0.35 : 0.55, 0.2, 1);
+    }
+    for (const m of this.missiles) {
+      rd.line3(m.x, m.y, m.z, m.x - m.dx * 14, m.y - m.dy * 14, m.z - m.dz * 14,
+        2.4, 1, 0.9, 0.7, 1);
+      rd.dot3(m.x - m.dx * 16, m.y - m.dy * 16, m.z - m.dz * 16, 4, 1, 0.6, 0.25, 0.8);
+    }
+  }
+
+  clear() {
+    this.lasers.length = 0;
+    this.bolts.length = 0;
+    this.missiles.length = 0;
+  }
+}
+
+// --- particles ----------------------------------------------------------
+
+const PMAX = 900;
+
+class Particles {
+  constructor() {
+    this.n = 0;
+    this.d = new Float32Array(PMAX * 12); // x y z vx vy vz life max r g b w
+  }
+
+  spawn(x, y, z, vx, vy, vz, life, r, g, b, w) {
+    if (this.n >= PMAX) return;
+    const o = this.n * 12;
+    const d = this.d;
+    d[o] = x; d[o + 1] = y; d[o + 2] = z;
+    d[o + 3] = vx; d[o + 4] = vy; d[o + 5] = vz;
+    d[o + 6] = life; d[o + 7] = life;
+    d[o + 8] = r; d[o + 9] = g; d[o + 10] = b; d[o + 11] = w;
+    this.n++;
+  }
+
+  /** Radial burst. `kind` shifts colour and spread for different impacts. */
+  burst(x, y, z, count, speed, r, g, b, life = 0.8, w = 1.6) {
+    for (let i = 0; i < count; i++) {
+      const u = hash2(i, (x * 13) | 0) * 2 - 1;
+      const a = hash2(i, ((y * 17) | 0) + 7) * TAU;
+      const s = Math.sqrt(Math.max(0, 1 - u * u));
+      const v = speed * (0.35 + hash2(i, 31) * 0.9);
+      this.spawn(x, y, z, s * Math.cos(a) * v, u * v, s * Math.sin(a) * v,
+        life * (0.55 + hash2(i, 41) * 0.75), r, g, b, w);
+    }
+  }
+
+  update(dt) {
+    const d = this.d;
+    let w = 0;
+    for (let i = 0; i < this.n; i++) {
+      const o = i * 12;
+      const life = d[o + 6] - dt;
+      if (life <= 0) continue;
+      const wo = w * 12;
+      // Slight drag, so debris decelerates instead of flying forever.
+      const k = 1 - 1.1 * dt;
+      d[wo] = d[o] + d[o + 3] * dt;
+      d[wo + 1] = d[o + 1] + d[o + 4] * dt;
+      d[wo + 2] = d[o + 2] + d[o + 5] * dt;
+      d[wo + 3] = d[o + 3] * k;
+      d[wo + 4] = d[o + 4] * k;
+      d[wo + 5] = d[o + 5] * k;
+      d[wo + 6] = life;
+      d[wo + 7] = d[o + 7];
+      d[wo + 8] = d[o + 8]; d[wo + 9] = d[o + 9]; d[wo + 10] = d[o + 10]; d[wo + 11] = d[o + 11];
+      w++;
+    }
+    this.n = w;
+  }
+
+  draw(rd) {
+    const d = this.d;
+    for (let i = 0; i < this.n; i++) {
+      const o = i * 12;
+      const f = d[o + 6] / d[o + 7];
+      // Drawn as a short streak along velocity: a moving spark, not a dot.
+      const s = 0.045;
+      rd.line3(d[o], d[o + 1], d[o + 2],
+        d[o] - d[o + 3] * s, d[o + 1] - d[o + 4] * s, d[o + 2] - d[o + 5] * s,
+        d[o + 11] * (0.4 + f * 0.6), d[o + 8], d[o + 9], d[o + 10], f);
+    }
+  }
+
+  clear() { this.n = 0; }
+}
+
+// ---- hud.js --------------------------------------------------------
+// HUD and the level schematic. Both are drawn with the same line primitives as
+// the world, so nothing on screen breaks the vector illusion.
+
+
+
+
+const AMBER = [1, 0.72, 0.2];
+const CYAN = [0.45, 0.95, 1];
+const RED = [1, 0.3, 0.25];
+const DIM = [0.35, 0.6, 0.7];
+
+function bracket(rd, x, y, w, h, s, col, a, lw) {
+  const L = Math.min(w, h) * 0.32;
+  const pts = [
+    [x, y + L, x, y, x + L, y],
+    [x + w - L, y, x + w, y, x + w, y + L],
+    [x + w, y + h - L, x + w, y + h, x + w - L, y + h],
+    [x + L, y + h, x, y + h, x, y + h - L],
+  ];
+  for (const p of pts) {
+    rd.line2(p[0], p[1], p[2], p[3], lw, col[0], col[1], col[2], a, a);
+    rd.line2(p[2], p[3], p[4], p[5], lw, col[0], col[1], col[2], a, a);
+  }
+}
+
+function bar(rd, x, y, w, h, frac, segs, col, s) {
+  const gap = 2 * s;
+  const sw = (w - gap * (segs - 1)) / segs;
+  for (let i = 0; i < segs; i++) {
+    const on = (i + 1) / segs <= frac + 1e-6;
+    const partial = !on && i / segs < frac;
+    const a = on ? 1 : partial ? 0.55 : 0.14;
+    const bx = x + i * (sw + gap);
+    // A filled segment is drawn as one thick stroke: cheaper than a rectangle
+    // and reads brighter, which is what a bar chart on a vector display wants.
+    rd.line2(bx + sw * 0.5, y + h * 0.5, bx + sw * 0.5, y + h * 0.5,
+      Math.max(sw, h) * 0.5, col[0], col[1], col[2], a, a);
+  }
+}
+
+/** Crosshair at the aim point, with a lock ring when a lock is building. */
+function drawReticle(rd, x, y, s, lockProgress, locked, hasTarget) {
+  const col = locked ? RED : hasTarget ? AMBER : CYAN;
+  const R = 15 * s;
+  const g = 5 * s;
+  for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+    rd.line2(x + dx * g, y + dy * g, x + dx * R, y + dy * R,
+      1.5 * s, col[0], col[1], col[2], 0.95, 0.35);
+  }
+  rd.line2(x, y, x, y, 1.6 * s, col[0], col[1], col[2], 1, 1);
+
+  if (lockProgress > 0) {
+    const R2 = 26 * s;
+    const n = 28;
+    const upto = Math.floor(n * clamp(lockProgress, 0, 1));
+    for (let i = 0; i < upto; i++) {
+      const a0 = (i / n) * TAU - Math.PI / 2;
+      const a1 = ((i + 0.75) / n) * TAU - Math.PI / 2;
+      rd.line2(x + Math.cos(a0) * R2, y + Math.sin(a0) * R2,
+        x + Math.cos(a1) * R2, y + Math.sin(a1) * R2,
+        2 * s, 1, 0.5, 0.2, 1, 1);
+    }
+  }
+  if (locked) bracket(rd, x - 34 * s, y - 34 * s, 68 * s, 68 * s, s, RED, 1, 2 * s);
+}
+
+/** Brackets that close in on a lockable target as the lock builds. */
+function drawTargetBox(rd, sx, sy, s, progress, locked) {
+  const size = lerp(70, 30, clamp(progress, 0, 1)) * s;
+  const col = locked ? RED : AMBER;
+  bracket(rd, sx - size * 0.5, sy - size * 0.5, size, size, s, col, locked ? 1 : 0.85, 1.6 * s);
+}
+
+function drawHud(rd, st) {
+  const W = rd.width;
+  const H = rd.height;
+  const s = rd.scale;
+  const pad = 22 * s;
+
+  // --- shield ---
+  drawText(rd, 'SHIELD', pad, pad + 9 * s, 9 * s, 1.1 * s, DIM[0], DIM[1], DIM[2], 0.9);
+  const shieldFrac = clamp(st.shield / st.shieldMax, 0, 1);
+  const scol = shieldFrac > 0.55 ? CYAN : shieldFrac > 0.25 ? AMBER : RED;
+  bar(rd, pad, pad + 16 * s, 150 * s, 9 * s, shieldFrac, 10, scol, s);
+
+  // --- speed ---
+  drawText(rd, `${Math.round(st.speed)} U/S`, pad, H - pad, 11 * s, 1.2 * s,
+    AMBER[0], AMBER[1], AMBER[2], 0.95);
+
+  // --- score / name ---
+  drawText(rd, String(st.score).padStart(6, '0'), W - pad, pad + 12 * s, 14 * s, 1.4 * s,
+    AMBER[0], AMBER[1], AMBER[2], 1, 1);
+  drawText(rd, st.levelName, W - pad, pad + 28 * s, 8 * s, 1 * s, DIM[0], DIM[1], DIM[2], 0.8, 1);
+  if (st.missiles > 0) {
+    drawText(rd, `MSL ${st.missiles}`, W - pad, pad + 44 * s, 9 * s, 1.1 * s, 1, 0.6, 0.3, 0.95, 1);
+  }
+
+  // --- altitude ladder: the trench/surface decision, made legible ---
+  const lx = pad + 6 * s;
+  const ly0 = H * 0.32;
+  const ly1 = H * 0.72;
+  const rimY = lerp(ly1, ly0, clamp(st.rimHeight / st.ceiling, 0, 1));
+  rd.line2(lx, ly0, lx, ly1, 1 * s, DIM[0], DIM[1], DIM[2], 0.5, 0.5);
+  // The rim line: above it you are exposed.
+  rd.line2(lx - 7 * s, rimY, lx + 9 * s, rimY, 1.8 * s, RED[0], RED[1], RED[2], 0.9, 0.9);
+  drawText(rd, 'RIM', lx + 13 * s, rimY + 3 * s, 7 * s, 0.9 * s, RED[0], RED[1], RED[2], 0.7);
+  const ay = lerp(ly1, ly0, clamp(st.altitude / st.ceiling, 0, 1));
+  const acol = st.exposed ? RED : CYAN;
+  rd.line2(lx - 5 * s, ay, lx + 5 * s, ay, 2.4 * s, acol[0], acol[1], acol[2], 1, 1);
+  rd.line2(lx + 5 * s, ay, lx + 11 * s, ay - 4 * s, 1.6 * s, acol[0], acol[1], acol[2], 1, 0.4);
+
+  // --- run progress, with what is coming up on it ---
+  const pw = W * 0.42;
+  const px = (W - pw) * 0.5;
+  const py = H - pad - 6 * s;
+  rd.line2(px, py, px + pw, py, 1.2 * s, DIM[0], DIM[1], DIM[2], 0.45, 0.45);
+  for (const t of st.sealMarks) {
+    const k = clamp(t / st.total, 0, 1);
+    rd.line2(px + pw * k, py - 6 * s, px + pw * k, py + 6 * s, 1.6 * s,
+      RED[0], RED[1], RED[2], 0.8, 0.8);
+  }
+  if (st.portT > 0) {
+    const k = clamp(st.portT / st.total, 0, 1);
+    rd.line2(px + pw * k, py - 9 * s, px + pw * k, py + 9 * s, 2 * s, 1, 0.6, 0.15, 1, 1);
+  }
+  const pk = clamp(st.progress, 0, 1);
+  rd.line2(px, py, px + pw * pk, py, 2.6 * s, CYAN[0], CYAN[1], CYAN[2], 1, 1);
+  rd.line2(px + pw * pk, py - 8 * s, px + pw * pk, py + 8 * s, 2 * s, 1, 1, 1, 1, 1);
+
+  // --- cockpit frame ---
+  bracket(rd, pad * 0.6, pad * 0.6, W - pad * 1.2, H - pad * 1.2, s, DIM, 0.22, 1.2 * s);
+
+  // --- warnings ---
+  let wy = H * 0.2;
+  const warn = (text, col, blink) => {
+    const a = blink ? 0.4 + 0.6 * Math.abs(Math.sin(st.time * 7)) : 1;
+    drawText(rd, text, W * 0.5, wy, 15 * s, 1.8 * s, col[0], col[1], col[2], a, 0);
+    wy += 24 * s;
+  };
+  if (st.exposed) warn('EXPOSED', RED, true);
+  if (st.wallWarn > 0) warn('PULL AWAY', AMBER, true);
+  if (st.sealAhead > 0) warn('BULKHEAD -- CLIMB', AMBER, true);
+  if (st.portAhead && st.portAlive) warn('HOLD ON PORT TO LOCK', CYAN, true);
+  if (st.message) {
+    drawText(rd, st.message, W * 0.5, H * 0.42, 20 * s, 2.2 * s, 1, 0.85, 0.4, 1, 0);
+  }
+}
+
+/**
+ * The level, drawn as a plan and an elevation.
+ *
+ * This is a schematic, not a survey: lateral drift and trench width are plotted
+ * at independent scales, and the elevation puts the floor on a baseline with the
+ * rim measured up from it. Plotting all of it at one true scale is what a first
+ * attempt does, and it collapses the two facts that actually matter -- how wide
+ * and how deep -- into a pair of parallel lines.
+ *
+ * `band` is the vertical slice of canvas the design panel leaves free.
+ */
+function drawSchematic(rd, track, level, alpha = 1, band = null) {
+  const W = rd.width, s = rd.scale;
+  const y0 = band ? band.y0 : rd.height * 0.08;
+  const y1 = band ? band.y1 : rd.height * 0.92;
+  const h = Math.max(70 * s, y1 - y0);
+  const L = Math.max(1, track.total);
+  const x0 = W * 0.07, x1 = W * 0.955;
+  const mapX = (t) => x0 + ((x1 - x0) * clamp(t / L, 0, 1));
+
+  const fit = fitOf(track, L);
+  const labelRow = y0 + 8 * s;
+  const top = y0 + 22 * s;
+  const usable = Math.max(40 * s, y1 - 14 * s - top);
+  const planMid = top + usable * 0.26;
+  const floorY = top + usable * 0.98;
+
+  const driftS = (usable * 0.13) / fit.maxDrift;
+  const widthS = (usable * 0.15) / fit.maxHw;
+  const depthS = (usable * 0.46) / fit.maxRim;
+  const hillS = (usable * 0.10) / fit.maxHill;
+
+  const N = 240;
+  let prev = null;
+  for (let i = 0; i <= N; i++) {
+    const t = (L * i) / N;
+    const c = planMid + track.x(t) * driftS;
+    const hw = track.halfWidth(t) * widthS;
+    const cur = [mapX(t), c, hw];
+    if (prev) {
+      rd.line2(prev[0], prev[1] - prev[2], cur[0], cur[1] - cur[2], 1.2 * s,
+        CYAN[0], CYAN[1], CYAN[2], 0.85 * alpha, 0.85 * alpha);
+      rd.line2(prev[0], prev[1] + prev[2], cur[0], cur[1] + cur[2], 1.2 * s,
+        CYAN[0], CYAN[1], CYAN[2], 0.85 * alpha, 0.85 * alpha);
+      rd.line2(prev[0], prev[1], cur[0], cur[1], 0.8 * s,
+        DIM[0], DIM[1], DIM[2], 0.3 * alpha, 0.3 * alpha);
+    }
+    prev = cur;
+  }
+
+  prev = null;
+  for (let i = 0; i <= N; i++) {
+    const t = (L * i) / N;
+    const base = floorY + track.y(t) * hillS;
+    const cur = [mapX(t), base, track.rim(t) * depthS, track.railY(t) * depthS];
+    if (prev) {
+      rd.line2(prev[0], prev[1], cur[0], cur[1], 1.3 * s,
+        DIM[0], DIM[1], DIM[2], 0.7 * alpha, 0.7 * alpha);
+      rd.line2(prev[0], prev[1] - prev[2], cur[0], cur[1] - cur[2], 1.5 * s,
+        RED[0], RED[1], RED[2], 0.8 * alpha, 0.8 * alpha);
+      rd.line2(prev[0], prev[1] - prev[3], cur[0], cur[1] - cur[3], 0.9 * s,
+        AMBER[0], AMBER[1], AMBER[2], 0.45 * alpha, 0.45 * alpha);
+    }
+    prev = cur;
+  }
+  drawText(rd, 'PLAN  (WIDTH AND TURN)', x0, planMid - usable * 0.17, 7.5 * s, 0.9 * s,
+    DIM[0], DIM[1], DIM[2], 0.65 * alpha);
+  drawText(rd, 'ELEVATION  (RIM ABOVE FLOOR)', x0, floorY + 11 * s, 7.5 * s, 0.9 * s,
+    DIM[0], DIM[1], DIM[2], 0.65 * alpha);
+
+  // Placed content: obstacles below the plan axis, guns above it.
+  const tick = usable * 0.045;
+  const obY = planMid + usable * 0.17;
+  for (const ob of level.obstacles) {
+    if (ob.kind === 'seal') continue;
+    const x = mapX(ob.t);
+    rd.line2(x, obY, x, obY + tick, 1 * s, 1, 0.5, 0.18, 0.7 * alpha, 0.2 * alpha);
+  }
+  const gunY = planMid - usable * 0.17;
+  for (const e of level.enemies) {
+    const x = mapX(e.t);
+    const up = e.kind === 'turret';
+    rd.line2(x, gunY, x, gunY - tick * (up ? 1 : 0.55), 1.2 * s,
+      RED[0], RED[1], RED[2], (up ? 0.9 : 0.45) * alpha, 0.2 * alpha);
+  }
+  for (const t of level.seals) {
+    const x = mapX(t);
+    rd.line2(x, top, x, floorY, 1.6 * s, RED[0], RED[1], RED[2], 0.8 * alpha, 0.15 * alpha);
+    drawText(rd, 'SEAL', x, top - 2 * s, 7 * s, 0.9 * s, RED[0], RED[1], RED[2], alpha, 0);
+  }
+  if (track.portT > 0) {
+    const x = mapX(track.portT);
+    const R = 8 * s;
+    const cy = floorY - track.rim(track.portT) * depthS * 0.44;
+    for (let k = 0; k < 10; k++) {
+      const a0 = (k / 10) * TAU, a1 = ((k + 1) / 10) * TAU;
+      rd.line2(x + Math.cos(a0) * R, cy + Math.sin(a0) * R,
+        x + Math.cos(a1) * R, cy + Math.sin(a1) * R, 1.7 * s, 1, 0.6, 0.15, alpha, alpha);
+    }
+    drawText(rd, 'PORT', x, cy - R - 3 * s, 7.5 * s, 1 * s, 1, 0.6, 0.15, alpha, 0);
+  }
+
+  // Section boundaries. Labels alternate rows so neighbours never collide.
+  track.bounds.forEach((t, i) => {
+    if (i >= track.spec.sections.length) return;
+    const x = mapX(t);
+    rd.line2(x, top, x, floorY + 4 * s, 1 * s, DIM[0], DIM[1], DIM[2],
+      0.3 * alpha, 0.08 * alpha);
+    const sec = track.spec.sections[i];
+    drawText(rd, `${sec.name} W${Math.round(sec.width)} D${Math.round(sec.depth)}`,
+      x + 3 * s, labelRow + (i % 2) * 8.5 * s, 7 * s, 0.9 * s,
+      DIM[0], DIM[1], DIM[2], 0.8 * alpha);
+  });
+
+  drawText(rd, `${Math.round(L)} UNITS  /  ${track.spec.sections.length} SECTIONS`,
+    W * 0.5, y1 - 1 * s, 8.5 * s, 1.05 * s, AMBER[0], AMBER[1], AMBER[2], 0.85 * alpha, 0);
+}
+
+/** Plot extents, computed once per track rather than every frame. */
+function fitOf(track, L) {
+  if (track._fit) return track._fit;
+  let maxDrift = 1, maxHw = 1, maxRim = 1, maxHill = 1;
+  for (let i = 0; i <= 240; i++) {
+    const t = (L * i) / 240;
+    maxDrift = Math.max(maxDrift, Math.abs(track.x(t)));
+    maxHw = Math.max(maxHw, track.halfWidth(t));
+    maxRim = Math.max(maxRim, track.rim(t));
+    maxHill = Math.max(maxHill, Math.abs(track.y(t)));
+  }
+  track._fit = { maxDrift, maxHw, maxRim, maxHill };
+  return track._fit;
+}
+
+// ---- audio.js ------------------------------------------------------
+// Synthesised sound. No samples to load, which keeps the whole game one small
+// download and means audio survives being opened offline.
+//
+// The engine drone is the only persistent voice; everything else is a
+// fire-and-forget node graph that disconnects itself when it finishes.
+
+class Audio {
+  constructor() {
+    this.ctx = null;
+    this.enabled = true;
+    this.master = null;
+    this.engine = null;
+    this.engineGain = null;
+    this.engineFilter = null;
+  }
+
+  /** Must run inside a user gesture, or the context starts suspended. */
+  start() {
+    if (this.ctx) {
+      if (this.ctx.state === 'suspended') this.ctx.resume();
+      return;
+    }
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) { this.enabled = false; return; }
+    const ctx = new AC();
+    this.ctx = ctx;
+
+    const comp = ctx.createDynamicsCompressor();
+    comp.threshold.value = -12;
+    comp.ratio.value = 8;
+    const master = ctx.createGain();
+    master.gain.value = 0.55;
+    master.connect(comp);
+    comp.connect(ctx.destination);
+    this.master = master;
+
+    // Engine: two detuned saws under a lowpass, plus a breath of noise.
+    const g = ctx.createGain();
+    g.gain.value = 0;
+    const filt = ctx.createBiquadFilter();
+    filt.type = 'lowpass';
+    filt.frequency.value = 420;
+    filt.Q.value = 3;
+    g.connect(filt);
+    filt.connect(master);
+    for (const detune of [-9, 7]) {
+      const o = ctx.createOscillator();
+      o.type = 'sawtooth';
+      o.frequency.value = 62;
+      o.detune.value = detune;
+      o.connect(g);
+      o.start();
+      if (!this.engine) this.engine = [];
+      this.engine.push(o);
+    }
+    const n = ctx.createBufferSource();
+    n.buffer = this._noise(2);
+    n.loop = true;
+    const ng = ctx.createGain();
+    ng.gain.value = 0.09;
+    n.connect(ng); ng.connect(filt);
+    n.start();
+    this.engineGain = g;
+    this.engineFilter = filt;
+  }
+
+  _noise(seconds) {
+    const ctx = this.ctx;
+    const len = Math.floor(ctx.sampleRate * seconds);
+    const buf = ctx.createBuffer(1, len, ctx.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+    return buf;
+  }
+
+  setMuted(m) {
+    this.enabled = !m;
+    if (this.master) this.master.gain.value = m ? 0 : 0.55;
+  }
+
+  /** `throttle` 0..1 drives pitch and brightness; `level` fades the whole voice. */
+  setEngine(throttle, level) {
+    if (!this.ctx || !this.engineGain) return;
+    const t = this.ctx.currentTime;
+    this.engineGain.gain.setTargetAtTime(level * 0.13, t, 0.1);
+    this.engineFilter.frequency.setTargetAtTime(300 + throttle * 900, t, 0.15);
+    for (const o of this.engine) {
+      o.frequency.setTargetAtTime(48 + throttle * 44, t, 0.15);
+    }
+  }
+
+  _env(node, gain, dur, attack = 0.005) {
+    const ctx = this.ctx;
+    const g = ctx.createGain();
+    const t = ctx.currentTime;
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(gain, t + attack);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    node.connect(g);
+    g.connect(this.master);
+    return g;
+  }
+
+  _tone(type, f0, f1, dur, gain) {
+    if (!this.ctx || !this.enabled) return;
+    const ctx = this.ctx;
+    const o = ctx.createOscillator();
+    o.type = type;
+    const t = ctx.currentTime;
+    o.frequency.setValueAtTime(f0, t);
+    o.frequency.exponentialRampToValueAtTime(Math.max(20, f1), t + dur);
+    const g = this._env(o, gain, dur);
+    o.start(t);
+    o.stop(t + dur + 0.02);
+    o.onended = () => { try { g.disconnect(); } catch {} };
+  }
+
+  _noiseBurst(dur, gain, f0, f1, q = 1) {
+    if (!this.ctx || !this.enabled) return;
+    const ctx = this.ctx;
+    const s = ctx.createBufferSource();
+    s.buffer = this._noise(Math.max(0.25, dur));
+    const f = ctx.createBiquadFilter();
+    f.type = 'lowpass';
+    f.Q.value = q;
+    const t = ctx.currentTime;
+    f.frequency.setValueAtTime(f0, t);
+    f.frequency.exponentialRampToValueAtTime(Math.max(40, f1), t + dur);
+    s.connect(f);
+    const g = this._env(f, gain, dur, 0.002);
+    s.start(t);
+    s.stop(t + dur + 0.02);
+    s.onended = () => { try { g.disconnect(); } catch {} };
+  }
+
+  laser() { this._tone('square', 1500, 260, 0.1, 0.16); }
+  enemyShot() { this._tone('sawtooth', 620, 180, 0.14, 0.1); }
+  hit() { this._noiseBurst(0.13, 0.22, 2600, 700, 2); }
+  scrape() { this._noiseBurst(0.3, 0.3, 1400, 200, 6); }
+  smallBoom() { this._noiseBurst(0.55, 0.42, 1500, 60); this._tone('triangle', 180, 40, 0.4, 0.2); }
+  bigBoom() {
+    this._noiseBurst(1.5, 0.6, 1900, 35);
+    this._tone('triangle', 130, 24, 1.1, 0.34);
+    this._tone('sawtooth', 90, 20, 1.4, 0.18);
+  }
+  lockTick() { this._tone('sine', 1250, 1250, 0.045, 0.1); }
+  lockOn() { this._tone('sine', 900, 1750, 0.16, 0.15); }
+  missile() { this._noiseBurst(0.7, 0.3, 400, 2400, 3); this._tone('sawtooth', 200, 900, 0.5, 0.12); }
+  alarm() { this._tone('square', 520, 380, 0.22, 0.09); }
+  win() {
+    [523, 659, 784, 1047].forEach((f, i) => {
+      setTimeout(() => this._tone('triangle', f, f, 0.3, 0.18), i * 130);
+    });
+  }
+  lose() {
+    [400, 320, 250, 170].forEach((f, i) => {
+      setTimeout(() => this._tone('sawtooth', f, f * 0.8, 0.35, 0.16), i * 160);
+    });
+  }
+}
+
+// ---- input.js ------------------------------------------------------
+// Input: tilt to fly, touch to shoot.
+//
+// Steering reads the gravity vector rather than gyroscope rate, because an
+// on-rails ship wants an *absolute* control: where you hold the phone is where
+// the ship sits, and letting go re-centres it. Rate control would drift.
+//
+// Device motion arrives in device axes, which do not rotate with the screen, so
+// everything is rotated into screen space by screen.orientation.angle before
+// use. Neutral is whatever posture the player calibrated in, not "flat".
+
+
+
+const FULL_TILT = 4.2;   // m/s^2 of deviation from neutral for full deflection
+const DEADZONE = 0.07;
+
+/** Deadzone plus a mild expo curve: precise near centre, quick at the edges. */
+function shape(v) {
+  const s = Math.sign(v);
+  const a = Math.abs(v);
+  if (a < DEADZONE) return 0;
+  const t = (a - DEADZONE) / (1 - DEADZONE);
+  return s * (t * t * 0.6 + t * 0.4);
+}
+
+class Input {
+  constructor(canvas) {
+    this.canvas = canvas;
+    this.steerX = 0;
+    this.steerY = 0;
+    this.aimX = 0;
+    this.aimY = 0;
+    this.firing = false;
+    this.justPressed = false;
+    this.holdTime = 0;
+    this.motion = 'unavailable';   // unavailable | granted | denied
+    this.invertX = false;
+    this.invertY = false;
+    this.sensitivity = 1;
+
+    this.gx = 0; this.gy = 0;      // filtered gravity, screen space
+    this.nx = 0; this.ny = 0;      // calibrated neutral
+    this.hasReading = false;
+    this.needsCalibration = true;
+
+    this.keys = new Set();
+    this.pointers = new Map();
+    this.primary = null;
+    this.stick = null;             // second finger, used when tilt is unavailable
+    this.stickOrigin = [0, 0];
+
+    this._onMotion = this._onMotion.bind(this);
+    this.bind();
+  }
+
+  bind() {
+    const c = this.canvas;
+    const opts = { passive: false };
+    c.addEventListener('pointerdown', (e) => this._down(e), opts);
+    c.addEventListener('pointermove', (e) => this._move(e), opts);
+    c.addEventListener('pointerup', (e) => this._up(e), opts);
+    c.addEventListener('pointercancel', (e) => this._up(e), opts);
+    c.addEventListener('contextmenu', (e) => e.preventDefault());
+    // Stop the browser from treating a fast tap-drag as a scroll or zoom.
+    c.addEventListener('touchstart', (e) => e.preventDefault(), opts);
+    c.addEventListener('touchmove', (e) => e.preventDefault(), opts);
+
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'Tab') return;
+      this.keys.add(e.key.toLowerCase());
+      if ([' ', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright'].includes(e.key.toLowerCase())) {
+        e.preventDefault();
+      }
+    });
+    window.addEventListener('keyup', (e) => this.keys.delete(e.key.toLowerCase()));
+    window.addEventListener('blur', () => {
+      this.keys.clear();
+      this.pointers.clear();
+      this.primary = null;
+      this.firing = false;
+    });
+  }
+
+  /**
+   * Must be called from a user gesture: iOS gates device motion behind an
+   * explicit permission prompt that only a real tap can open.
+   */
+  async requestMotion() {
+    const DME = window.DeviceMotionEvent;
+    if (!DME) {
+      this.motion = 'unavailable';
+      return this.motion;
+    }
+    try {
+      if (typeof DME.requestPermission === 'function') {
+        const res = await DME.requestPermission();
+        this.motion = res === 'granted' ? 'granted' : 'denied';
+      } else {
+        this.motion = 'granted';
+      }
+    } catch {
+      this.motion = 'denied';
+    }
+    if (this.motion === 'granted') {
+      window.addEventListener('devicemotion', this._onMotion);
+      this.needsCalibration = true;
+    }
+    return this.motion;
+  }
+
+  _onMotion(e) {
+    const a = e.accelerationIncludingGravity;
+    if (!a || (a.x === null && a.y === null)) return;
+    // Rotate device axes into screen axes.
+    const deg = (screen.orientation && screen.orientation.angle) || window.orientation || 0;
+    const r = (deg * Math.PI) / 180;
+    const cs = Math.cos(r), sn = Math.sin(r);
+    const dx = a.x || 0, dy = a.y || 0;
+    const sx = dx * cs + dy * sn;
+    const sy = -dx * sn + dy * cs;
+    // Low-pass: gravity is the slow part of the signal; hand shake is the fast part.
+    const k = this.hasReading ? 0.18 : 1;
+    this.gx += (sx - this.gx) * k;
+    this.gy += (sy - this.gy) * k;
+    this.hasReading = true;
+    if (this.needsCalibration) this.calibrate();
+  }
+
+  /** Adopts the current posture as neutral. */
+  calibrate() {
+    if (!this.hasReading) return false;
+    this.nx = this.gx;
+    this.ny = this.gy;
+    this.needsCalibration = false;
+    return true;
+  }
+
+  _pos(e) {
+    const r = this.canvas.getBoundingClientRect();
+    return [e.clientX - r.left, e.clientY - r.top];
+  }
+
+  _down(e) {
+    e.preventDefault();
+    this.canvas.setPointerCapture?.(e.pointerId);
+    const p = this._pos(e);
+    this.pointers.set(e.pointerId, p);
+    if (this.primary === null) {
+      this.primary = e.pointerId;
+      this.aimX = p[0];
+      this.aimY = p[1];
+      this.firing = true;
+      this.justPressed = true;
+      this.holdTime = 0;
+    } else if (this.stick === null && this.motion !== 'granted') {
+      // No tilt available: a second finger becomes a relative stick.
+      this.stick = e.pointerId;
+      this.stickOrigin = [p[0], p[1]];
+    }
+  }
+
+  _move(e) {
+    if (!this.pointers.has(e.pointerId)) return;
+    const p = this._pos(e);
+    this.pointers.set(e.pointerId, p);
+    if (e.pointerId === this.primary) {
+      this.aimX = p[0];
+      this.aimY = p[1];
+    }
+  }
+
+  _up(e) {
+    this.pointers.delete(e.pointerId);
+    if (e.pointerId === this.primary) {
+      this.primary = null;
+      this.firing = false;
+      this.holdTime = 0;
+      // Promote any remaining finger so a two-finger release keeps working.
+      for (const id of this.pointers.keys()) {
+        if (id !== this.stick) { this.primary = id; this.firing = true; break; }
+      }
+    }
+    if (e.pointerId === this.stick) this.stick = null;
+  }
+
+  /** Called once per frame, before the game reads steering. */
+  update(dt, viewW, viewH) {
+    if (this.firing) this.holdTime += dt;
+
+    let sx = 0;
+    let sy = 0;
+
+    if (this.motion === 'granted' && this.hasReading && !this.needsCalibration) {
+      sx = shape(clamp(((this.gx - this.nx) / FULL_TILT) * this.sensitivity, -1.4, 1.4));
+      sy = shape(clamp((-(this.gy - this.ny) / FULL_TILT) * this.sensitivity, -1.4, 1.4));
+    }
+
+    if (this.stick !== null && this.pointers.has(this.stick)) {
+      const p = this.pointers.get(this.stick);
+      const range = Math.min(viewW, viewH) * 0.22;
+      sx = clamp((p[0] - this.stickOrigin[0]) / range, -1, 1);
+      sy = clamp((this.stickOrigin[1] - p[1]) / range, -1, 1);
+    }
+
+    const k = this.keys;
+    let kx = 0, ky = 0;
+    if (k.has('arrowleft') || k.has('a')) kx -= 1;
+    if (k.has('arrowright') || k.has('d')) kx += 1;
+    if (k.has('arrowup') || k.has('w')) ky += 1;
+    if (k.has('arrowdown') || k.has('s')) ky -= 1;
+    if (kx || ky) { sx = kx; sy = ky; }
+
+    // Keep the crosshair on screen even before the first touch.
+    if (this.primary === null && this.aimX === 0 && this.aimY === 0) {
+      this.aimX = viewW * 0.5;
+      this.aimY = viewH * 0.45;
+    }
+
+    this.steerX = this.invertX ? -sx : sx;
+    this.steerY = this.invertY ? -sy : sy;
+  }
+
+  /** True once per press. */
+  takePress() {
+    const v = this.justPressed;
+    this.justPressed = false;
+    return v;
+  }
+
+  keyPressed(key) { return this.keys.has(key); }
+}
+
+// ---- game.js -------------------------------------------------------
+// The run itself: ship physics on the rail, the camera, collision, enemy fire,
+// and the lock-on that ends the level.
+//
+// Steering is absolute-position control, not thrust: the tilt of the phone maps
+// to where in the cross-section the ship sits. That is what makes an on-rails
+// flyer feel precise at speed -- the ship goes where you point it and re-centres
+// when you let go.
+
+
+
+
+
+
+
+
+
+
+const MAX_VX = 115;
+const MAX_VY = 100;
+const LOCK_TIME = 1.05;
+const LASER_CADENCE = 0.115;
+const FAR = CANYON.DRAW;
+const CAM_BACK = 66;
+const SHIELD_MAX = 100;
+const MISSILE_MAX = 4;
+const MISSILE_REGEN = 7.5;
+
+const RADIUS = { turret: 13, wallgun: 11, emplacement: 21, drone: 11, port: 20 };
+
+class Game {
+  constructor(rd, input, audio) {
+    this.rd = rd;
+    this.input = input;
+    this.audio = audio;
+    this.terrain = null;
+    this.weapons = new Weapons();
+    this.particles = new Particles();
+
+    this.camFrame = makeFrame();
+    this.lookFrame = makeFrame();
+    this.shipFrame = makeFrame();
+    this.basis = { r: [0, 0, 0], u: [0, 0, 0], f: [0, 0, 0] };
+    this.eye = [0, 0, 0];
+    this.look = [0, 0, 0];
+    this.camR = [0, 0, 0];
+    this.camU = [0, 0, 0];
+    this.camF = [0, 0, 0];
+    this.shipPos = [0, 0, 0];
+    this._p = [0, 0, 0];
+    this._q = [0, 0, 0];
+    this._l = [0, 0, 0];
+
+    this.phase = 'idle';
+    this.spec = null;
+    this.track = null;
+    this.level = null;
+  }
+
+  load(spec) {
+    this.spec = spec;
+    this.track = new Track(spec);
+    this.level = buildLevel(spec, this.track);
+    this.terrain = new TerrainRenderer(this.track);
+    this.reset();
+  }
+
+  reset() {
+    const tr = this.track;
+    this.t = 40;
+    this.shipX = 0;
+    this.shipY = tr.railY(this.t);
+    this.velX = 0;
+    this.velY = 0;
+    this.bank = 0;
+    this.pitch = 0;
+    this.shield = SHIELD_MAX;
+    this.shieldMax = SHIELD_MAX;
+    this.score = 0;
+    this.missiles = MISSILE_MAX;
+    this.missileTimer = 0;
+    this.time = 0;
+    this.shake = 0;
+    this.hurt = 0;
+    this.fireTimer = 0;
+    this.lockTarget = null;
+    this.lockProgress = 0;
+    this.lockedFlash = 0;
+    this.message = '';
+    this.messageTimer = 0;
+    this.obCursor = 0;
+    this.grinding = false;
+    this.wallWarn = 0;
+    this.exposed = false;
+    this.deathTimer = 0;
+    this.winTimer = 0;
+    this.kills = 0;
+    this.hitsTaken = 0;
+
+    this.drones = [];
+    for (const w of this.level.drones) w.spawned = false;
+    for (const e of this.level.enemies) {
+      e.alive = true;
+      e.hp = e.maxHp;
+      e.flash = 0;
+      e.spin = hash2((e.t * 3) | 0, 9) * TAU;
+    }
+    if (this.level.port) {
+      this.level.port.alive = true;
+      this.level.port.hp = 1;
+      this.level.port.spin = 0;
+    }
+    for (const ob of this.level.obstacles) ob.hit = false;
+    this.weapons.clear();
+    this.particles.clear();
+    this.phase = 'flying';
+  }
+
+  say(msg, secs = 1.8) {
+    this.message = msg;
+    this.messageTimer = secs;
+  }
+
+  // --- update ------------------------------------------------------------
+
+  update(dt, cssW, cssH) {
+    dt = Math.min(dt, 1 / 30);
+    this.time += dt;
+    const tr = this.track;
+
+    if (this.messageTimer > 0) {
+      this.messageTimer -= dt;
+      if (this.messageTimer <= 0) this.message = '';
+    }
+    this.hurt = Math.max(0, this.hurt - dt * 3);
+    this.shake = Math.max(0, this.shake - dt * 2.6);
+    this.lockedFlash = Math.max(0, this.lockedFlash - dt * 2);
+    for (const e of this.level.enemies) if (e.flash > 0) e.flash -= dt * 6;
+
+    const flying = this.phase === 'flying';
+
+    if (flying) this.updateShip(dt);
+    else this.updateOutro(dt);
+
+    this.updateCamera(cssW, cssH);
+
+    this.updateEnemies(dt, flying);
+    if (flying) this.updateAim(dt, cssW, cssH);
+
+    this.weapons.update(dt);
+    this.collide(dt, flying);
+    this.particles.update(dt);
+
+    this.missileTimer += dt;
+    if (this.missileTimer > MISSILE_REGEN && this.missiles < MISSILE_MAX) {
+      this.missileTimer = 0;
+      this.missiles++;
+    }
+    // Never let a player arrive at the port unable to shoot it.
+    if (flying && tr.portT > 0 && this.missiles === 0 && tr.portT - this.t < 900) {
+      this.missiles = 1;
+      this.say('MISSILE RELOADED');
+    }
+
+    this.audio.setEngine(clamp((this.speed - 200) / 400, 0, 1), flying ? 1 : 0.3);
+  }
+
+  updateShip(dt) {
+    const tr = this.track;
+    const inp = this.input;
+    this.speed = tr.speedAt(this.t);
+    this.t += this.speed * dt;
+
+    const hw = tr.halfWidth(this.t);
+    const rim = tr.rim(this.t);
+    this.ceiling = rim + 92;
+
+    this.velX = approach(this.velX, inp.steerX * MAX_VX, 7.5, dt);
+    this.velY = approach(this.velY, inp.steerY * MAX_VY, 7.5, dt);
+    this.shipX += this.velX * dt;
+    this.shipY += this.velY * dt;
+
+    // Walls. Grinding along one is survivable for a moment and fatal if held.
+    const limX = hw - 8;
+    this.grinding = false;
+    if (Math.abs(this.shipX) > limX) {
+      this.shipX = Math.sign(this.shipX) * limX;
+      if (Math.abs(this.velX) > 4) {
+        this.grinding = true;
+        this.damage(18 * dt, false);
+        this.velX *= 0.25;
+        if (hash2((this.time * 60) | 0, 4) < 0.4) {
+          this.sparkAt(this.shipX, this.shipY, 3, 90, 1, 0.7, 0.3);
+        }
+      }
+    }
+    this.wallWarn = Math.abs(this.shipX) > limX - 9 ? 1 : 0;
+
+    const floorY = tr.floorAt(this.t, this.shipX) + 7;
+    if (this.shipY < floorY) {
+      this.shipY = floorY;
+      if (this.velY < -6) {
+        this.damage(16 * dt, false);
+        this.grinding = true;
+        this.sparkAt(this.shipX, this.shipY, 3, 90, 1, 0.6, 0.25);
+      }
+      this.velY = Math.max(this.velY, 0);
+    }
+    if (this.shipY > this.ceiling) {
+      this.shipY = this.ceiling;
+      this.velY = Math.min(this.velY, 0);
+    }
+
+    this.exposed = this.shipY > rim - 4;
+
+    // Attitude: bank into the steer and into the track's own curvature.
+    const curve = tr.curveAt(this.t);
+    this.bank = approach(this.bank, -inp.steerX * 0.8 - curve * 26, 6.5, dt);
+    this.pitch = approach(this.pitch, inp.steerY * 0.32, 6.5, dt);
+
+    if (this.grinding && hash2((this.time * 12) | 0, 8) < 0.25) this.audio.scrape();
+
+    this.checkObstacles(dt);
+    this.spawnDrones();
+    this.updateDrones(dt);
+    this.checkFinish();
+  }
+
+  updateOutro(dt) {
+    // After the run ends the ship keeps moving so the camera has something to
+    // do: a climb out on a win, a tumble on a loss.
+    if (this.phase === 'won') {
+      this.winTimer += dt;
+      this.speed = lerp(this.speed, 260, dt * 0.6);
+      this.t += this.speed * dt;
+      this.shipY = lerp(this.shipY, this.ceiling + 40, dt * 0.7);
+      this.bank = approach(this.bank, 0.5, 1.5, dt);
+    } else if (this.phase === 'dead') {
+      this.deathTimer += dt;
+      this.speed = Math.max(0, this.speed - 90 * dt);
+      this.t += this.speed * dt;
+      this.bank = Math.min(1.15, this.bank + dt * 2.4);
+      this.shipY = Math.max(4, this.shipY - 46 * dt);
+    } else if (this.phase === 'ended') {
+      this.winTimer += dt;
+      this.speed = lerp(this.speed, 300, dt);
+      this.t += this.speed * dt;
+      this.shipY = lerp(this.shipY, this.ceiling, dt * 0.8);
+    }
+    this.exposed = false;
+    this.updateDrones(dt);
+  }
+
+  checkFinish() {
+    const tr = this.track;
+    const port = this.level.port;
+    if (port && !port.alive && this.phase === 'flying') return;
+    if (port && port.alive && this.t > tr.portT + 60) {
+      this.phase = 'ended';
+      this.say('PORT MISSED', 4);
+      this.audio.lose();
+    } else if (!port && this.t > tr.total - 80) {
+      this.phase = 'won';
+      this.say('RUN COMPLETE', 4);
+      this.audio.win();
+    } else if (port && !port.alive && this.t > tr.total - 80) {
+      this.phase = 'won';
+    }
+  }
+
+  damage(amount, flash = true) {
+    if (this.phase !== 'flying') return;
+    this.shield -= amount;
+    if (flash) {
+      this.hurt = 1;
+      this.shake = Math.min(1.4, this.shake + amount * 0.03);
+      this.hitsTaken++;
+      this.audio.hit();
+    }
+    if (this.shield <= 0) {
+      this.shield = 0;
+      this.phase = 'dead';
+      this.say('SHIELD FAILURE', 5);
+      this.boomAt(this.shipPos, 70, 260, 1, 0.6, 0.25, 1.6);
+      this.audio.bigBoom();
+      this.audio.lose();
+    }
+  }
+
+  sparkAt(lx, ly, count, speed, r, g, b) {
+    this.track.localToWorld(this.t, lx, ly, this._p);
+    this.particles.burst(this._p[0], this._p[1], this._p[2], count, speed, r, g, b, 0.4, 1.4);
+  }
+
+  boomAt(pos, count, speed, r, g, b, life = 0.9) {
+    this.particles.burst(pos[0], pos[1], pos[2], count, speed, r, g, b, life, 2);
+    this.particles.burst(pos[0], pos[1], pos[2], Math.floor(count * 0.4), speed * 0.4,
+      1, 0.95, 0.7, life * 0.6, 3);
+  }
+
+  checkObstacles(dt) {
+    const obs = this.level.obstacles;
+    while (this.obCursor < obs.length &&
+           obs[this.obCursor].t + obs[this.obCursor].dz < this.t - 70) {
+      this.obCursor++;
+    }
+    for (let i = this.obCursor; i < obs.length; i++) {
+      const ob = obs[i];
+      if (ob.t > this.t + 30) break;
+      if (ob.hit) continue;
+      // The ship occupies a small box; grow the obstacle instead of shrinking it.
+      if (this.t + 8 < ob.t || this.t - 8 > ob.t + ob.dz) continue;
+      for (const [x0, x1, y0, y1] of ob.boxes) {
+        if (this.shipX + 7 > x0 && this.shipX - 7 < x1 &&
+            this.shipY + 5 > y0 && this.shipY - 5 < y1) {
+          ob.hit = true;
+          this.damage(ob.kind === 'seal' ? 48 : 34);
+          this.boomAt(this.shipPos, 34, 170, 1, 0.55, 0.2, 0.7);
+          this.audio.smallBoom();
+          break;
+        }
+      }
+    }
+  }
+
+  spawnDrones() {
+    for (const w of this.level.drones) {
+      if (w.spawned || w.t - this.t > 950 || w.t < this.t) continue;
+      w.spawned = true;
+      const tr = this.track;
+      for (let i = 0; i < w.n; i++) {
+        const hw = tr.halfWidth(w.t);
+        const rim = tr.rim(w.t);
+        this.drones.push({
+          kind: 'drone', t: w.t + i * 34, alive: true,
+          x: (hash2(w.t | 0, i) * 2 - 1) * (hw - 14),
+          y: 18 + hash2(w.t | 0, i + 5) * (rim - 34),
+          hp: 2, maxHp: 2, lockable: false, points: 200,
+          cool: 0.7 + hash2(w.t | 0, i + 9) * 1.1,
+          phase: hash2(w.t | 0, i + 13) * TAU, spin: 0, aim: 0, flash: 0,
+          world: [0, 0, 0],
+        });
+      }
+    }
+  }
+
+  updateDrones(dt) {
+    const tr = this.track;
+    let w = 0;
+    for (let i = 0; i < this.drones.length; i++) {
+      const d = this.drones[i];
+      if (!d.alive || d.t < this.t - 90) continue;
+      // Drones close on the player: they advance slower than the ship does.
+      d.t += this.speed * 0.42 * dt;
+      d.phase += dt * 1.7;
+      const hw = tr.halfWidth(d.t);
+      const rim = tr.rim(d.t);
+      d.x = clamp(d.x + Math.cos(d.phase) * 46 * dt, -hw + 12, hw - 12);
+      d.y = clamp(d.y + Math.sin(d.phase * 0.8) * 34 * dt, 14, rim - 8);
+      if (d.flash > 0) d.flash -= dt * 6;
+      this.drones[w++] = d;
+    }
+    this.drones.length = w;
+  }
+
+  updateCamera(cssW, cssH) {
+    const tr = this.track;
+    const camT = Math.max(1, this.t - CAM_BACK);
+    tr.frameAt(camT, this.camFrame);
+    tr.localToWorldF(this.camFrame, this.shipX * 0.9, this.shipY + 21, this.eye);
+
+    tr.frameAt(Math.min(tr.total, this.t + 125), this.lookFrame);
+    tr.localToWorldF(this.lookFrame, this.shipX * 0.35, this.shipY + 3, this.look);
+
+    // Ship sits ahead of the camera, in the lower third of frame.
+    tr.frameAt(this.t, this.shipFrame);
+    tr.localToWorldF(this.shipFrame, this.shipX, this.shipY, this.shipPos);
+    shipBasis(this.shipFrame, this.bank, this.pitch, this.basis);
+
+    if (this.shake > 0) {
+      const s = this.shake * 7;
+      const k = (this.time * 90) | 0;
+      for (let i = 0; i < 3; i++) {
+        this.eye[i] += (hash2(k, i) * 2 - 1) * s * 0.35;
+      }
+    }
+
+    const f = this.camF;
+    f[0] = this.look[0] - this.eye[0];
+    f[1] = this.look[1] - this.eye[1];
+    f[2] = this.look[2] - this.eye[2];
+    const fl = Math.hypot(f[0], f[1], f[2]) || 1;
+    f[0] /= fl; f[1] /= fl; f[2] /= fl;
+
+    const upRef = this.camFrame.u;
+    const r = this.camR;
+    r[0] = upRef[1] * f[2] - upRef[2] * f[1];
+    r[1] = upRef[2] * f[0] - upRef[0] * f[2];
+    r[2] = upRef[0] * f[1] - upRef[1] * f[0];
+    const rl = Math.hypot(r[0], r[1], r[2]) || 1;
+    r[0] /= rl; r[1] /= rl; r[2] /= rl;
+    const u = this.camU;
+    u[0] = f[1] * r[2] - f[2] * r[1];
+    u[1] = f[2] * r[0] - f[0] * r[2];
+    u[2] = f[0] * r[1] - f[1] * r[0];
+
+    // Roll the camera part-way into the ship's bank: enough to feel the turn,
+    // not enough to lose the horizon.
+    const roll = this.bank * 0.42;
+    const cr = Math.cos(roll), sr = Math.sin(roll);
+    for (let i = 0; i < 3; i++) {
+      const ri = r[i] * cr + u[i] * sr;
+      const ui = -r[i] * sr + u[i] * cr;
+      r[i] = ri; u[i] = ui;
+    }
+
+    // Wider lens the faster you go.
+    const fov = 1.16 + clamp((this.speed - 260) / 340, 0, 1) * 0.2;
+    this.rd.setCamera(this.eye, r, u, f, fov, FAR);
+  }
+
+  /** Enemy world positions, aim tracking, and fire. */
+  updateEnemies(dt, flying) {
+    const tr = this.track;
+    const all = [this.level.enemies, this.drones];
+    if (this.level.port) all.push([this.level.port]);
+
+    for (const arr of all) {
+      for (const e of arr) {
+        if (!e.alive) continue;
+        const ahead = e.t - this.t;
+        if (ahead > FAR || ahead < -80) continue;
+        if (!e.world) e.world = [0, 0, 0];
+        tr.localToWorld(e.t, e.x, e.y, e.world);
+        e.spin += dt * (e.kind === 'port' ? 0.9 : 0.6);
+
+        if (!flying) continue;
+
+        // Aim angle, used both for drawing the barrel and for the shot.
+        const dx = this.shipPos[0] - e.world[0];
+        const dy = this.shipPos[1] - e.world[1];
+        const dz = this.shipPos[2] - e.world[2];
+        const dist = Math.hypot(dx, dy, dz) || 1;
+        e.aim = Math.atan2(this.shipX - e.x, Math.max(1, ahead));
+
+        let wants = false;
+        let heavy = false;
+        let reload = 1.4;
+        if (e.kind === 'turret') {
+          // Surface batteries only engage a ship that has broken the rim.
+          wants = this.exposed && ahead < 780 && ahead > -40;
+          reload = 1.15;
+        } else if (e.kind === 'wallgun') {
+          wants = !this.exposed && ahead < 620 && ahead > 30;
+          reload = 1.7;
+        } else if (e.kind === 'emplacement') {
+          wants = ahead < 900 && ahead > -40;
+          heavy = true;
+          reload = 1.5;
+        } else if (e.kind === 'drone') {
+          wants = ahead < 520 && ahead > 20;
+          reload = 1.5;
+        }
+
+        e.cool -= dt;
+        if (wants && e.cool <= 0) {
+          e.cool = reload * (0.75 + hash2((this.time * 60) | 0, (e.t | 0) & 255) * 0.6);
+          const speed = heavy ? 380 : 440;
+          // Lead the target, or the shot always trails a ship this fast.
+          const lead = dist / speed;
+          const px = this.shipPos[0] + this.camF[0] * this.speed * lead * 0.85;
+          const py = this.shipPos[1] + this.camF[1] * this.speed * lead * 0.85;
+          const pz = this.shipPos[2] + this.camF[2] * this.speed * lead * 0.85;
+          let ax = px - e.world[0], ay = py - e.world[1], az = pz - e.world[2];
+          const al = Math.hypot(ax, ay, az) || 1;
+          this.weapons.fireBolt(e.world[0], e.world[1], e.world[2],
+            ax / al, ay / al, az / al, speed, heavy);
+          if (ahead < 520) this.audio.enemyShot();
+        }
+      }
+    }
+  }
+
+  /** Reticle targeting, laser cadence, and the missile lock. */
+  updateAim(dt, cssW, cssH) {
+    const rd = this.rd;
+    const inp = this.input;
+    const sx = inp.aimX * (rd.width / Math.max(1, cssW));
+    const sy = inp.aimY * (rd.height / Math.max(1, cssH));
+    this.aimSX = sx;
+    this.aimSY = sy;
+
+    // Project lockable targets and pick the one nearest the crosshair.
+    const grab = 70 * rd.scale;
+    let best = null;
+    let bestD = grab;
+    const cands = [this.level.enemies, this.drones];
+    if (this.level.port) cands.push([this.level.port]);
+    for (const arr of cands) {
+      for (const e of arr) {
+        e.onScreen = false;
+        if (!e.alive || !e.world) continue;
+        const ahead = e.t - this.t;
+        if (ahead < 20 || ahead > 950) continue;
+        const vz = rd.project(e.world[0], e.world[1], e.world[2], this._l);
+        if (vz < 2) continue;
+        e.sx = this._l[0];
+        e.sy = this._l[1];
+        e.onScreen = true;
+        if (!e.lockable) continue;
+        const d = Math.hypot(e.sx - sx, e.sy - sy);
+        if (d < bestD) { bestD = d; best = e; }
+      }
+    }
+    this.hoverTarget = best;
+
+    // Aim ray through the crosshair, used for both lasers and the lock.
+    const kx = (sx - rd.cx) / rd.focal;
+    const ky = -(sy - rd.cy) / rd.focal;
+    const ax = this.camF[0] + this.camR[0] * kx + this.camU[0] * ky;
+    const ay = this.camF[1] + this.camR[1] * kx + this.camU[1] * ky;
+    const az = this.camF[2] + this.camR[2] * kx + this.camU[2] * ky;
+    const al = Math.hypot(ax, ay, az) || 1;
+    const AIM_DIST = 700;
+    const tx = this.eye[0] + (ax / al) * AIM_DIST;
+    const ty = this.eye[1] + (ay / al) * AIM_DIST;
+    const tz = this.eye[2] + (az / al) * AIM_DIST;
+
+    if (inp.firing) {
+      // Lasers: immediate on press, then a steady cadence while held.
+      this.fireTimer -= dt;
+      if (inp.takePress()) this.fireTimer = 0;
+      if (this.fireTimer <= 0) {
+        this.fireTimer = LASER_CADENCE;
+        for (const m of MUZZLES) {
+          shipLocalToWorld(this.shipPos, this.basis, m[0], m[1], m[2], this._p);
+          let dx = tx - this._p[0], dy = ty - this._p[1], dz = tz - this._p[2];
+          const dl = Math.hypot(dx, dy, dz) || 1;
+          this.weapons.fireLaser(this._p[0], this._p[1], this._p[2], dx / dl, dy / dl, dz / dl);
+        }
+        this.audio.laser();
+      }
+
+      // Lock: hold the crosshair on a lockable target long enough.
+      if (best) {
+        if (this.lockTarget !== best) {
+          this.lockTarget = best;
+          this.lockProgress = 0;
+        }
+        const before = this.lockProgress;
+        this.lockProgress += dt / LOCK_TIME;
+        if (Math.floor(before * 8) !== Math.floor(this.lockProgress * 8)) this.audio.lockTick();
+        if (this.lockProgress >= 1) this.releaseMissile(best);
+      } else {
+        this.lockTarget = null;
+        this.lockProgress = Math.max(0, this.lockProgress - dt * 2);
+      }
+    } else {
+      inp.takePress();
+      this.lockTarget = null;
+      this.lockProgress = Math.max(0, this.lockProgress - dt * 3);
+    }
+  }
+
+  releaseMissile(target) {
+    this.lockProgress = 0;
+    this.lockTarget = null;
+    if (this.missiles <= 0) {
+      this.say('NO MISSILES');
+      return;
+    }
+    this.missiles--;
+    this.lockedFlash = 1;
+    shipLocalToWorld(this.shipPos, this.basis, 0, -2, 4, this._p);
+    let dx = target.world[0] - this._p[0];
+    let dy = target.world[1] - this._p[1];
+    let dz = target.world[2] - this._p[2];
+    const l = Math.hypot(dx, dy, dz) || 1;
+    this.weapons.fireMissile(this._p[0], this._p[1], this._p[2], dx / l, dy / l, dz / l, target);
+    this.audio.missile();
+    this.say('FOX TWO', 1.1);
+  }
+
+  /** All projectile resolution: player fire, enemy fire, missiles. */
+  collide(dt, flying) {
+    const W = this.weapons;
+    const tr = this.track;
+    const targets = [this.level.enemies, this.drones];
+    if (this.level.port) targets.push([this.level.port]);
+
+    // Player lasers.
+    for (let i = W.lasers.length - 1; i >= 0; i--) {
+      const s = W.lasers[i];
+      let consumed = false;
+      for (const arr of targets) {
+        for (const e of arr) {
+          if (!e.alive || !e.world) continue;
+          const R = RADIUS[e.kind] || 12;
+          if (Math.abs(e.world[2] - s.z) > R + 120) continue;
+          if (!segSphere(s.px, s.py, s.pz, s.x, s.y, s.z,
+            e.world[0], e.world[1], e.world[2], R)) continue;
+          consumed = true;
+          // The port is armoured against guns: it is a missile target by design.
+          if (e.kind === 'port') {
+            this.particles.burst(s.x, s.y, s.z, 6, 90, 0.6, 0.85, 1, 0.3, 1.4);
+            this.say('GUNS WONT BREACH IT', 1.2);
+            break;
+          }
+          e.hp -= 1;
+          e.flash = 1;
+          this.particles.burst(s.x, s.y, s.z, 7, 120, 1, 0.85, 0.4, 0.35, 1.6);
+          this.audio.hit();
+          if (e.hp <= 0) this.destroy(e);
+          break;
+        }
+        if (consumed) break;
+      }
+      if (!consumed && this.hitsScenery(s.x, s.y, s.z)) {
+        this.particles.burst(s.x, s.y, s.z, 5, 80, 1, 0.6, 0.3, 0.3, 1.4);
+        consumed = true;
+      }
+      if (consumed) W.lasers.splice(i, 1);
+    }
+
+    // Enemy fire against the ship.
+    if (flying) {
+      for (let i = W.bolts.length - 1; i >= 0; i--) {
+        const s = W.bolts[i];
+        if (segSphere(s.px, s.py, s.pz, s.x, s.y, s.z,
+          this.shipPos[0], this.shipPos[1], this.shipPos[2], 11)) {
+          this.damage(s.heavy ? 19 : 11);
+          this.particles.burst(s.x, s.y, s.z, 10, 140, 1, 0.5, 0.25, 0.4, 1.8);
+          W.bolts.splice(i, 1);
+        }
+      }
+    }
+
+    // Missiles.
+    for (let i = W.missiles.length - 1; i >= 0; i--) {
+      const m = W.missiles[i];
+      const tg = m.target;
+      let boom = false;
+      if (tg && tg.alive && tg.world) {
+        const R = RADIUS[tg.kind] || 14;
+        if (segSphere(m.px, m.py, m.pz, m.x, m.y, m.z,
+          tg.world[0], tg.world[1], tg.world[2], R + 6)) {
+          boom = true;
+          tg.hp = 0;
+          this.destroy(tg);
+        }
+      } else if (!tg || !tg.alive) {
+        boom = m.life < 5.4;
+      }
+      if (boom || this.hitsScenery(m.x, m.y, m.z)) {
+        this.boomAt([m.x, m.y, m.z], 46, 210, 1, 0.7, 0.3, 1.1);
+        this.audio.smallBoom();
+        W.missiles.splice(i, 1);
+      }
+    }
+  }
+
+  /** Does a world point sit inside nearby obstacle geometry? */
+  hitsScenery(x, y, z) {
+    const tr = this.track;
+    const obs = this.level.obstacles;
+    tr.worldToLocal(x, y, z, this._q);
+    const lt = this._q[0], lx = this._q[1], ly = this._q[2];
+    if (Math.abs(lx) > tr.halfWidth(lt) + 4) return true;
+    for (let i = this.obCursor; i < obs.length; i++) {
+      const ob = obs[i];
+      if (ob.t > lt + 30) break;
+      if (ob.t + ob.dz < lt - 30) continue;
+      if (lt < ob.t || lt > ob.t + ob.dz) continue;
+      for (const [x0, x1, y0, y1] of ob.boxes) {
+        if (lx > x0 && lx < x1 && ly > y0 && ly < y1) return true;
+      }
+    }
+    return false;
+  }
+
+  destroy(e) {
+    e.alive = false;
+    this.score += e.points;
+    this.kills++;
+    const big = e.kind === 'port' || e.kind === 'emplacement';
+    this.boomAt(e.world, big ? 90 : 34, big ? 300 : 170,
+      1, e.kind === 'port' ? 0.85 : 0.55, 0.25, big ? 1.6 : 0.8);
+    if (big) {
+      this.audio.bigBoom();
+      this.shake = Math.min(1.6, this.shake + 1);
+    } else {
+      this.audio.smallBoom();
+    }
+    if (e.kind === 'port') {
+      this.phase = 'won';
+      this.score += 5000;
+      this.say('DIRECT HIT', 5);
+      this.audio.win();
+    } else if (e.kind === 'emplacement') {
+      this.missiles = Math.min(MISSILE_MAX, this.missiles + 1);
+      this.say('EMPLACEMENT DOWN');
+    }
+  }
+
+  // --- draw --------------------------------------------------------------
+
+  draw() {
+    const rd = this.rd;
+    const tr = this.track;
+    // A little more phosphor at speed: the trails are the speed.
+    const trail = 0.42 - clamp((this.speed - 250) / 400, 0, 1) * 0.16;
+    rd.beginFrame(trail);
+
+    const camT = Math.max(0, this.t - CAM_BACK);
+    // Wireframe has no occlusion, so below the rim the surface plane bled
+    // through the rock and read as a ceiling. Fading it by altitude restores
+    // what a solid renderer would hide, and makes breaking the rim a reveal.
+    const rim = tr.rim(this.t);
+    const deck = Math.max(0.05, smoothstep(rim - 52, rim + 8, this.shipY));
+    this.terrain.draw(rd, camT, this.exposed, this.time, deck);
+    drawObstacles(rd, tr, this.level.obstacles, this.obCursor, camT, FAR, this.time);
+    drawEnemies(rd, tr, this.level.enemies, camT, FAR, this.time);
+    drawEnemies(rd, tr, this.drones, camT, FAR, this.time);
+    if (this.level.port && this.level.port.alive) {
+      drawEnemies(rd, tr, [this.level.port], camT, FAR, this.time);
+    }
+    this.weapons.draw(rd);
+    this.particles.draw(rd);
+
+    if (this.phase !== 'dead' || this.deathTimer < 0.35) {
+      drawShip(rd, this.shipPos, this.basis,
+        clamp((this.speed - 200) / 300, 0, 1), this.time, this.hurt);
+    }
+
+    this.drawOverlay();
+    rd.endFrame();
+  }
+
+  drawOverlay() {
+    const rd = this.rd;
+    const tr = this.track;
+    const port = this.level.port;
+
+    if (this.phase === 'flying') {
+      // Target boxes on everything lockable that is on screen.
+      const arrs = [this.level.enemies, this.drones];
+      if (port) arrs.push([port]);
+      for (const arr of arrs) {
+        for (const e of arr) {
+          if (!e.alive || !e.onScreen || !e.lockable) continue;
+          const isTarget = e === this.lockTarget;
+          drawTargetBox(rd, e.sx, e.sy, rd.scale,
+            isTarget ? this.lockProgress : 0, isTarget && this.lockProgress > 0.99);
+        }
+      }
+      drawReticle(rd, this.aimSX ?? rd.cx, this.aimSY ?? rd.cy, rd.scale,
+        this.lockProgress, this.lockedFlash > 0.5, !!this.hoverTarget);
+    }
+
+    const nextSeal = this.level.seals.find((s) => s > this.t - 40);
+    drawHud(rd, {
+      shield: this.shield,
+      shieldMax: this.shieldMax,
+      score: this.score,
+      speed: this.speed || 0,
+      levelName: this.spec.name,
+      missiles: this.missiles,
+      altitude: this.shipY,
+      rimHeight: tr.rim(this.t),
+      ceiling: this.ceiling || tr.rim(this.t) + 92,
+      exposed: this.exposed,
+      wallWarn: this.wallWarn,
+      sealAhead: nextSeal !== undefined && nextSeal - this.t < 420 && nextSeal > this.t ? 1 : 0,
+      portAhead: port ? tr.portT - this.t < 700 && tr.portT > this.t : false,
+      portAlive: port ? port.alive : false,
+      progress: this.t / tr.total,
+      total: tr.total,
+      sealMarks: this.level.seals,
+      portT: tr.portT,
+      time: this.time,
+      message: this.message,
+    });
+
+    if (this.phase !== 'flying') this.drawResult();
+  }
+
+  drawResult() {
+    const rd = this.rd;
+    const s = rd.scale;
+    const W = rd.width, H = rd.height;
+    const won = this.phase === 'won';
+    const title = won ? 'RUN COMPLETE' : this.phase === 'dead' ? 'DESTROYED' : 'PORT MISSED';
+    const col = won ? [0.5, 1, 0.8] : [1, 0.4, 0.3];
+    const wait = won ? this.winTimer : this.deathTimer || this.winTimer;
+    if (wait < 0.8) return;
+    const a = clamp((wait - 0.8) / 0.6, 0, 1);
+    drawText(rd, title, W * 0.5, H * 0.34, 30 * s, 3 * s, col[0], col[1], col[2], a, 0);
+    const lines = [
+      `SCORE ${this.score}`,
+      `KILLS ${this.kills}`,
+      `DISTANCE ${Math.round(Math.min(this.t, this.track.total))} / ${Math.round(this.track.total)}`,
+      `HITS TAKEN ${this.hitsTaken}`,
+    ];
+    lines.forEach((l, i) => {
+      drawText(rd, l, W * 0.5, H * 0.44 + i * 20 * s, 12 * s, 1.3 * s, 1, 0.8, 0.4, a, 0);
+    });
+    drawText(rd, 'TAP TO CONTINUE', W * 0.5, H * 0.66, 13 * s, 1.5 * s,
+      0.5, 0.9, 1, a * (0.5 + 0.5 * Math.abs(Math.sin(this.time * 3))), 0);
+  }
+}
+
+// ---- ui.js ---------------------------------------------------------
+// The authoring interface: prose in, level out, schematic on screen, then fly.
+//
+// Screens are DOM overlays over the same canvas the game renders into, so the
+// design screen can show the compiled level as a live vector schematic behind
+// the panel rather than as a separate widget.
+
+
+
+
+
+
+
+const $ = (id) => document.getElementById(id);
+
+class UI {
+  constructor(rd, input, audio, game) {
+    this.rd = rd;
+    this.input = input;
+    this.audio = audio;
+    this.game = game;
+    this.screen = 'boot';
+    this.spec = null;
+    this.busy = false;
+    this.dirty = true;
+    this.controlHint = '';
+    this.bindAll();
+    this.loadFromHash();
+  }
+
+  // --- screens -----------------------------------------------------------
+
+  show(name) {
+    this.screen = name;
+    this.dirty = true;
+    for (const id of ['boot', 'design', 'flight']) {
+      $(id).classList.toggle('on', id === name);
+    }
+    // Only the flight screen wants the canvas swallowing gestures.
+    this.rd.canvas.style.pointerEvents = name === 'flight' ? 'auto' : 'none';
+  }
+
+  status(msg) {
+    $('statusline').textContent = this.controlHint ? `${msg}  --  ${this.controlHint}` : msg;
+  }
+
+  report(lines, cls = '') {
+    const el = $('report');
+    el.className = cls;
+    el.textContent = Array.isArray(lines) ? lines.join('\n') : String(lines);
+  }
+
+  // --- wiring ------------------------------------------------------------
+
+  bindAll() {
+    const ex = $('examples');
+    EXAMPLES.forEach((e) => {
+      const b = document.createElement('button');
+      b.className = 'chip';
+      b.textContent = e.label;
+      b.addEventListener('click', () => {
+        $('prose').value = e.prose;
+        this.build();
+      });
+      ex.appendChild(b);
+    });
+
+    $('begin').addEventListener('click', () => this.begin());
+    $('build').addEventListener('click', () => this.build());
+    $('fly').addEventListener('click', () => this.fly());
+    $('reroll').addEventListener('click', () => this.reroll());
+    $('fold').addEventListener('click', () => {
+      $('sheet').classList.toggle('collapsed');
+      $('fold').textContent = $('sheet').classList.contains('collapsed') ? 'EDIT' : 'SCHEMATIC';
+      this.dirty = true;
+    });
+    $('share').addEventListener('click', () => this.share());
+    $('pause').addEventListener('click', () => this.toMenu());
+
+    $('calibrate').addEventListener('click', async () => {
+      if (this.input.motion !== 'granted') await this.input.requestMotion();
+      const ok = this.input.calibrate();
+      this.motionState(ok ? 'calibrated -- hold the phone as you just did' : null);
+    });
+    $('sens').addEventListener('input', (e) => {
+      this.input.sensitivity = +e.target.value;
+      $('sensval').textContent = (+e.target.value).toFixed(1);
+    });
+    $('invx').addEventListener('change', (e) => { this.input.invertX = e.target.checked; });
+    $('invy').addEventListener('change', (e) => { this.input.invertY = e.target.checked; });
+    $('mute').addEventListener('change', (e) => this.audio.setMuted(e.target.checked));
+    $('crt').addEventListener('change', (e) => {
+      this.rd.scanline = e.target.checked ? 0.08 : 0;
+      this.rd.trail = e.target.checked ? 0.34 : 0.9;
+    });
+
+    $('apikey').value = getKey();
+    $('apikey').addEventListener('change', (e) => setKey(e.target.value.trim()));
+    $('usellm').addEventListener('change', () => this.build());
+
+    // A tap anywhere on the canvas after a run returns to the menu.
+    this.rd.canvas.addEventListener('pointerdown', () => {
+      if (this.screen === 'flight' && this.game.phase !== 'flying') {
+        const wait = this.game.phase === 'dead' ? this.game.deathTimer : this.game.winTimer;
+        if (wait > 1.4) this.toMenu();
+      }
+    });
+
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && this.screen === 'flight') this.toMenu();
+      if (e.key === 'Enter' && (e.metaKey || e.ctrlKey) && this.screen === 'design') this.fly();
+    });
+  }
+
+  motionState(msg) {
+    const m = this.input.motion;
+    const text = msg || {
+      granted: 'motion: active',
+      denied: 'motion: denied -- use two-finger steering',
+      unavailable: 'motion: no sensor -- use two-finger steering',
+    }[m] || 'motion: unknown';
+    $('motionstate').textContent = text;
+  }
+
+  /** First real gesture: unlock audio and ask for the motion sensor. */
+  async begin() {
+    this.audio.start();
+    $('bootnote').textContent = 'requesting motion access...';
+    await this.input.requestMotion();
+    this.motionState();
+    // Embedded frames and desktops often have no usable tilt sensor. Say so
+    // where the player will actually read it, not only inside a details pane.
+    if (this.input.motion !== 'granted') {
+      this.controlHint = 'no tilt: one finger aims + fires, drag a second to steer';
+    }
+    this.show('design');
+    if (!this.spec) {
+      if (!$('prose').value) $('prose').value = EXAMPLES[0].prose;
+      this.build();
+    } else {
+      this.status(`${this.spec.name} -- ready`);
+    }
+  }
+
+  loadFromHash() {
+    const m = location.hash.match(/lvl=([A-Za-z0-9_-]+)/);
+    if (!m) return;
+    try {
+      this.setSpec(decodeSpec(m[1]), ['loaded from link']);
+      $('prose').value = '';
+    } catch {
+      /* a broken link is not worth an error message on the title screen */
+    }
+  }
+
+  setSpec(spec, report) {
+    this.spec = normalizeSpec(spec);
+    this.game.load(this.spec);
+    $('fly').disabled = false;
+    $('reroll').disabled = false;
+    $('share').disabled = false;
+    const lv = this.game.level;
+    const counts = [
+      `${lv.obstacles.length} obstacles`,
+      `${lv.enemies.filter((e) => e.kind === 'turret').length} surface turrets`,
+      `${lv.enemies.filter((e) => e.kind === 'wallgun').length} wall guns`,
+      `${lv.enemies.filter((e) => e.kind === 'emplacement').length} emplacements`,
+      `${lv.drones.reduce((a, d) => a + d.n, 0)} drones`,
+      `${lv.seals.length} seals`,
+    ].join(', ');
+    this.report([...report, '', `REALIZED: ${counts}`], 'ok');
+    this.dirty = true;
+    this.status(`${this.spec.name} -- ${Math.round(this.game.track.total)} units`);
+  }
+
+  async build() {
+    if (this.busy) return;
+    const prose = $('prose').value.trim();
+    if (!prose) {
+      this.report('write a description first, or pick an example', 'warn');
+      return;
+    }
+    $('err').textContent = '';
+
+    if ($('usellm').checked) {
+      const key = $('apikey').value.trim();
+      setKey(key);
+      if (!key) {
+        $('err').textContent = 'Add an API key, or untick USE CLAUDE to use the offline parser.';
+        return;
+      }
+      this.busy = true;
+      $('build').disabled = true;
+      this.status('asking claude to design it...');
+      try {
+        const { spec, report } = await parseProseLLM(prose, {
+          key,
+          onStatus: (s) => this.status(`claude: ${s}...`),
+        });
+        this.setSpec(spec, report);
+      } catch (err) {
+        $('err').textContent = err.message;
+        this.status('claude failed -- falling back to the offline parser');
+        const { spec, report } = parseProse(prose);
+        this.setSpec(spec, ['offline parser used instead:', ...report]);
+      } finally {
+        this.busy = false;
+        $('build').disabled = false;
+      }
+      return;
+    }
+
+    const { spec, report } = parseProse(prose);
+    this.setSpec(spec, report);
+  }
+
+  /** Same shape, different dice: re-rolls placement without touching the spec. */
+  reroll() {
+    if (!this.spec) return;
+    this.spec = normalizeSpec({ ...this.spec, seed: (Math.random() * 1e9) | 0 });
+    this.setSpec(this.spec, [`reseeded (${this.spec.seed})`]);
+  }
+
+  share() {
+    const url = `${location.origin}${location.pathname}#lvl=${encodeSpec(this.spec)}`;
+    history.replaceState(null, '', `#lvl=${encodeSpec(this.spec)}`);
+    navigator.clipboard?.writeText(url).then(
+      () => this.status('link copied -- the level travels in the URL'),
+      () => this.status('link is in the address bar'),
+    );
+  }
+
+  async fly() {
+    if (!this.spec) return;
+    this.audio.start();
+    // Fullscreen landscape is worth asking for, and harmless when refused.
+    try {
+      const el = document.getElementById('stage');
+      if (!document.fullscreenElement && el.requestFullscreen) {
+        await el.requestFullscreen({ navigationUI: 'hide' });
+      }
+      await screen.orientation?.lock?.('landscape');
+    } catch { /* browsers may refuse either; the game plays fine regardless */ }
+    if (this.input.motion === 'granted') this.input.needsCalibration = true;
+    this.game.reset();
+    this.show('flight');
+  }
+
+  toMenu() {
+    this.show('design');
+    this.status(`${this.spec.name} -- ${this.game.phase === 'won' ? 'cleared' : 'ready'}`);
+    try { screen.orientation?.unlock?.(); } catch { /* not supported everywhere */ }
+  }
+
+  /**
+   * Drawn on the canvas behind the design panel. The schematic is static, so it
+   * is only re-rendered when something actually changed; the boot grid animates
+   * and always draws.
+   */
+  drawBackdrop() {
+    const rd = this.rd;
+    if (this.screen === 'design' && !this.dirty) return;
+    this.dirty = false;
+    rd.beginFrame(1);
+    if (this.screen === 'design' && this.game.track) {
+      drawSchematic(rd, this.game.track, this.game.level, 1, this.freeBand());
+    } else if (this.screen === 'boot') {
+      this.drawBootGrid();
+    }
+    rd.endFrame();
+  }
+
+  /**
+   * The canvas region the design panel is not covering, in device pixels. The
+   * schematic fits itself to this so it is never drawn behind the sheet.
+   */
+  freeBand() {
+    const rd = this.rd;
+    const r = rd.canvas.getBoundingClientRect();
+    const k = rd.height / Math.max(1, r.height);
+    const sheet = document.getElementById('sheet').getBoundingClientRect();
+    const top = document.getElementById('topbar').getBoundingClientRect();
+    const y0 = (top.bottom - r.top) * k + 8 * rd.scale;
+    const y1 = (sheet.top - r.top) * k - 6 * rd.scale;
+    if (y1 - y0 < 80 * rd.scale) {
+      // Panel is too tall to leave a usable band; use the whole canvas and let
+      // the sheet sit over it rather than squeezing the plots into nothing.
+      return { y0: rd.height * 0.06, y1: rd.height * 0.94 };
+    }
+    return { y0, y1 };
+  }
+
+  /** A slow perspective grid under the title, so the boot screen is not dead. */
+  drawBootGrid() {
+    const rd = this.rd;
+    const W = rd.width, H = rd.height, s = rd.scale;
+    const t = performance.now() / 1000;
+    const horizon = H * 0.62;
+    for (let i = 0; i < 22; i++) {
+      const k = ((i / 22) + (t * 0.06 % (1 / 22))) % 1;
+      const y = horizon + (H - horizon) * k * k;
+      const a = (1 - k) * 0.35;
+      rd.line2(0, y, W, y, 1 * s, 0.3, 0.7, 0.85, a, a);
+    }
+    for (let i = -9; i <= 9; i++) {
+      const x = W * 0.5 + i * W * 0.075;
+      rd.line2(W * 0.5 + i * 8 * s, horizon, x * 1.6 - W * 0.3, H, 1 * s,
+        0.3, 0.7, 0.85, 0.05, 0.3);
+    }
+    drawText(rd, 'VECTOR CANYON SIMULATOR', W * 0.5, horizon - 18 * s, 9 * s, 1.1 * s,
+      0.35, 0.6, 0.7, 0.6, 0);
+  }
+}
+
+// ---- main.js -------------------------------------------------------
+// Bootstrap: build the pieces, size the canvas, run the loop.
+
+
+
+
+
+
+
+
+const canvas = document.getElementById('c');
+
+function fail(msg) {
+  document.body.innerHTML =
+    `<div style="padding:2em;font-family:monospace;color:#6fe6ff;line-height:1.7">
+      <h2 style="letter-spacing:.2em;font-weight:400">VECTRENCH</h2>
+      <p>${msg}</p>
+      <p style="color:#5b8494">This game needs WebGL. Try a current Chrome, Safari or Firefox.</p>
+    </div>`;
+}
+
+let rd;
+try {
+  rd = new Renderer(canvas);
+} catch (err) {
+  fail(err.message);
+  throw err;
+}
+
+const input = new Input(canvas);
+const audio = new Audio();
+const game = new Game(rd, input, audio);
+const ui = new UI(rd, input, audio, game);
+
+let cssW = 0;
+let cssH = 0;
+
+function resize() {
+  const r = canvas.getBoundingClientRect();
+  cssW = Math.max(1, r.width);
+  cssH = Math.max(1, r.height);
+  // Cap total pixels rather than devicePixelRatio: what costs frames is the
+  // fragment count, and phones vary wildly in ratio for the same screen size.
+  rd.resize(cssW, cssH, 2_100_000);
+  if (ui) ui.dirty = true;
+}
+
+resize();
+window.addEventListener('resize', resize);
+window.addEventListener('orientationchange', () => setTimeout(resize, 120));
+
+let last = performance.now();
+let fpsAcc = 0;
+let fpsN = 0;
+let fps = 60;
+
+function frame(now) {
+  const dt = Math.min(0.1, (now - last) / 1000) || 0.016;
+  last = now;
+  fpsAcc += dt; fpsN++;
+  if (fpsAcc > 0.5) { fps = fpsN / fpsAcc; fpsAcc = 0; fpsN = 0; }
+
+  input.update(dt, cssW, cssH);
+
+  if (ui.screen === 'flight' && game.track) {
+    game.update(dt, cssW, cssH);
+    game.draw();
+  } else {
+    ui.drawBackdrop();
+  }
+
+  if (window.__vectrenchDebug) {
+    drawText(rd, `${fps.toFixed(0)} FPS  ${rd.segCount} SEG`,
+      rd.width - 10, rd.height - 8, 9 * rd.scale, 1 * rd.scale, 0.4, 1, 0.6, 0.8, 1);
+    rd.flush();
+  }
+
+  requestAnimationFrame(frame);
+}
+
+requestAnimationFrame(frame);
+
+// Exposed for the smoke test and for anyone poking at it in a console.
+window.__vectrench = { rd, input, audio, game, ui };
+</script>
+<noscript><p style="padding:2em">This game needs JavaScript and WebGL.</p></noscript>
+</body>
+</html>

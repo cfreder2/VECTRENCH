@@ -1,0 +1,282 @@
+// Compiles a level spec into queryable canyon geometry.
+//
+// The centreline is C(t) = (X(t), Y(t), t): the world z axis doubles as the
+// track parameter, so every cross-section is a plane of constant t and terrain
+// slices, obstacle collision and the ship's position all share one coordinate.
+//
+// Curviness is applied to the centreline's *slope* rather than its position,
+// then clamped and smoothed before being integrated. That is what makes the
+// spec safe: a section can ask for maximum curviness and still produce a track
+// whose walls never fold back through the camera.
+//
+// Canyon-local coordinates are (x, y): x is lateral offset from the centreline,
+// y is height above the trench floor. The rim sits at y = rim(t).
+
+import { hash2, clamp, smoothstep, lerp } from './math.js';
+import { specLength } from './spec.js';
+
+const G = 20;              // grid step for the precomputed profile
+const RUNOUT = 1100;       // extra track past the last section, for the finale
+const MAX_SLOPE_X = 0.55;
+const MAX_SLOPE_Y = 0.30;
+const BLEND = 260;         // transition length between sections
+
+function vnoise(t, wl, salt) {
+  const p = t / wl;
+  const i = Math.floor(p);
+  const f = p - i;
+  const a = hash2(i, salt) * 2 - 1;
+  const b = hash2(i + 1, salt) * 2 - 1;
+  return a + (b - a) * (f * f * (3 - 2 * f));
+}
+
+/** Catmull-Rom over a uniform grid, clamped at the ends. */
+function sample(arr, gi, f) {
+  const n = arr.length;
+  const i1 = clamp(gi, 0, n - 1);
+  const i0 = clamp(gi - 1, 0, n - 1);
+  const i2 = clamp(gi + 1, 0, n - 1);
+  const i3 = clamp(gi + 2, 0, n - 1);
+  const p0 = arr[i0], p1 = arr[i1], p2 = arr[i2], p3 = arr[i3];
+  const a = 0.5 * (p2 - p0);
+  const b = 2 * p0 - 5 * p1 + 4 * p2 - p3;
+  const c = -p0 + 3 * p1 - 3 * p2 + p3;
+  return p1 + f * a + f * f * 0.5 * b + f * f * f * 0.5 * c;
+}
+
+function smoothPass(arr, passes) {
+  const n = arr.length;
+  const tmp = new Float32Array(n);
+  for (let p = 0; p < passes; p++) {
+    for (let i = 0; i < n; i++) {
+      const a = arr[Math.max(0, i - 1)];
+      const b = arr[i];
+      const c = arr[Math.min(n - 1, i + 1)];
+      tmp[i] = (a + 2 * b + c) * 0.25;
+    }
+    arr.set(tmp);
+  }
+}
+
+export function makeFrame() {
+  return { t: 0, p: [0, 0, 0], r: [1, 0, 0], u: [0, 1, 0], f: [0, 0, 1], railY: 56 };
+}
+
+export class Track {
+  constructor(spec) {
+    this.spec = spec;
+    this.bodyLength = specLength(spec);
+    this.total = this.bodyLength + RUNOUT;
+    this.portT = spec.finale === 'port' ? this.bodyLength + 720 : -1;
+
+    // Section boundaries, so a t can be resolved back to authored intent.
+    this.bounds = [0];
+    for (const s of spec.sections) this.bounds.push(this.bounds[this.bounds.length - 1] + s.length);
+
+    const n = Math.ceil(this.total / G) + 4;
+    this.n = n;
+    const width = new Float32Array(n);
+    const depth = new Float32Array(n);
+    const rough = new Float32Array(n);
+    const hue = new Float32Array(n);
+    const curv = new Float32Array(n);
+    const hill = new Float32Array(n);
+
+    for (let i = 0; i < n; i++) {
+      const t = i * G;
+      const p = this.blendParams(t);
+      // A gentle breathing term keeps an authored constant width from reading
+      // as a corridor extruded by a machine.
+      width[i] = p.width * (1 + 0.11 * vnoise(t, 520, 11));
+      depth[i] = p.depth * (1 + 0.07 * vnoise(t, 900, 12));
+      rough[i] = p.roughness;
+      hue[i] = p.hue;
+      curv[i] = p.curviness;
+      hill[i] = p.hilliness;
+    }
+
+    // The finale choke: walls close in on the port regardless of what the last
+    // section asked for, so the missile shot always reads as threading a needle.
+    if (this.portT > 0) {
+      for (let i = 0; i < n; i++) {
+        const t = i * G;
+        const k = smoothstep(this.portT - 950, this.portT - 150, t);
+        if (k > 0) width[i] = lerp(width[i], 34, k);
+      }
+    }
+
+    smoothPass(width, 2);
+    smoothPass(depth, 2);
+
+    // Slope-first construction: noise -> scale by curviness -> clamp -> smooth
+    // -> integrate. Bounded turns by construction.
+    const sx = new Float32Array(n);
+    const sy = new Float32Array(n);
+    for (let i = 0; i < n; i++) {
+      const t = i * G;
+      const nx = 0.55 * vnoise(t, 1400, 1) + 0.3 * vnoise(t, 620, 2) + 0.15 * vnoise(t, 300, 3);
+      const ny = 0.6 * vnoise(t, 1700, 4) + 0.4 * vnoise(t, 700, 5);
+      sx[i] = clamp(curv[i] * nx * 1.35, -MAX_SLOPE_X, MAX_SLOPE_X);
+      sy[i] = clamp(hill[i] * ny * 0.9, -MAX_SLOPE_Y, MAX_SLOPE_Y);
+    }
+    smoothPass(sx, 3);
+    smoothPass(sy, 3);
+
+    const X = new Float32Array(n);
+    const Y = new Float32Array(n);
+    for (let i = 1; i < n; i++) {
+      X[i] = X[i - 1] + sx[i - 1] * G;
+      Y[i] = Y[i - 1] + sy[i - 1] * G;
+    }
+
+    this.W = width; this.D = depth; this.R = rough; this.H = hue;
+    this.X = X; this.Y = Y; this.SX = sx; this.SY = sy;
+    this._scratch = makeFrame();
+    this._scratch2 = makeFrame();
+  }
+
+  /**
+   * Section parameters at t, smoothly blended across boundaries so the canyon
+   * morphs between authored shapes instead of stepping.
+   */
+  blendParams(t) {
+    const secs = this.spec.sections;
+    let i = 0;
+    while (i < secs.length - 1 && t >= this.bounds[i + 1]) i++;
+    const cur = secs[i];
+    const start = this.bounds[i];
+    const end = this.bounds[i + 1];
+    const out = { ...cur };
+
+    const half = Math.min(BLEND, cur.length * 0.45);
+    if (i > 0 && t - start < half) {
+      const k = smoothstep(0, 1, (t - start) / half) * 0.5 + 0.5;
+      const prev = secs[i - 1];
+      for (const key of NUMERIC) out[key] = lerp(prev[key], cur[key], k);
+    } else if (i < secs.length - 1 && end - t < half) {
+      const k = smoothstep(0, 1, (end - t) / half) * 0.5 + 0.5;
+      const next = secs[i + 1];
+      for (const key of NUMERIC) out[key] = lerp(next[key], cur[key], k);
+    }
+    return out;
+  }
+
+  sectionIndexAt(t) {
+    let i = 0;
+    while (i < this.spec.sections.length - 1 && t >= this.bounds[i + 1]) i++;
+    return i;
+  }
+
+  sectionAt(t) {
+    return this.spec.sections[this.sectionIndexAt(t)];
+  }
+
+  _gi(t) {
+    const p = clamp(t / G, 0, this.n - 1);
+    const gi = Math.floor(p);
+    return [gi, p - gi];
+  }
+
+  x(t) { const [i, f] = this._gi(t); return sample(this.X, i, f); }
+  y(t) { const [i, f] = this._gi(t); return sample(this.Y, i, f); }
+  dx(t) { const [i, f] = this._gi(t); return sample(this.SX, i, f); }
+  dy(t) { const [i, f] = this._gi(t); return sample(this.SY, i, f); }
+  halfWidth(t) { const [i, f] = this._gi(t); return sample(this.W, i, f); }
+  rim(t) { const [i, f] = this._gi(t); return sample(this.D, i, f); }
+  rough(t) { const [i, f] = this._gi(t); return sample(this.R, i, f); }
+  hue(t) { const [i, f] = this._gi(t); return sample(this.H, i, f); }
+
+  /** Height of the rail itself: a little under half-way up the trench. */
+  railY(t) { return this.rim(t) * 0.46; }
+
+  /**
+   * How fast the ship travels at t.
+   *
+   * The run accelerates to the spec's end speed, then eases off on the final
+   * approach to the port. Without that easing the port is visible for about a
+   * second and a half and the lock takes one -- technically possible, and no
+   * fun. The slowdown is also the beat the whole level has been building to.
+   */
+  speedAt(t) {
+    const k = clamp(t / Math.max(1, this.bodyLength), 0, 1);
+    let v = lerp(this.spec.speed.start, this.spec.speed.end, k);
+    if (this.portT > 0) {
+      const ease = smoothstep(this.portT - 1050, this.portT - 250, t);
+      v *= 1 - 0.46 * ease;
+    }
+    return v;
+  }
+
+  /** Curvature signal, for banking the camera into turns. */
+  curveAt(t) { return (this.dx(t + 70) - this.dx(t - 70)) / 140; }
+
+  /** Fills an orthonormal frame at track position t. */
+  frameAt(t, fr) {
+    const dx = this.dx(t);
+    const dy = this.dy(t);
+    const L = Math.hypot(dx, dy, 1);
+    const fx = dx / L, fy = dy / L, fz = 1 / L;
+    fr.f[0] = fx; fr.f[1] = fy; fr.f[2] = fz;
+
+    // right = normalize(cross(worldUp, fwd)); has no y term, so lateral motion
+    // stays horizontal however the track pitches.
+    const rl = Math.hypot(fz, fx);
+    fr.r[0] = fz / rl; fr.r[1] = 0; fr.r[2] = -fx / rl;
+
+    // up = cross(fwd, right)
+    fr.u[0] = fy * fr.r[2] - fz * fr.r[1];
+    fr.u[1] = fz * fr.r[0] - fx * fr.r[2];
+    fr.u[2] = fx * fr.r[1] - fy * fr.r[0];
+
+    fr.t = t;
+    fr.p[0] = this.x(t);
+    fr.p[1] = this.y(t);
+    fr.p[2] = t;
+    fr.railY = this.railY(t);
+    return fr;
+  }
+
+  localToWorldF(fr, x, y, out) {
+    const h = y - fr.railY;
+    out[0] = fr.p[0] + fr.r[0] * x + fr.u[0] * h;
+    out[1] = fr.p[1] + fr.r[1] * x + fr.u[1] * h;
+    out[2] = fr.p[2] + fr.r[2] * x + fr.u[2] * h;
+    return out;
+  }
+
+  localToWorld(t, x, y, out) {
+    return this.localToWorldF(this.frameAt(t, this._scratch), x, y, out);
+  }
+
+  /**
+   * World -> canyon-local (t, x, y). Because the centreline's z *is* t, world z
+   * is already a good first guess; one refinement along the local forward axis
+   * is enough for collision work.
+   */
+  worldToLocal(wx, wy, wz, out) {
+    let t = wz;
+    const fr = this._scratch2;
+    for (let i = 0; i < 2; i++) {
+      this.frameAt(t, fr);
+      const dx = wx - fr.p[0], dy = wy - fr.p[1], dz = wz - fr.p[2];
+      t += dx * fr.f[0] + dy * fr.f[1] + dz * fr.f[2];
+    }
+    this.frameAt(t, fr);
+    const dx = wx - fr.p[0], dy = wy - fr.p[1], dz = wz - fr.p[2];
+    out[0] = t;
+    out[1] = dx * fr.r[0] + dy * fr.r[1] + dz * fr.r[2];
+    out[2] = dx * fr.u[0] + dy * fr.u[1] + dz * fr.u[2] + fr.railY;
+    return out;
+  }
+
+  /** Floor relief: small, but enough that the trench bottom is not a mirror. */
+  floorAt(t, x) {
+    const i = Math.floor(t / 240);
+    const f = t / 240 - i;
+    const a = hash2(i, 7) - 0.5;
+    const b = hash2(i + 1, 7) - 0.5;
+    return (a + (b - a) * (f * f * (3 - 2 * f))) * 9 + Math.sin(x * 0.05) * 1.5;
+  }
+}
+
+const NUMERIC = ['width', 'depth', 'curviness', 'hilliness', 'roughness', 'hue'];

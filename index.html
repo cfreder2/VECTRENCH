@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>VECTRENCH</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#02060a">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="description" content="A vector rails shooter. Describe a canyon in plain language, then fly it.">
+<style>
+  :root {
+    --cyan: #6fe6ff;
+    --amber: #ffb74d;
+    --red: #ff5a49;
+    --dim: #5b8494;
+    --panel: rgba(4, 12, 18, 0.9);
+    --line: rgba(111, 230, 255, 0.28);
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    margin: 0; padding: 0; height: 100%; overflow: hidden;
+    background: #02060a; color: var(--cyan);
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    overscroll-behavior: none;
+  }
+  #stage { position: fixed; inset: 0; }
+  canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+
+  .layer {
+    position: absolute; inset: 0; display: none;
+    padding: max(14px, env(safe-area-inset-top)) max(14px, env(safe-area-inset-right))
+             max(14px, env(safe-area-inset-bottom)) max(14px, env(safe-area-inset-left));
+  }
+  .layer.on { display: flex; }
+
+  /* --- boot --- */
+  #boot { flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 18px; }
+  #boot h1 {
+    margin: 0; font-size: clamp(34px, 11vw, 82px); letter-spacing: 0.22em;
+    font-weight: 400; color: var(--cyan); text-shadow: 0 0 24px rgba(111,230,255,0.55);
+  }
+  #boot .sub { color: var(--dim); font-size: clamp(11px, 3vw, 14px); letter-spacing: 0.16em; max-width: 30em; line-height: 1.7; }
+  .pulse { animation: pulse 1.6s ease-in-out infinite; }
+  @keyframes pulse { 0%,100% { opacity: 0.35; } 50% { opacity: 1; } }
+  /* The flight itself is motion by definition, but the ambient chrome need not
+     be. Hold the pulse steady for anyone who asked for less movement. */
+  @media (prefers-reduced-motion: reduce) {
+    .pulse { animation: none; opacity: 0.8; }
+  }
+
+  /* --- design --- */
+  #design { flex-direction: column; gap: 10px; pointer-events: none; }
+  #design > * { pointer-events: auto; }
+  #topbar { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; }
+  #topbar .title { font-size: 15px; letter-spacing: 0.22em; }
+  #topbar .hint { color: var(--dim); font-size: 11px; letter-spacing: 0.08em; }
+  #spacer { flex: 1; min-height: 0; }
+
+  #sheet {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 4px;
+    padding: 12px; display: flex; flex-direction: column; gap: 10px;
+    max-height: 54vh; overflow-y: auto; backdrop-filter: blur(3px);
+  }
+  #sheet.collapsed { max-height: none; }
+  #sheet.collapsed .foldable { display: none; }
+
+  label { display: block; font-size: 10px; letter-spacing: 0.16em; color: var(--dim); margin-bottom: 5px; }
+  textarea, input[type=text], input[type=password] {
+    width: 100%; background: rgba(0,0,0,0.55); color: var(--cyan);
+    border: 1px solid var(--line); border-radius: 3px; padding: 9px;
+    font-family: inherit; font-size: 13px; line-height: 1.55; resize: vertical;
+  }
+  textarea { min-height: 74px; }
+  textarea:focus, input:focus { outline: none; border-color: var(--cyan); }
+
+  .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  button {
+    background: rgba(111,230,255,0.09); color: var(--cyan);
+    border: 1px solid var(--line); border-radius: 3px;
+    padding: 9px 14px; font-family: inherit; font-size: 12px;
+    letter-spacing: 0.14em; cursor: pointer; transition: background 0.12s, border-color 0.12s;
+  }
+  button:hover:not(:disabled) { background: rgba(111,230,255,0.2); border-color: var(--cyan); }
+  button:active:not(:disabled) { background: rgba(111,230,255,0.32); }
+  button:disabled { opacity: 0.35; cursor: default; }
+  button:focus-visible, textarea:focus-visible, input:focus-visible,
+  summary:focus-visible {
+    outline: 2px solid var(--cyan); outline-offset: 2px;
+  }
+  button.primary {
+    background: rgba(255,183,77,0.14); color: var(--amber);
+    border-color: rgba(255,183,77,0.5); font-size: 13px; padding: 11px 22px;
+  }
+  button.primary:hover:not(:disabled) { background: rgba(255,183,77,0.3); border-color: var(--amber); }
+  button.chip { padding: 6px 10px; font-size: 10.5px; letter-spacing: 0.1em; }
+
+  #report {
+    font-size: 10.5px; line-height: 1.65; color: var(--dim);
+    white-space: pre-wrap; max-height: 22vh; overflow-y: auto;
+    border-left: 2px solid var(--line); padding-left: 9px;
+  }
+  #report .warn { color: var(--red); }
+  #report .ok { color: var(--amber); }
+
+  details summary {
+    cursor: pointer; font-size: 10px; letter-spacing: 0.16em;
+    color: var(--dim); padding: 4px 0; list-style: none;
+  }
+  details summary::-webkit-details-marker { display: none; }
+  details summary::before { content: "+ "; }
+  details[open] summary::before { content: "- "; }
+  details .body { padding: 9px 0 3px; display: flex; flex-direction: column; gap: 10px; }
+  .toggle { display: flex; align-items: center; gap: 7px; font-size: 11px; color: var(--cyan); }
+  input[type=checkbox] { accent-color: #6fe6ff; width: 15px; height: 15px; }
+  input[type=range] { accent-color: #6fe6ff; flex: 1; min-width: 110px; }
+  .note { font-size: 10px; color: var(--dim); line-height: 1.6; }
+  a { color: var(--amber); }
+
+  /* --- flight --- */
+  #flight { display: none; pointer-events: none; }
+  #pause {
+    position: absolute; right: max(12px, env(safe-area-inset-right));
+    bottom: max(12px, env(safe-area-inset-bottom));
+    pointer-events: auto; opacity: 0.4; padding: 7px 11px; font-size: 10.5px;
+  }
+  #pause:hover { opacity: 1; }
+  #flight.on { display: block; }
+  #err { color: var(--red); font-size: 11px; line-height: 1.6; }
+</style>
+</head>
+<body>
+<div id="stage">
+  <canvas id="c"></canvas>
+
+  <div id="boot" class="layer on">
+    <h1>VECTRENCH</h1>
+    <div class="sub">
+      Describe a canyon in plain language. Fly it at five hundred units a second.<br>
+      Tilt to steer &middot; tap to shoot &middot; hold on a target to lock a missile.
+    </div>
+    <button id="begin" class="primary">TAP TO BEGIN</button>
+    <div class="sub pulse" id="bootnote">enables motion controls and sound</div>
+  </div>
+
+  <div id="design" class="layer">
+    <div id="topbar">
+      <span class="title">VECTRENCH</span>
+      <span class="hint" id="statusline">describe a level, then build it</span>
+    </div>
+    <div id="spacer"></div>
+    <div id="sheet">
+      <div class="foldable">
+        <label for="prose">LEVEL DESCRIPTION</label>
+        <textarea id="prose" spellcheck="false"
+          placeholder="e.g. start wide and open, then tighten into a deep twisting trench packed with hanging fangs and irises, seal it twice with heavy turret cover on the surface, finish with a narrow choke and an exhaust port"></textarea>
+      </div>
+      <div class="row foldable" id="examples"></div>
+      <div class="row">
+        <button id="build" class="primary">BUILD</button>
+        <button id="fly" class="primary" disabled>FLY IT</button>
+        <button id="reroll" class="chip" disabled>RESEED</button>
+        <button id="fold" class="chip">SCHEMATIC</button>
+        <button id="share" class="chip" disabled>COPY LINK</button>
+      </div>
+      <div id="report" class="foldable">no level built yet</div>
+      <details class="foldable">
+        <summary>CONTROLS &amp; SETUP</summary>
+        <div class="body">
+          <div class="row">
+            <button id="calibrate" class="chip">CALIBRATE TILT</button>
+            <span class="note" id="motionstate">motion: unknown</span>
+          </div>
+          <label>TILT SENSITIVITY</label>
+          <div class="row"><input type="range" id="sens" min="0.5" max="2.2" step="0.1" value="1"><span class="note" id="sensval">1.0</span></div>
+          <div class="row">
+            <span class="toggle"><input type="checkbox" id="invx"> INVERT LEFT/RIGHT</span>
+            <span class="toggle"><input type="checkbox" id="invy"> INVERT UP/DOWN</span>
+          </div>
+          <div class="row">
+            <span class="toggle"><input type="checkbox" id="mute"> MUTE</span>
+            <span class="toggle"><input type="checkbox" id="crt" checked> CRT GLOW</span>
+          </div>
+          <div class="note">
+            No tilt sensor? Hold one finger to aim and shoot, and drag a second finger
+            anywhere to steer. On a desktop, arrow keys or WASD steer and the mouse aims.
+          </div>
+        </div>
+      </details>
+      <details class="foldable">
+        <summary>USE CLAUDE TO DESIGN THE LEVEL (OPTIONAL)</summary>
+        <div class="body">
+          <div class="note">
+            The offline parser above understands a fixed vocabulary and always works.
+            Turn this on to have Claude read freeform prose instead and fill in the same
+            level spec. Your key is stored only in this browser and is sent only to
+            Anthropic's API from your own device.
+          </div>
+          <span class="toggle"><input type="checkbox" id="usellm"> USE CLAUDE</span>
+          <div>
+            <label for="apikey">ANTHROPIC API KEY</label>
+            <input type="password" id="apikey" spellcheck="false" autocomplete="off" placeholder="sk-ant-...">
+          </div>
+          <div id="err"></div>
+        </div>
+      </details>
+    </div>
+  </div>
+
+  <div id="flight" class="layer">
+    <button id="pause" class="chip">MENU</button>
+  </div>
+</div>
+<script type="module" src="./src/main.js"></script>
+<noscript><p style="padding:2em">This game needs JavaScript and WebGL.</p></noscript>
+</body>
+</html>
