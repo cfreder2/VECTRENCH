@@ -8,6 +8,9 @@
 
 import { rng, clamp } from './math.js';
 
+// Everything that shoots can be locked. The obstacles cannot -- they are the
+// part of a level you fly around rather than the part you answer.
+//
 // Obstacles must not crowd a bulkhead's approach, but guns near one are the
 // point: they punish the climb the bulkhead forces. Hence two clearances.
 const OB_CLEARANCE = 420;
@@ -162,7 +165,7 @@ export function buildLevel(spec, track) {
       const rim = track.rim(t);
       enemies.push(enemy('wallgun', t, (rand() < 0.5 ? -1 : 1) * (hw - 4),
         22 + rand() * (rim - 40),
-        { hp: 2, maxHp: 2, points: 120, cool: 1 + rand() * 1.4 }));
+        { hp: 2, maxHp: 2, lockable: true, points: 120, cool: 1 + rand() * 1.4 }));
     }
 
     // Drone waves.

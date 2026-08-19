@@ -3,8 +3,9 @@
 A vector-graphics rails shooter for phones. Describe a canyon in plain language,
 and the game builds it and lets you fly it.
 
-Tilt the phone to move within the trench, tap to shoot at where you tapped, and
-hold on a target long enough to lock a missile.
+Tilt the phone to move within the trench. You do not aim: the crosshair sits
+where the nose points, and flying it across a target paints it. Touch anywhere
+to fire the gun, and launch missiles at everything you have painted at once.
 
 **[Play it](https://cfreder2.github.io/VECTRENCH/)** — no install, no account, nothing to download. It runs
 from the page. Open it on a phone if you want the tilt controls.
@@ -44,9 +45,9 @@ first gesture is what lets the browser grant motion access and start audio, both
 of which require a user gesture. Use **CALIBRATE TILT** while holding the phone
 the way you intend to play; that posture becomes neutral.
 
-No tilt sensor, or permission denied? Hold one finger to aim and shoot, and drag
-a second finger anywhere to steer. On a desktop, arrow keys or WASD steer and the
-mouse aims.
+No tilt sensor, or permission denied? Drag one finger to steer and touch with a
+second to fire. On a desktop, arrow keys or WASD steer, click or SPACE fires, and
+SHIFT or M launches.
 
 ## The idea
 
@@ -55,9 +56,31 @@ but exposed to surface batteries. Several times a run the trench is sealed by a
 bulkhead and the only way through is over the top — into the guns. That trade is
 the game.
 
-The run ends at an exhaust port that guns will not breach. You have to hold the
-reticle on it long enough to lock, and the approach slows down to give you the
-time.
+The run ends at an exhaust port that guns will not breach. It is a missile
+target and nothing else, so the last thing a run asks of you is the thing every
+gun on the way there was teaching: put the crosshair on it, and launch.
+
+## Weapons
+
+There is no aiming. The crosshair sits where the nose points and does not
+follow your finger, so putting it on something is a flying problem — which is
+the problem the game is already about. Anything the crosshair rests on is
+painted, and a painted target is locked until you spend it.
+
+**The gun** fires while you touch the screen, anywhere. Ammunition is infinite
+and heat is not: about two and a half seconds of held fire overheats it, and it
+will not fire again until it has cooled most of the way back. It is the answer
+to whatever is in front of you right now.
+
+**Missiles** cost nothing to fire and never miss, but everything they hit has
+to be painted first. Up to eight locks are held at once and a launch spends all
+of them simultaneously, then the launcher reloads for five seconds. It is the
+answer to a group — a drone wave, or the cover fire waiting above a bulkhead —
+and the five seconds is why you cannot make it the answer to everything.
+
+The two weapons are shaped as opposites on purpose. The gun is always available
+and always costs something; missiles cost nothing at the moment you fire them
+and everything in the twenty seconds of flying it took to line them up.
 
 ## Making a level
 
@@ -138,7 +161,7 @@ a model, or a typo can be strange but never unplayable.
 | `level.js` | Spec → obstacles, guns, drone waves, the port |
 | `terrain.js` | Drawing the canyon |
 | `entities.js` | Ship, obstacles, enemies, projectiles, particles |
-| `game.js` | Physics, camera, collision, enemy fire, lock-on, scoring |
+| `game.js` | Physics, camera, collision, enemy fire, both weapons, scoring |
 | `renderer.js` | The vector display: batched glowing lines, phosphor trails |
 | `hud.js` | HUD and the level schematic |
 | `font.js` | Stroke font |

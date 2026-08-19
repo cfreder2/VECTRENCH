@@ -84,6 +84,11 @@ put guns on the surface. `wall gun`, `gun port`, `embrasure`, `pillbox` put them
 inside the trench. `drone`, `fighter`, `interceptor`, `swarm`, `squadron` send
 waves at you. Negations work: `undefended`, `no guns`, `no drones`.
 
+All of them can be locked, so enemy density is also missile density: a section
+that puts several guns within sight of each other is a section that hands the
+player a salvo. The clusters the compiler makes on its own — a drone wave, the
+cover fire it places around every bulkhead — are already shaped for that.
+
 **Bulkheads.** `seal`, `sealed`, `walled off`, `blocked off`, `dead end`,
 `forced over`, `no way through` place a full-height barrier you can only clear by
 climbing out of the trench. A count comes along for the ride: `sealed three
@@ -141,7 +146,7 @@ fly, and the seed is pinned, so it is the same run every time.
 | `seed` | any integer | Fixes every random placement. Same seed, same level |
 | `speed.start` | 120–700 | Units per second at the mouth |
 | `speed.end` | 120–900 | Units per second at the end; it ramps between |
-| `finale` | `port` \| `none` | `port` adds the exhaust port you have to lock |
+| `finale` | `port` \| `none` | `port` adds the exhaust port, which only missiles open |
 | `sections` | 1–24 | The run, in order |
 
 Each section:

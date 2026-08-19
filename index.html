@@ -125,11 +125,29 @@
   /* --- flight --- */
   #flight { display: none; pointer-events: none; }
   #pause {
-    position: absolute; right: max(12px, env(safe-area-inset-right));
-    bottom: max(12px, env(safe-area-inset-bottom));
-    pointer-events: auto; opacity: 0.4; padding: 7px 11px; font-size: 10.5px;
+    position: absolute; left: 50%; transform: translateX(-50%);
+    top: max(10px, env(safe-area-inset-top));
+    pointer-events: auto; opacity: 0.35; padding: 6px 10px; font-size: 10px;
   }
   #pause:hover { opacity: 1; }
+  /* The launcher. Big, in the corner a right thumb already rests in, and
+     readable at a glance because it doubles as the cooldown clock. */
+  #msl {
+    position: absolute;
+    right: max(12px, env(safe-area-inset-right));
+    bottom: max(12px, env(safe-area-inset-bottom));
+    pointer-events: auto; padding: 16px 20px; min-width: 116px;
+    font-size: 13px; letter-spacing: 0.16em; border-radius: 6px;
+    background: rgba(255,183,77,0.13); color: var(--amber);
+    border: 1px solid rgba(255,183,77,0.5);
+    transition: opacity 0.12s, background 0.12s;
+  }
+  #msl.armed {
+    background: rgba(255,183,77,0.3); border-color: var(--amber);
+    box-shadow: 0 0 18px rgba(255,183,77,0.35);
+  }
+  #msl.cooling { opacity: 0.34; color: var(--dim); border-color: var(--line); }
+  #msl:active { background: rgba(255,183,77,0.45); }
   #flight.on { display: block; }
   #err { color: var(--red); font-size: 11px; line-height: 1.6; }
 </style>
@@ -142,7 +160,8 @@
     <h1>VECTRENCH</h1>
     <div class="sub">
       Describe a canyon in plain language. Fly it at five hundred units a second.<br>
-      Tilt to steer &middot; tap to shoot &middot; hold on a target to lock a missile.
+      Tilt to steer &middot; touch anywhere to shoot &middot; fly the crosshair over
+      targets to lock them, then launch.
     </div>
     <button id="begin" class="primary">TAP TO BEGIN</button>
     <div class="sub pulse" id="bootnote">enables motion controls and sound</div>
@@ -194,8 +213,13 @@
             <span class="toggle"><input type="checkbox" id="crt" checked> CRT GLOW</span>
           </div>
           <div class="note">
-            No tilt sensor? Hold one finger to aim and shoot, and drag a second finger
-            anywhere to steer. On a desktop, arrow keys or WASD steer and the mouse aims.
+            You do not aim. The crosshair sits where the nose points, and flying it
+            across a target paints it; painted targets stay locked until you press
+            MISSILES, and every lock is struck at once. Touching anywhere fires the
+            gun, which overheats if you hold it.<br><br>
+            No tilt sensor? Drag one finger to steer, and touch with a second to
+            fire. On a desktop, arrow keys or WASD steer, click or SPACE fires, and
+            SHIFT or M launches.
           </div>
         </div>
       </details>
@@ -221,6 +245,7 @@
 
   <div id="flight" class="layer">
     <button id="pause" class="chip">MENU</button>
+    <button id="msl">MISSILES</button>
   </div>
 </div>
 <script type="module" src="./src/main.js"></script>

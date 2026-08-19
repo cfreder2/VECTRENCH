@@ -94,6 +94,13 @@ export class UI {
     $('share').addEventListener('click', () => this.share());
     $('pause').addEventListener('click', () => this.toMenu());
 
+    // The launcher. pointerdown rather than click so it fires on touch-down
+    // like every other control in flight, and so holding it does not repeat.
+    $('msl').addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      this.input.launchMissiles();
+    });
+
     $('calibrate').addEventListener('click', async () => {
       if (this.input.motion !== 'granted') await this.input.requestMotion();
       const ok = this.input.calibrate();
@@ -139,6 +146,25 @@ export class UI {
     $('motionstate').textContent = text;
   }
 
+  /**
+   * The launcher button doubles as the cooldown clock, so it is refreshed from
+   * the game each frame -- but only written when the text or state actually
+   * changed, because a DOM write per frame for a label that changes once a
+   * second is a frame cost for nothing.
+   */
+  syncMissileButton() {
+    const g = this.game;
+    if (this.screen !== 'flight' || g.phase !== 'flying') return;
+    const ready = g.missileCooldown <= 0;
+    const locks = g.locks ? g.locks.length : 0;
+    const text = ready
+      ? (locks ? `MISSILES ${locks}` : 'MISSILES')
+      : `${g.missileCooldown.toFixed(1)}s`;
+    const cls = ready ? (locks ? 'armed' : '') : 'cooling';
+    if (text !== this._mslText) { $('msl').textContent = text; this._mslText = text; }
+    if (cls !== this._mslCls) { $('msl').className = cls; this._mslCls = cls; }
+  }
+
   /** First real gesture: unlock audio and ask for the motion sensor. */
   async begin() {
     this.audio.start();
@@ -148,7 +174,7 @@ export class UI {
     // Embedded frames and desktops often have no usable tilt sensor. Say so
     // where the player will actually read it, not only inside a details pane.
     if (this.input.motion !== 'granted') {
-      this.controlHint = 'no tilt: one finger aims + fires, drag a second to steer';
+      this.controlHint = 'no tilt: drag one finger to steer, touch with a second to fire';
     }
     this.show('design');
     if (!this.spec) {

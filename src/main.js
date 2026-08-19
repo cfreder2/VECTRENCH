@@ -64,6 +64,7 @@ function frame(now) {
   if (ui.screen === 'flight' && game.track) {
     game.update(dt, cssW, cssH);
     game.draw();
+    ui.syncMissileButton();
   } else {
     ui.drawBackdrop();
   }

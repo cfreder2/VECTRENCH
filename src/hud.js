@@ -64,11 +64,25 @@ export function drawReticle(rd, x, y, s, lockProgress, locked, hasTarget) {
   if (locked) bracket(rd, x - 34 * s, y - 34 * s, 68 * s, 68 * s, s, RED, 1, 2 * s);
 }
 
-/** Brackets that close in on a lockable target as the lock builds. */
+/**
+ * Brackets on a lockable target, in three states.
+ *
+ * A late level has ninety guns in it, so an idle box has to be quiet enough
+ * that ten of them on screen is texture rather than noise. Painting closes the
+ * brackets in; a completed lock snaps them tight and red, which is the only
+ * thing on screen that means "this dies when you launch".
+ */
 export function drawTargetBox(rd, sx, sy, s, progress, locked) {
-  const size = lerp(70, 30, clamp(progress, 0, 1)) * s;
-  const col = locked ? RED : AMBER;
-  bracket(rd, sx - size * 0.5, sy - size * 0.5, size, size, s, col, locked ? 1 : 0.85, 1.6 * s);
+  if (locked) {
+    bracket(rd, sx - 15 * s, sy - 15 * s, 30 * s, 30 * s, s, RED, 1, 2 * s);
+    return;
+  }
+  if (progress > 0) {
+    const size = lerp(70, 32, clamp(progress, 0, 1)) * s;
+    bracket(rd, sx - size * 0.5, sy - size * 0.5, size, size, s, AMBER, 0.9, 1.6 * s);
+    return;
+  }
+  bracket(rd, sx - 22 * s, sy - 22 * s, 44 * s, 44 * s, s, DIM, 0.3, 1.2 * s);
 }
 
 export function drawHud(rd, st) {
@@ -91,8 +105,33 @@ export function drawHud(rd, st) {
   drawText(rd, String(st.score).padStart(6, '0'), W - pad, pad + 12 * s, 14 * s, 1.4 * s,
     AMBER[0], AMBER[1], AMBER[2], 1, 1);
   drawText(rd, st.levelName, W - pad, pad + 28 * s, 8 * s, 1 * s, DIM[0], DIM[1], DIM[2], 0.8, 1);
-  if (st.missiles > 0) {
-    drawText(rd, `MSL ${st.missiles}`, W - pad, pad + 44 * s, 9 * s, 1.1 * s, 1, 0.6, 0.3, 0.95, 1);
+  // --- gun heat ---
+  // Drawn under the shield because it is read the same way: a bar you watch
+  // fill and then have to stop doing something about.
+  const hot = st.overheated;
+  const hcol = hot ? RED : st.heat > 0.7 ? AMBER : DIM;
+  drawText(rd, hot ? 'GUN -- OVERHEATED' : 'GUN', pad, pad + 40 * s, 9 * s, 1.1 * s,
+    hcol[0], hcol[1], hcol[2], hot ? 0.4 + 0.6 * Math.abs(Math.sin(st.time * 9)) : 0.9);
+  bar(rd, pad, pad + 47 * s, 150 * s, 7 * s, clamp(st.heat, 0, 1), 10,
+    hot ? RED : st.heat > 0.7 ? AMBER : CYAN, s);
+
+  // --- launcher ---
+  const ready = st.missileCooldown <= 0;
+  const mcol = ready ? (st.locks > 0 ? AMBER : DIM) : DIM;
+  const mtext = ready
+    ? (st.locks > 0 ? `MISSILES READY -- ${st.locks} LOCKED` : 'MISSILES READY')
+    : `RELOADING ${st.missileCooldown.toFixed(1)}`;
+  drawText(rd, mtext, W - pad, pad + 46 * s, 9 * s, 1.1 * s,
+    mcol[0], mcol[1], mcol[2], 0.95, 1);
+  bar(rd, W - pad - 150 * s, pad + 52 * s, 150 * s, 7 * s,
+    ready ? 1 : 1 - st.missileCooldown / st.missileMax, 10, ready ? AMBER : DIM, s);
+
+  // Locks, as pips: the count you are about to spend.
+  for (let i = 0; i < st.lockMax; i++) {
+    const on = i < st.locks;
+    const bx = W - pad - 6 * s - i * 11 * s;
+    rd.line2(bx, pad + 66 * s, bx, pad + 66 * s, 3.4 * s,
+      1, 0.6, 0.25, on ? 1 : 0.16, on ? 1 : 0.16);
   }
 
   // --- altitude ladder: the trench/surface decision, made legible ---
@@ -140,7 +179,9 @@ export function drawHud(rd, st) {
   if (st.exposed) warn('EXPOSED', RED, true);
   if (st.wallWarn > 0) warn('PULL AWAY', AMBER, true);
   if (st.sealAhead > 0) warn('BULKHEAD -- CLIMB', AMBER, true);
-  if (st.portAhead && st.portAlive) warn('HOLD ON PORT TO LOCK', CYAN, true);
+  if (st.portAhead && st.portAlive) {
+    warn(st.locks > 0 ? 'PORT LOCKED -- LAUNCH' : 'PUT THE CROSSHAIR ON THE PORT', CYAN, true);
+  }
   if (st.message) {
     drawText(rd, st.message, W * 0.5, H * 0.42, 20 * s, 2.2 * s, 1, 0.85, 0.4, 1, 0);
   }

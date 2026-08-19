@@ -125,11 +125,29 @@
   /* --- flight --- */
   #flight { display: none; pointer-events: none; }
   #pause {
-    position: absolute; right: max(12px, env(safe-area-inset-right));
-    bottom: max(12px, env(safe-area-inset-bottom));
-    pointer-events: auto; opacity: 0.4; padding: 7px 11px; font-size: 10.5px;
+    position: absolute; left: 50%; transform: translateX(-50%);
+    top: max(10px, env(safe-area-inset-top));
+    pointer-events: auto; opacity: 0.35; padding: 6px 10px; font-size: 10px;
   }
   #pause:hover { opacity: 1; }
+  /* The launcher. Big, in the corner a right thumb already rests in, and
+     readable at a glance because it doubles as the cooldown clock. */
+  #msl {
+    position: absolute;
+    right: max(12px, env(safe-area-inset-right));
+    bottom: max(12px, env(safe-area-inset-bottom));
+    pointer-events: auto; padding: 16px 20px; min-width: 116px;
+    font-size: 13px; letter-spacing: 0.16em; border-radius: 6px;
+    background: rgba(255,183,77,0.13); color: var(--amber);
+    border: 1px solid rgba(255,183,77,0.5);
+    transition: opacity 0.12s, background 0.12s;
+  }
+  #msl.armed {
+    background: rgba(255,183,77,0.3); border-color: var(--amber);
+    box-shadow: 0 0 18px rgba(255,183,77,0.35);
+  }
+  #msl.cooling { opacity: 0.34; color: var(--dim); border-color: var(--line); }
+  #msl:active { background: rgba(255,183,77,0.45); }
   #flight.on { display: block; }
   #err { color: var(--red); font-size: 11px; line-height: 1.6; }
 </style>
@@ -142,7 +160,8 @@
     <h1>VECTRENCH</h1>
     <div class="sub">
       Describe a canyon in plain language. Fly it at five hundred units a second.<br>
-      Tilt to steer &middot; tap to shoot &middot; hold on a target to lock a missile.
+      Tilt to steer &middot; touch anywhere to shoot &middot; fly the crosshair over
+      targets to lock them, then launch.
     </div>
     <button id="begin" class="primary">TAP TO BEGIN</button>
     <div class="sub pulse" id="bootnote">enables motion controls and sound</div>
@@ -194,8 +213,13 @@
             <span class="toggle"><input type="checkbox" id="crt" checked> CRT GLOW</span>
           </div>
           <div class="note">
-            No tilt sensor? Hold one finger to aim and shoot, and drag a second finger
-            anywhere to steer. On a desktop, arrow keys or WASD steer and the mouse aims.
+            You do not aim. The crosshair sits where the nose points, and flying it
+            across a target paints it; painted targets stay locked until you press
+            MISSILES, and every lock is struck at once. Touching anywhere fires the
+            gun, which overheats if you hold it.<br><br>
+            No tilt sensor? Drag one finger to steer, and touch with a second to
+            fire. On a desktop, arrow keys or WASD steer, click or SPACE fires, and
+            SHIFT or M launches.
           </div>
         </div>
       </details>
@@ -221,6 +245,7 @@
 
   <div id="flight" class="layer">
     <button id="pause" class="chip">MENU</button>
+    <button id="msl">MISSILES</button>
   </div>
 </div>
 <script type="module">
@@ -2217,6 +2242,9 @@ const NUMERIC = ['width', 'depth', 'curviness', 'hilliness', 'roughness', 'hue']
 
 
 
+// Everything that shoots can be locked. The obstacles cannot -- they are the
+// part of a level you fly around rather than the part you answer.
+//
 // Obstacles must not crowd a bulkhead's approach, but guns near one are the
 // point: they punish the climb the bulkhead forces. Hence two clearances.
 const OB_CLEARANCE = 420;
@@ -2371,7 +2399,7 @@ function buildLevel(spec, track) {
       const rim = track.rim(t);
       enemies.push(enemy('wallgun', t, (rand() < 0.5 ? -1 : 1) * (hw - 4),
         22 + rand() * (rim - 40),
-        { hp: 2, maxHp: 2, points: 120, cool: 1 + rand() * 1.4 }));
+        { hp: 2, maxHp: 2, lockable: true, points: 120, cool: 1 + rand() * 1.4 }));
     }
 
     // Drone waves.
@@ -3174,11 +3202,25 @@ function drawReticle(rd, x, y, s, lockProgress, locked, hasTarget) {
   if (locked) bracket(rd, x - 34 * s, y - 34 * s, 68 * s, 68 * s, s, RED, 1, 2 * s);
 }
 
-/** Brackets that close in on a lockable target as the lock builds. */
+/**
+ * Brackets on a lockable target, in three states.
+ *
+ * A late level has ninety guns in it, so an idle box has to be quiet enough
+ * that ten of them on screen is texture rather than noise. Painting closes the
+ * brackets in; a completed lock snaps them tight and red, which is the only
+ * thing on screen that means "this dies when you launch".
+ */
 function drawTargetBox(rd, sx, sy, s, progress, locked) {
-  const size = lerp(70, 30, clamp(progress, 0, 1)) * s;
-  const col = locked ? RED : AMBER;
-  bracket(rd, sx - size * 0.5, sy - size * 0.5, size, size, s, col, locked ? 1 : 0.85, 1.6 * s);
+  if (locked) {
+    bracket(rd, sx - 15 * s, sy - 15 * s, 30 * s, 30 * s, s, RED, 1, 2 * s);
+    return;
+  }
+  if (progress > 0) {
+    const size = lerp(70, 32, clamp(progress, 0, 1)) * s;
+    bracket(rd, sx - size * 0.5, sy - size * 0.5, size, size, s, AMBER, 0.9, 1.6 * s);
+    return;
+  }
+  bracket(rd, sx - 22 * s, sy - 22 * s, 44 * s, 44 * s, s, DIM, 0.3, 1.2 * s);
 }
 
 function drawHud(rd, st) {
@@ -3201,8 +3243,33 @@ function drawHud(rd, st) {
   drawText(rd, String(st.score).padStart(6, '0'), W - pad, pad + 12 * s, 14 * s, 1.4 * s,
     AMBER[0], AMBER[1], AMBER[2], 1, 1);
   drawText(rd, st.levelName, W - pad, pad + 28 * s, 8 * s, 1 * s, DIM[0], DIM[1], DIM[2], 0.8, 1);
-  if (st.missiles > 0) {
-    drawText(rd, `MSL ${st.missiles}`, W - pad, pad + 44 * s, 9 * s, 1.1 * s, 1, 0.6, 0.3, 0.95, 1);
+  // --- gun heat ---
+  // Drawn under the shield because it is read the same way: a bar you watch
+  // fill and then have to stop doing something about.
+  const hot = st.overheated;
+  const hcol = hot ? RED : st.heat > 0.7 ? AMBER : DIM;
+  drawText(rd, hot ? 'GUN -- OVERHEATED' : 'GUN', pad, pad + 40 * s, 9 * s, 1.1 * s,
+    hcol[0], hcol[1], hcol[2], hot ? 0.4 + 0.6 * Math.abs(Math.sin(st.time * 9)) : 0.9);
+  bar(rd, pad, pad + 47 * s, 150 * s, 7 * s, clamp(st.heat, 0, 1), 10,
+    hot ? RED : st.heat > 0.7 ? AMBER : CYAN, s);
+
+  // --- launcher ---
+  const ready = st.missileCooldown <= 0;
+  const mcol = ready ? (st.locks > 0 ? AMBER : DIM) : DIM;
+  const mtext = ready
+    ? (st.locks > 0 ? `MISSILES READY -- ${st.locks} LOCKED` : 'MISSILES READY')
+    : `RELOADING ${st.missileCooldown.toFixed(1)}`;
+  drawText(rd, mtext, W - pad, pad + 46 * s, 9 * s, 1.1 * s,
+    mcol[0], mcol[1], mcol[2], 0.95, 1);
+  bar(rd, W - pad - 150 * s, pad + 52 * s, 150 * s, 7 * s,
+    ready ? 1 : 1 - st.missileCooldown / st.missileMax, 10, ready ? AMBER : DIM, s);
+
+  // Locks, as pips: the count you are about to spend.
+  for (let i = 0; i < st.lockMax; i++) {
+    const on = i < st.locks;
+    const bx = W - pad - 6 * s - i * 11 * s;
+    rd.line2(bx, pad + 66 * s, bx, pad + 66 * s, 3.4 * s,
+      1, 0.6, 0.25, on ? 1 : 0.16, on ? 1 : 0.16);
   }
 
   // --- altitude ladder: the trench/surface decision, made legible ---
@@ -3250,7 +3317,9 @@ function drawHud(rd, st) {
   if (st.exposed) warn('EXPOSED', RED, true);
   if (st.wallWarn > 0) warn('PULL AWAY', AMBER, true);
   if (st.sealAhead > 0) warn('BULKHEAD -- CLIMB', AMBER, true);
-  if (st.portAhead && st.portAlive) warn('HOLD ON PORT TO LOCK', CYAN, true);
+  if (st.portAhead && st.portAlive) {
+    warn(st.locks > 0 ? 'PORT LOCKED -- LAUNCH' : 'PUT THE CROSSHAIR ON THE PORT', CYAN, true);
+  }
   if (st.message) {
     drawText(rd, st.message, W * 0.5, H * 0.42, 20 * s, 2.2 * s, 1, 0.85, 0.4, 1, 0);
   }
@@ -3664,10 +3733,9 @@ class Input {
     this.canvas = canvas;
     this.steerX = 0;
     this.steerY = 0;
-    this.aimX = 0;
-    this.aimY = 0;
     this.firing = false;
     this.justPressed = false;
+    this.missilePressed = false;
     this.holdTime = 0;
     this.motion = 'unavailable';   // unavailable | granted | denied
     this.invertX = false;
@@ -3703,7 +3771,12 @@ class Input {
 
     window.addEventListener('keydown', (e) => {
       if (e.key === 'Tab') return;
-      this.keys.add(e.key.toLowerCase());
+      const k = e.key.toLowerCase();
+      // Missiles are edge-triggered: holding the key is not a stream of salvos.
+      if ((k === 'shift' || k === 'm' || k === 'enter') && !this.keys.has(k)) {
+        this.launchMissiles();
+      }
+      this.keys.add(k);
       if ([' ', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright'].includes(e.key.toLowerCase())) {
         e.preventDefault();
       }
@@ -3713,6 +3786,7 @@ class Input {
       this.keys.clear();
       this.pointers.clear();
       this.primary = null;
+      this.stick = null;
       this.firing = false;
     });
   }
@@ -3781,42 +3855,52 @@ class Input {
     this.canvas.setPointerCapture?.(e.pointerId);
     const p = this._pos(e);
     this.pointers.set(e.pointerId, p);
-    if (this.primary === null) {
+    // With tilt, a touch anywhere is purely a trigger -- there is nothing to
+    // aim, so there is no reason to make the player put their finger anywhere
+    // in particular. Without tilt the first finger has to fly the ship, so it
+    // steers and does not shoot; anything after it shoots.
+    if (this.motion !== 'granted' && this.stick === null) {
+      this.stick = e.pointerId;
+      this.stickOrigin = [p[0], p[1]];
+    } else if (this.primary === null) {
       this.primary = e.pointerId;
-      this.aimX = p[0];
-      this.aimY = p[1];
       this.firing = true;
       this.justPressed = true;
       this.holdTime = 0;
-    } else if (this.stick === null && this.motion !== 'granted') {
-      // No tilt available: a second finger becomes a relative stick.
-      this.stick = e.pointerId;
-      this.stickOrigin = [p[0], p[1]];
     }
   }
 
   _move(e) {
     if (!this.pointers.has(e.pointerId)) return;
-    const p = this._pos(e);
-    this.pointers.set(e.pointerId, p);
-    if (e.pointerId === this.primary) {
-      this.aimX = p[0];
-      this.aimY = p[1];
-    }
+    this.pointers.set(e.pointerId, this._pos(e));
   }
 
   _up(e) {
     this.pointers.delete(e.pointerId);
+    if (e.pointerId === this.stick) this.stick = null;
     if (e.pointerId === this.primary) {
       this.primary = null;
       this.firing = false;
       this.holdTime = 0;
-      // Promote any remaining finger so a two-finger release keeps working.
-      for (const id of this.pointers.keys()) {
-        if (id !== this.stick) { this.primary = id; this.firing = true; break; }
+    }
+    // Promote a remaining finger, so lifting one of two never leaves the ship
+    // unsteered or the trigger stuck down.
+    if (this.stick === null && this.motion !== 'granted') {
+      for (const [id, p] of this.pointers) {
+        this.stick = id;
+        this.stickOrigin = [p[0], p[1]];
+        if (id === this.primary) { this.primary = null; this.firing = false; }
+        break;
       }
     }
-    if (e.pointerId === this.stick) this.stick = null;
+    if (this.primary === null) {
+      for (const id of this.pointers.keys()) {
+        if (id === this.stick) continue;
+        this.primary = id;
+        this.firing = true;
+        break;
+      }
+    }
   }
 
   /** Called once per frame, before the game reads steering. */
@@ -3845,15 +3929,22 @@ class Input {
     if (k.has('arrowup') || k.has('w')) ky += 1;
     if (k.has('arrowdown') || k.has('s')) ky -= 1;
     if (kx || ky) { sx = kx; sy = ky; }
-
-    // Keep the crosshair on screen even before the first touch.
-    if (this.primary === null && this.aimX === 0 && this.aimY === 0) {
-      this.aimX = viewW * 0.5;
-      this.aimY = viewH * 0.45;
-    }
+    if (k.has(' ')) { if (!this.firing) this.justPressed = true; this.firing = true; }
 
     this.steerX = this.invertX ? -sx : sx;
     this.steerY = this.invertY ? -sy : sy;
+  }
+
+  /** True once per missile request, from the button, a key, or a call. */
+  takeMissile() {
+    const v = this.missilePressed;
+    this.missilePressed = false;
+    return v;
+  }
+
+  /** Requests a salvo. The on-screen button and the keyboard both land here. */
+  launchMissiles() {
+    this.missilePressed = true;
   }
 
   /** True once per press. */
@@ -3897,13 +3988,35 @@ const MAX_VY = 160;
 
 /** How fast steering input becomes velocity. 1/rate is the lag, in seconds. */
 const STEER_RATE = 14;
-const LOCK_TIME = 1.05;
-const LASER_CADENCE = 0.115;
 const FAR = CANYON.DRAW;
 const CAM_BACK = 66;
 const SHIELD_MAX = 100;
-const MISSILE_MAX = 4;
-const MISSILE_REGEN = 7.5;
+
+// --- weapons ------------------------------------------------------------
+//
+// Two weapons with opposite shapes, so choosing between them is a real choice
+// rather than a preference. The gun is always available and always costs heat.
+// Missiles cost nothing to fire and never miss, but everything they will hit
+// has to be painted first, and painting is done by flying -- which is the part
+// that is already hard.
+
+const GUN_CADENCE = 0.09;
+const HEAT_PER_SEC = 0.38;    // ~2.6 seconds of held fire from cold to overheat
+const COOL_PER_SEC = 0.5;
+const HEAT_RESUME = 0.25;     // overheated: must cool back to this to fire again
+
+const LOCK_MAX = 8;
+// You can paint exactly as far as you can see, and no further -- a lock box
+// hanging in the air over an enemy the renderer has not reached yet is a lie.
+// It also sets how many locks a moment can offer: guns are spaced about a
+// thousand units apart, so open stretches give you one at a time and the
+// clusters -- a drone wave, the cover fire around a bulkhead -- give you five.
+// That is the shape of the weapon: it pays off exactly where it is needed.
+const TARGET_RANGE = FAR;
+const PAINT_TIME = 0.24;      // crosshair dwell that turns a target into a lock
+const PAINT_RADIUS = 108;     // how wide the crosshair paints, in scale units
+const CROSSHAIR_PULL = 0.45;  // how far the crosshair drifts toward a target
+const MISSILE_COOLDOWN = 5;
 
 const RADIUS = { turret: 13, wallgun: 11, emplacement: 21, drone: 11, port: 20 };
 
@@ -3956,14 +4069,17 @@ class Game {
     this.shield = SHIELD_MAX;
     this.shieldMax = SHIELD_MAX;
     this.score = 0;
-    this.missiles = MISSILE_MAX;
-    this.missileTimer = 0;
     this.time = 0;
     this.shake = 0;
     this.hurt = 0;
     this.fireTimer = 0;
-    this.lockTarget = null;
-    this.lockProgress = 0;
+    this.heat = 0;
+    this.overheated = false;
+    this.locks = [];
+    this.paintTarget = null;
+    this.paintProgress = 0;
+    this.missileCooldown = 0;
+    this.portReloaded = false;
     this.lockedFlash = 0;
     this.message = '';
     this.messageTimer = 0;
@@ -3982,11 +4098,13 @@ class Game {
       e.alive = true;
       e.hp = e.maxHp;
       e.flash = 0;
+      e.paint = 0;
       e.spin = hash2((e.t * 3) | 0, 9) * TAU;
     }
     if (this.level.port) {
       this.level.port.alive = true;
       this.level.port.hp = 1;
+      this.level.port.paint = 0;
       this.level.port.spin = 0;
     }
     for (const ob of this.level.obstacles) ob.hit = false;
@@ -4024,21 +4142,23 @@ class Game {
     this.updateCamera(cssW, cssH);
 
     this.updateEnemies(dt, flying);
-    if (flying) this.updateAim(dt, cssW, cssH);
+    if (flying) this.updateTargeting(dt);
 
     this.weapons.update(dt);
     this.collide(dt, flying);
     this.particles.update(dt);
 
-    this.missileTimer += dt;
-    if (this.missileTimer > MISSILE_REGEN && this.missiles < MISSILE_MAX) {
-      this.missileTimer = 0;
-      this.missiles++;
-    }
-    // Never let a player arrive at the port unable to shoot it.
-    if (flying && tr.portT > 0 && this.missiles === 0 && tr.portT - this.t < 900) {
-      this.missiles = 1;
-      this.say('MISSILE RELOADED');
+    this.missileCooldown = Math.max(0, this.missileCooldown - dt);
+
+    // The finale is a missile target and nothing else, so arriving at it inside
+    // a cooldown you spent two hundred units earlier would be a loss decided
+    // before you got there. The launcher is reloaded once, on approach.
+    if (flying && tr.portT > 0 && !this.portReloaded && tr.portT - this.t < 1300) {
+      this.portReloaded = true;
+      if (this.missileCooldown > 0) {
+        this.missileCooldown = 0;
+        this.say('LAUNCHER RELOADED');
+      }
     }
 
     this.audio.setEngine(clamp((this.speed - 200) / 400, 0, 1), flying ? 1 : 0.3);
@@ -4214,7 +4334,7 @@ class Game {
           kind: 'drone', t: w.t + i * 34, alive: true,
           x: (hash2(w.t | 0, i) * 2 - 1) * (hw - 14),
           y: 18 + hash2(w.t | 0, i + 5) * (rim - 34),
-          hp: 2, maxHp: 2, lockable: false, points: 200,
+          hp: 2, maxHp: 2, lockable: true, points: 200,
           cool: 0.7 + hash2(w.t | 0, i + 9) * 1.1,
           phase: hash2(w.t | 0, i + 13) * TAU, spin: 0, aim: 0, flash: 0,
           world: [0, 0, 0],
@@ -4360,19 +4480,25 @@ class Game {
     }
   }
 
-  /** Reticle targeting, laser cadence, and the missile lock. */
-  updateAim(dt, cssW, cssH) {
+  /**
+   * Targeting, the gun, and the lock list.
+   *
+   * The crosshair is not aimed -- it sits where the nose points, and flying is
+   * how you put it on things. Anything it rests on is painted, and a painted
+   * target stays locked until you spend it. That is the whole trade: locks are
+   * bought with flight path, and the flight path is already the hard part.
+   */
+  updateTargeting(dt) {
     const rd = this.rd;
     const inp = this.input;
-    const sx = inp.aimX * (rd.width / Math.max(1, cssW));
-    const sy = inp.aimY * (rd.height / Math.max(1, cssH));
-    this.aimSX = sx;
-    this.aimSY = sy;
 
-    // Project lockable targets and pick the one nearest the crosshair.
-    const grab = 70 * rd.scale;
-    let best = null;
-    let bestD = grab;
+    // Where the crosshair wants to be: straight ahead, a little high, because
+    // the ship sits low in the frame.
+    const baseX = rd.cx;
+    const baseY = rd.cy - 18 * rd.scale;
+
+    // Project every candidate once. onScreen/sx/sy are read again by the
+    // overlay, so this doubles as the frame's visibility pass.
     const cands = [this.level.enemies, this.drones];
     if (this.level.port) cands.push([this.level.port]);
     for (const arr of cands) {
@@ -4380,22 +4506,106 @@ class Game {
         e.onScreen = false;
         if (!e.alive || !e.world) continue;
         const ahead = e.t - this.t;
-        if (ahead < 20 || ahead > 950) continue;
+        if (ahead < 20 || ahead > TARGET_RANGE) continue;
         const vz = rd.project(e.world[0], e.world[1], e.world[2], this._l);
         if (vz < 2) continue;
         e.sx = this._l[0];
         e.sy = this._l[1];
         e.onScreen = true;
-        if (!e.lockable) continue;
-        const d = Math.hypot(e.sx - sx, e.sy - sy);
-        if (d < bestD) { bestD = d; best = e; }
       }
     }
+
+    // Paint is per target and everything under the crosshair takes some, so a
+    // sweep across a group paints the group. Painting one at a time would make
+    // a salvo of five cost five separate passes, which is not a salvo -- it is
+    // five shots with extra steps.
+    const grab = PAINT_RADIUS * rd.scale;
+    let best = null;
+    let bestD = grab;
+    for (const arr of cands) {
+      for (const e of arr) {
+        if (!e.onScreen || !e.lockable || this.locks.includes(e)) {
+          if (e.paint) e.paint = Math.max(0, e.paint - dt * 2);
+          continue;
+        }
+        const d = Math.hypot(e.sx - baseX, e.sy - baseY);
+        if (d < bestD) { bestD = d; best = e; }
+
+        if (d < grab && this.locks.length < LOCK_MAX) {
+          const before = e.paint || 0;
+          e.paint = before + dt / PAINT_TIME;
+          if (before < 1 && e.paint >= 1) {
+            this.locks.push(e);
+            this.lockedFlash = 1;
+            this.audio.lockTick();
+            if (this.locks.length === LOCK_MAX) this.say('LOCKS FULL', 0.9);
+          }
+        } else if (e.paint) {
+          // Paint fades rather than resets, so a target that slips out of the
+          // crosshair for a moment is not started from nothing.
+          e.paint = Math.max(0, e.paint - dt * 1.5);
+        }
+      }
+    }
+
+    // The crosshair leans toward what it is painting. It is an aim assist, but
+    // it is also the readable signal that a target has been noticed at all.
+    let cx = baseX, cy = baseY;
+    if (best) {
+      const pull = CROSSHAIR_PULL * (1 - bestD / grab);
+      cx += (best.sx - baseX) * pull;
+      cy += (best.sy - baseY) * pull;
+    }
+    this.aimSX = cx;
+    this.aimSY = cy;
     this.hoverTarget = best;
 
-    // Aim ray through the crosshair, used for both lasers and the lock.
-    const kx = (sx - rd.cx) / rd.focal;
-    const ky = -(sy - rd.cy) / rd.focal;
+    // The reticle reports the nearest one, which is the one the crosshair is
+    // leaning at, so the ring on screen matches what the pull is pointing to.
+    this.paintTarget = best;
+    this.paintProgress = best ? clamp(best.paint || 0, 0, 1) : 0;
+
+    // A lock survives being flown past -- the missiles are heat-seekers and can
+    // turn around -- but not by much, and not past the range it was taken at.
+    this.locks = this.locks.filter((e) => {
+      const keep = e.alive && e.world
+        && e.t - this.t > -260 && e.t - this.t < TARGET_RANGE + 300;
+      if (!keep) e.paint = 0;
+      return keep;
+    });
+
+    this.updateGun(dt, cx, cy);
+
+    if (inp.takeMissile()) this.launchMissiles();
+  }
+
+  /** The machine gun: infinite ammo, finite patience. */
+  updateGun(dt, cx, cy) {
+    const rd = this.rd;
+    const firing = this.input.firing && !this.overheated;
+
+    if (firing) {
+      this.heat = Math.min(1, this.heat + HEAT_PER_SEC * dt);
+      if (this.heat >= 1) {
+        this.overheated = true;
+        this.say('OVERHEATED', 1.2);
+        this.audio.hit();
+      }
+    } else {
+      this.heat = Math.max(0, this.heat - COOL_PER_SEC * dt);
+      if (this.overheated && this.heat <= HEAT_RESUME) this.overheated = false;
+    }
+
+    if (!firing) {
+      this.input.takePress();
+      return;
+    }
+
+    // The shot goes through the crosshair, not through the finger: the ray is
+    // rebuilt from where the crosshair ended up, magnetism included, so what
+    // you see it leaning at is what the guns hit.
+    const kx = (cx - rd.cx) / rd.focal;
+    const ky = -(cy - rd.cy) / rd.focal;
     const ax = this.camF[0] + this.camR[0] * kx + this.camU[0] * ky;
     const ay = this.camF[1] + this.camR[1] * kx + this.camU[1] * ky;
     const az = this.camF[2] + this.camR[2] * kx + this.camU[2] * ky;
@@ -4405,59 +4615,55 @@ class Game {
     const ty = this.eye[1] + (ay / al) * AIM_DIST;
     const tz = this.eye[2] + (az / al) * AIM_DIST;
 
-    if (inp.firing) {
-      // Lasers: immediate on press, then a steady cadence while held.
-      this.fireTimer -= dt;
-      if (inp.takePress()) this.fireTimer = 0;
-      if (this.fireTimer <= 0) {
-        this.fireTimer = LASER_CADENCE;
-        for (const m of MUZZLES) {
-          shipLocalToWorld(this.shipPos, this.basis, m[0], m[1], m[2], this._p);
-          let dx = tx - this._p[0], dy = ty - this._p[1], dz = tz - this._p[2];
-          const dl = Math.hypot(dx, dy, dz) || 1;
-          this.weapons.fireLaser(this._p[0], this._p[1], this._p[2], dx / dl, dy / dl, dz / dl);
-        }
-        this.audio.laser();
-      }
-
-      // Lock: hold the crosshair on a lockable target long enough.
-      if (best) {
-        if (this.lockTarget !== best) {
-          this.lockTarget = best;
-          this.lockProgress = 0;
-        }
-        const before = this.lockProgress;
-        this.lockProgress += dt / LOCK_TIME;
-        if (Math.floor(before * 8) !== Math.floor(this.lockProgress * 8)) this.audio.lockTick();
-        if (this.lockProgress >= 1) this.releaseMissile(best);
-      } else {
-        this.lockTarget = null;
-        this.lockProgress = Math.max(0, this.lockProgress - dt * 2);
-      }
-    } else {
-      inp.takePress();
-      this.lockTarget = null;
-      this.lockProgress = Math.max(0, this.lockProgress - dt * 3);
+    this.fireTimer -= dt;
+    if (this.input.takePress()) this.fireTimer = 0;
+    if (this.fireTimer > 0) return;
+    this.fireTimer = GUN_CADENCE;
+    for (const m of MUZZLES) {
+      shipLocalToWorld(this.shipPos, this.basis, m[0], m[1], m[2], this._p);
+      let dx = tx - this._p[0], dy = ty - this._p[1], dz = tz - this._p[2];
+      const dl = Math.hypot(dx, dy, dz) || 1;
+      this.weapons.fireLaser(this._p[0], this._p[1], this._p[2], dx / dl, dy / dl, dz / dl);
     }
+    this.audio.laser();
   }
 
-  releaseMissile(target) {
-    this.lockProgress = 0;
-    this.lockTarget = null;
-    if (this.missiles <= 0) {
-      this.say('NO MISSILES');
+  /** Everything painted, struck at once. */
+  launchMissiles() {
+    if (this.missileCooldown > 0) {
+      this.say(`RELOADING ${this.missileCooldown.toFixed(1)}`, 0.8);
       return;
     }
-    this.missiles--;
+    if (!this.locks.length) {
+      this.say('NOTHING LOCKED', 0.9);
+      return;
+    }
+
+    const n = this.locks.length;
+    this.locks.forEach((target, i) => {
+      shipLocalToWorld(this.shipPos, this.basis, 0, -2, 4, this._p);
+      let dx = target.world[0] - this._p[0];
+      let dy = target.world[1] - this._p[1];
+      let dz = target.world[2] - this._p[2];
+      const l = Math.hypot(dx, dy, dz) || 1;
+      // Fanned on launch so a salvo reads as a salvo. Homing pulls them back in.
+      const spread = n > 1 ? ((i / (n - 1)) - 0.5) * 0.5 : 0;
+      const sx = dx / l + this.camR[0] * spread + this.camU[0] * 0.25;
+      const sy = dy / l + this.camR[1] * spread + this.camU[1] * 0.25;
+      const sz = dz / l + this.camR[2] * spread + this.camU[2] * 0.25;
+      const sl = Math.hypot(sx, sy, sz) || 1;
+      this.weapons.fireMissile(this._p[0], this._p[1], this._p[2],
+        sx / sl, sy / sl, sz / sl, target);
+    });
+
+    for (const e of this.locks) e.paint = 0;
+    this.locks = [];
+    this.paintTarget = null;
+    this.paintProgress = 0;
+    this.missileCooldown = MISSILE_COOLDOWN;
     this.lockedFlash = 1;
-    shipLocalToWorld(this.shipPos, this.basis, 0, -2, 4, this._p);
-    let dx = target.world[0] - this._p[0];
-    let dy = target.world[1] - this._p[1];
-    let dz = target.world[2] - this._p[2];
-    const l = Math.hypot(dx, dy, dz) || 1;
-    this.weapons.fireMissile(this._p[0], this._p[1], this._p[2], dx / l, dy / l, dz / l, target);
     this.audio.missile();
-    this.say('FOX TWO', 1.1);
+    this.say(n > 1 ? `FOX TWO x${n}` : 'FOX TWO', 1.1);
   }
 
   /** All projectile resolution: player fire, enemy fire, missiles. */
@@ -4538,13 +4744,20 @@ class Game {
     }
   }
 
-  /** Does a world point sit inside nearby obstacle geometry? */
+  /**
+   * Does a world point sit inside nearby obstacle geometry?
+   *
+   * The trench wall only counts below the rim. Above it there is no rock, and
+   * treating the whole half-width as solid at every height meant anything shot
+   * at a surface turret -- which by definition stands outside the trench --
+   * detonated on empty air the moment it crossed the line.
+   */
   hitsScenery(x, y, z) {
     const tr = this.track;
     const obs = this.level.obstacles;
     tr.worldToLocal(x, y, z, this._q);
     const lt = this._q[0], lx = this._q[1], ly = this._q[2];
-    if (Math.abs(lx) > tr.halfWidth(lt) + 4) return true;
+    if (Math.abs(lx) > tr.halfWidth(lt) + 4 && ly < tr.rim(lt)) return true;
     for (let i = this.obCursor; i < obs.length; i++) {
       const ob = obs[i];
       if (ob.t > lt + 30) break;
@@ -4576,7 +4789,8 @@ class Game {
       this.say('DIRECT HIT', 5);
       this.audio.win();
     } else if (e.kind === 'emplacement') {
-      this.missiles = Math.min(MISSILE_MAX, this.missiles + 1);
+      // Worth the trouble: a heavy kill buys back part of the launcher wait.
+      this.missileCooldown = Math.max(0, this.missileCooldown - 2);
       this.say('EMPLACEMENT DOWN');
     }
   }
@@ -4621,19 +4835,26 @@ class Game {
     const port = this.level.port;
 
     if (this.phase === 'flying') {
-      // Target boxes on everything lockable that is on screen.
+      // Every lockable thing on screen gets a box; the one being painted fills
+      // up; the ones already locked are drawn held, with a tether back to the
+      // crosshair so a salvo of eight still reads as one decision.
       const arrs = [this.level.enemies, this.drones];
       if (port) arrs.push([port]);
+      const cx = this.aimSX ?? rd.cx;
+      const cy = this.aimSY ?? rd.cy;
       for (const arr of arrs) {
         for (const e of arr) {
           if (!e.alive || !e.onScreen || !e.lockable) continue;
-          const isTarget = e === this.lockTarget;
+          const locked = this.locks.includes(e);
           drawTargetBox(rd, e.sx, e.sy, rd.scale,
-            isTarget ? this.lockProgress : 0, isTarget && this.lockProgress > 0.99);
+            locked ? 0 : clamp(e.paint || 0, 0, 1), locked);
+          if (locked) {
+            rd.line2(cx, cy, e.sx, e.sy, 1 * rd.scale, 1, 0.55, 0.2, 0.16, 0.4);
+          }
         }
       }
-      drawReticle(rd, this.aimSX ?? rd.cx, this.aimSY ?? rd.cy, rd.scale,
-        this.lockProgress, this.lockedFlash > 0.5, !!this.hoverTarget);
+      drawReticle(rd, cx, cy, rd.scale,
+        this.paintProgress, this.lockedFlash > 0.5, !!this.hoverTarget);
     }
 
     const nextSeal = this.level.seals.find((s) => s > this.t - 40);
@@ -4643,7 +4864,12 @@ class Game {
       score: this.score,
       speed: this.speed || 0,
       levelName: this.spec.name,
-      missiles: this.missiles,
+      locks: this.locks.length,
+      lockMax: LOCK_MAX,
+      heat: this.heat,
+      overheated: this.overheated,
+      missileCooldown: this.missileCooldown,
+      missileMax: MISSILE_COOLDOWN,
       altitude: this.shipY,
       rimHeight: tr.rim(this.t),
       ceiling: this.ceiling || tr.rim(this.t) + 92,
@@ -4785,6 +5011,13 @@ class UI {
     $('share').addEventListener('click', () => this.share());
     $('pause').addEventListener('click', () => this.toMenu());
 
+    // The launcher. pointerdown rather than click so it fires on touch-down
+    // like every other control in flight, and so holding it does not repeat.
+    $('msl').addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      this.input.launchMissiles();
+    });
+
     $('calibrate').addEventListener('click', async () => {
       if (this.input.motion !== 'granted') await this.input.requestMotion();
       const ok = this.input.calibrate();
@@ -4830,6 +5063,25 @@ class UI {
     $('motionstate').textContent = text;
   }
 
+  /**
+   * The launcher button doubles as the cooldown clock, so it is refreshed from
+   * the game each frame -- but only written when the text or state actually
+   * changed, because a DOM write per frame for a label that changes once a
+   * second is a frame cost for nothing.
+   */
+  syncMissileButton() {
+    const g = this.game;
+    if (this.screen !== 'flight' || g.phase !== 'flying') return;
+    const ready = g.missileCooldown <= 0;
+    const locks = g.locks ? g.locks.length : 0;
+    const text = ready
+      ? (locks ? `MISSILES ${locks}` : 'MISSILES')
+      : `${g.missileCooldown.toFixed(1)}s`;
+    const cls = ready ? (locks ? 'armed' : '') : 'cooling';
+    if (text !== this._mslText) { $('msl').textContent = text; this._mslText = text; }
+    if (cls !== this._mslCls) { $('msl').className = cls; this._mslCls = cls; }
+  }
+
   /** First real gesture: unlock audio and ask for the motion sensor. */
   async begin() {
     this.audio.start();
@@ -4839,7 +5091,7 @@ class UI {
     // Embedded frames and desktops often have no usable tilt sensor. Say so
     // where the player will actually read it, not only inside a details pane.
     if (this.input.motion !== 'granted') {
-      this.controlHint = 'no tilt: one finger aims + fires, drag a second to steer';
+      this.controlHint = 'no tilt: drag one finger to steer, touch with a second to fire';
     }
     this.show('design');
     if (!this.spec) {
@@ -5096,6 +5348,7 @@ function frame(now) {
   if (ui.screen === 'flight' && game.track) {
     game.update(dt, cssW, cssH);
     game.draw();
+    ui.syncMissileButton();
   } else {
     ui.drawBackdrop();
   }

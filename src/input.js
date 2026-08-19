@@ -35,10 +35,9 @@ export class Input {
     this.canvas = canvas;
     this.steerX = 0;
     this.steerY = 0;
-    this.aimX = 0;
-    this.aimY = 0;
     this.firing = false;
     this.justPressed = false;
+    this.missilePressed = false;
     this.holdTime = 0;
     this.motion = 'unavailable';   // unavailable | granted | denied
     this.invertX = false;
@@ -74,7 +73,12 @@ export class Input {
 
     window.addEventListener('keydown', (e) => {
       if (e.key === 'Tab') return;
-      this.keys.add(e.key.toLowerCase());
+      const k = e.key.toLowerCase();
+      // Missiles are edge-triggered: holding the key is not a stream of salvos.
+      if ((k === 'shift' || k === 'm' || k === 'enter') && !this.keys.has(k)) {
+        this.launchMissiles();
+      }
+      this.keys.add(k);
       if ([' ', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright'].includes(e.key.toLowerCase())) {
         e.preventDefault();
       }
@@ -84,6 +88,7 @@ export class Input {
       this.keys.clear();
       this.pointers.clear();
       this.primary = null;
+      this.stick = null;
       this.firing = false;
     });
   }
@@ -152,42 +157,52 @@ export class Input {
     this.canvas.setPointerCapture?.(e.pointerId);
     const p = this._pos(e);
     this.pointers.set(e.pointerId, p);
-    if (this.primary === null) {
+    // With tilt, a touch anywhere is purely a trigger -- there is nothing to
+    // aim, so there is no reason to make the player put their finger anywhere
+    // in particular. Without tilt the first finger has to fly the ship, so it
+    // steers and does not shoot; anything after it shoots.
+    if (this.motion !== 'granted' && this.stick === null) {
+      this.stick = e.pointerId;
+      this.stickOrigin = [p[0], p[1]];
+    } else if (this.primary === null) {
       this.primary = e.pointerId;
-      this.aimX = p[0];
-      this.aimY = p[1];
       this.firing = true;
       this.justPressed = true;
       this.holdTime = 0;
-    } else if (this.stick === null && this.motion !== 'granted') {
-      // No tilt available: a second finger becomes a relative stick.
-      this.stick = e.pointerId;
-      this.stickOrigin = [p[0], p[1]];
     }
   }
 
   _move(e) {
     if (!this.pointers.has(e.pointerId)) return;
-    const p = this._pos(e);
-    this.pointers.set(e.pointerId, p);
-    if (e.pointerId === this.primary) {
-      this.aimX = p[0];
-      this.aimY = p[1];
-    }
+    this.pointers.set(e.pointerId, this._pos(e));
   }
 
   _up(e) {
     this.pointers.delete(e.pointerId);
+    if (e.pointerId === this.stick) this.stick = null;
     if (e.pointerId === this.primary) {
       this.primary = null;
       this.firing = false;
       this.holdTime = 0;
-      // Promote any remaining finger so a two-finger release keeps working.
-      for (const id of this.pointers.keys()) {
-        if (id !== this.stick) { this.primary = id; this.firing = true; break; }
+    }
+    // Promote a remaining finger, so lifting one of two never leaves the ship
+    // unsteered or the trigger stuck down.
+    if (this.stick === null && this.motion !== 'granted') {
+      for (const [id, p] of this.pointers) {
+        this.stick = id;
+        this.stickOrigin = [p[0], p[1]];
+        if (id === this.primary) { this.primary = null; this.firing = false; }
+        break;
       }
     }
-    if (e.pointerId === this.stick) this.stick = null;
+    if (this.primary === null) {
+      for (const id of this.pointers.keys()) {
+        if (id === this.stick) continue;
+        this.primary = id;
+        this.firing = true;
+        break;
+      }
+    }
   }
 
   /** Called once per frame, before the game reads steering. */
@@ -216,15 +231,22 @@ export class Input {
     if (k.has('arrowup') || k.has('w')) ky += 1;
     if (k.has('arrowdown') || k.has('s')) ky -= 1;
     if (kx || ky) { sx = kx; sy = ky; }
-
-    // Keep the crosshair on screen even before the first touch.
-    if (this.primary === null && this.aimX === 0 && this.aimY === 0) {
-      this.aimX = viewW * 0.5;
-      this.aimY = viewH * 0.45;
-    }
+    if (k.has(' ')) { if (!this.firing) this.justPressed = true; this.firing = true; }
 
     this.steerX = this.invertX ? -sx : sx;
     this.steerY = this.invertY ? -sy : sy;
+  }
+
+  /** True once per missile request, from the button, a key, or a call. */
+  takeMissile() {
+    const v = this.missilePressed;
+    this.missilePressed = false;
+    return v;
+  }
+
+  /** Requests a salvo. The on-screen button and the keyboard both land here. */
+  launchMissiles() {
+    this.missilePressed = true;
   }
 
   /** True once per press. */

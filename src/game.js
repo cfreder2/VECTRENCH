@@ -31,13 +31,35 @@ export const MAX_VY = 160;
 
 /** How fast steering input becomes velocity. 1/rate is the lag, in seconds. */
 const STEER_RATE = 14;
-const LOCK_TIME = 1.05;
-const LASER_CADENCE = 0.115;
 const FAR = CANYON.DRAW;
 const CAM_BACK = 66;
 const SHIELD_MAX = 100;
-const MISSILE_MAX = 4;
-const MISSILE_REGEN = 7.5;
+
+// --- weapons ------------------------------------------------------------
+//
+// Two weapons with opposite shapes, so choosing between them is a real choice
+// rather than a preference. The gun is always available and always costs heat.
+// Missiles cost nothing to fire and never miss, but everything they will hit
+// has to be painted first, and painting is done by flying -- which is the part
+// that is already hard.
+
+const GUN_CADENCE = 0.09;
+const HEAT_PER_SEC = 0.38;    // ~2.6 seconds of held fire from cold to overheat
+const COOL_PER_SEC = 0.5;
+const HEAT_RESUME = 0.25;     // overheated: must cool back to this to fire again
+
+const LOCK_MAX = 8;
+// You can paint exactly as far as you can see, and no further -- a lock box
+// hanging in the air over an enemy the renderer has not reached yet is a lie.
+// It also sets how many locks a moment can offer: guns are spaced about a
+// thousand units apart, so open stretches give you one at a time and the
+// clusters -- a drone wave, the cover fire around a bulkhead -- give you five.
+// That is the shape of the weapon: it pays off exactly where it is needed.
+const TARGET_RANGE = FAR;
+const PAINT_TIME = 0.24;      // crosshair dwell that turns a target into a lock
+const PAINT_RADIUS = 108;     // how wide the crosshair paints, in scale units
+const CROSSHAIR_PULL = 0.45;  // how far the crosshair drifts toward a target
+const MISSILE_COOLDOWN = 5;
 
 const RADIUS = { turret: 13, wallgun: 11, emplacement: 21, drone: 11, port: 20 };
 
@@ -90,14 +112,17 @@ export class Game {
     this.shield = SHIELD_MAX;
     this.shieldMax = SHIELD_MAX;
     this.score = 0;
-    this.missiles = MISSILE_MAX;
-    this.missileTimer = 0;
     this.time = 0;
     this.shake = 0;
     this.hurt = 0;
     this.fireTimer = 0;
-    this.lockTarget = null;
-    this.lockProgress = 0;
+    this.heat = 0;
+    this.overheated = false;
+    this.locks = [];
+    this.paintTarget = null;
+    this.paintProgress = 0;
+    this.missileCooldown = 0;
+    this.portReloaded = false;
     this.lockedFlash = 0;
     this.message = '';
     this.messageTimer = 0;
@@ -116,11 +141,13 @@ export class Game {
       e.alive = true;
       e.hp = e.maxHp;
       e.flash = 0;
+      e.paint = 0;
       e.spin = hash2((e.t * 3) | 0, 9) * TAU;
     }
     if (this.level.port) {
       this.level.port.alive = true;
       this.level.port.hp = 1;
+      this.level.port.paint = 0;
       this.level.port.spin = 0;
     }
     for (const ob of this.level.obstacles) ob.hit = false;
@@ -158,21 +185,23 @@ export class Game {
     this.updateCamera(cssW, cssH);
 
     this.updateEnemies(dt, flying);
-    if (flying) this.updateAim(dt, cssW, cssH);
+    if (flying) this.updateTargeting(dt);
 
     this.weapons.update(dt);
     this.collide(dt, flying);
     this.particles.update(dt);
 
-    this.missileTimer += dt;
-    if (this.missileTimer > MISSILE_REGEN && this.missiles < MISSILE_MAX) {
-      this.missileTimer = 0;
-      this.missiles++;
-    }
-    // Never let a player arrive at the port unable to shoot it.
-    if (flying && tr.portT > 0 && this.missiles === 0 && tr.portT - this.t < 900) {
-      this.missiles = 1;
-      this.say('MISSILE RELOADED');
+    this.missileCooldown = Math.max(0, this.missileCooldown - dt);
+
+    // The finale is a missile target and nothing else, so arriving at it inside
+    // a cooldown you spent two hundred units earlier would be a loss decided
+    // before you got there. The launcher is reloaded once, on approach.
+    if (flying && tr.portT > 0 && !this.portReloaded && tr.portT - this.t < 1300) {
+      this.portReloaded = true;
+      if (this.missileCooldown > 0) {
+        this.missileCooldown = 0;
+        this.say('LAUNCHER RELOADED');
+      }
     }
 
     this.audio.setEngine(clamp((this.speed - 200) / 400, 0, 1), flying ? 1 : 0.3);
@@ -348,7 +377,7 @@ export class Game {
           kind: 'drone', t: w.t + i * 34, alive: true,
           x: (hash2(w.t | 0, i) * 2 - 1) * (hw - 14),
           y: 18 + hash2(w.t | 0, i + 5) * (rim - 34),
-          hp: 2, maxHp: 2, lockable: false, points: 200,
+          hp: 2, maxHp: 2, lockable: true, points: 200,
           cool: 0.7 + hash2(w.t | 0, i + 9) * 1.1,
           phase: hash2(w.t | 0, i + 13) * TAU, spin: 0, aim: 0, flash: 0,
           world: [0, 0, 0],
@@ -494,19 +523,25 @@ export class Game {
     }
   }
 
-  /** Reticle targeting, laser cadence, and the missile lock. */
-  updateAim(dt, cssW, cssH) {
+  /**
+   * Targeting, the gun, and the lock list.
+   *
+   * The crosshair is not aimed -- it sits where the nose points, and flying is
+   * how you put it on things. Anything it rests on is painted, and a painted
+   * target stays locked until you spend it. That is the whole trade: locks are
+   * bought with flight path, and the flight path is already the hard part.
+   */
+  updateTargeting(dt) {
     const rd = this.rd;
     const inp = this.input;
-    const sx = inp.aimX * (rd.width / Math.max(1, cssW));
-    const sy = inp.aimY * (rd.height / Math.max(1, cssH));
-    this.aimSX = sx;
-    this.aimSY = sy;
 
-    // Project lockable targets and pick the one nearest the crosshair.
-    const grab = 70 * rd.scale;
-    let best = null;
-    let bestD = grab;
+    // Where the crosshair wants to be: straight ahead, a little high, because
+    // the ship sits low in the frame.
+    const baseX = rd.cx;
+    const baseY = rd.cy - 18 * rd.scale;
+
+    // Project every candidate once. onScreen/sx/sy are read again by the
+    // overlay, so this doubles as the frame's visibility pass.
     const cands = [this.level.enemies, this.drones];
     if (this.level.port) cands.push([this.level.port]);
     for (const arr of cands) {
@@ -514,22 +549,106 @@ export class Game {
         e.onScreen = false;
         if (!e.alive || !e.world) continue;
         const ahead = e.t - this.t;
-        if (ahead < 20 || ahead > 950) continue;
+        if (ahead < 20 || ahead > TARGET_RANGE) continue;
         const vz = rd.project(e.world[0], e.world[1], e.world[2], this._l);
         if (vz < 2) continue;
         e.sx = this._l[0];
         e.sy = this._l[1];
         e.onScreen = true;
-        if (!e.lockable) continue;
-        const d = Math.hypot(e.sx - sx, e.sy - sy);
-        if (d < bestD) { bestD = d; best = e; }
       }
     }
+
+    // Paint is per target and everything under the crosshair takes some, so a
+    // sweep across a group paints the group. Painting one at a time would make
+    // a salvo of five cost five separate passes, which is not a salvo -- it is
+    // five shots with extra steps.
+    const grab = PAINT_RADIUS * rd.scale;
+    let best = null;
+    let bestD = grab;
+    for (const arr of cands) {
+      for (const e of arr) {
+        if (!e.onScreen || !e.lockable || this.locks.includes(e)) {
+          if (e.paint) e.paint = Math.max(0, e.paint - dt * 2);
+          continue;
+        }
+        const d = Math.hypot(e.sx - baseX, e.sy - baseY);
+        if (d < bestD) { bestD = d; best = e; }
+
+        if (d < grab && this.locks.length < LOCK_MAX) {
+          const before = e.paint || 0;
+          e.paint = before + dt / PAINT_TIME;
+          if (before < 1 && e.paint >= 1) {
+            this.locks.push(e);
+            this.lockedFlash = 1;
+            this.audio.lockTick();
+            if (this.locks.length === LOCK_MAX) this.say('LOCKS FULL', 0.9);
+          }
+        } else if (e.paint) {
+          // Paint fades rather than resets, so a target that slips out of the
+          // crosshair for a moment is not started from nothing.
+          e.paint = Math.max(0, e.paint - dt * 1.5);
+        }
+      }
+    }
+
+    // The crosshair leans toward what it is painting. It is an aim assist, but
+    // it is also the readable signal that a target has been noticed at all.
+    let cx = baseX, cy = baseY;
+    if (best) {
+      const pull = CROSSHAIR_PULL * (1 - bestD / grab);
+      cx += (best.sx - baseX) * pull;
+      cy += (best.sy - baseY) * pull;
+    }
+    this.aimSX = cx;
+    this.aimSY = cy;
     this.hoverTarget = best;
 
-    // Aim ray through the crosshair, used for both lasers and the lock.
-    const kx = (sx - rd.cx) / rd.focal;
-    const ky = -(sy - rd.cy) / rd.focal;
+    // The reticle reports the nearest one, which is the one the crosshair is
+    // leaning at, so the ring on screen matches what the pull is pointing to.
+    this.paintTarget = best;
+    this.paintProgress = best ? clamp(best.paint || 0, 0, 1) : 0;
+
+    // A lock survives being flown past -- the missiles are heat-seekers and can
+    // turn around -- but not by much, and not past the range it was taken at.
+    this.locks = this.locks.filter((e) => {
+      const keep = e.alive && e.world
+        && e.t - this.t > -260 && e.t - this.t < TARGET_RANGE + 300;
+      if (!keep) e.paint = 0;
+      return keep;
+    });
+
+    this.updateGun(dt, cx, cy);
+
+    if (inp.takeMissile()) this.launchMissiles();
+  }
+
+  /** The machine gun: infinite ammo, finite patience. */
+  updateGun(dt, cx, cy) {
+    const rd = this.rd;
+    const firing = this.input.firing && !this.overheated;
+
+    if (firing) {
+      this.heat = Math.min(1, this.heat + HEAT_PER_SEC * dt);
+      if (this.heat >= 1) {
+        this.overheated = true;
+        this.say('OVERHEATED', 1.2);
+        this.audio.hit();
+      }
+    } else {
+      this.heat = Math.max(0, this.heat - COOL_PER_SEC * dt);
+      if (this.overheated && this.heat <= HEAT_RESUME) this.overheated = false;
+    }
+
+    if (!firing) {
+      this.input.takePress();
+      return;
+    }
+
+    // The shot goes through the crosshair, not through the finger: the ray is
+    // rebuilt from where the crosshair ended up, magnetism included, so what
+    // you see it leaning at is what the guns hit.
+    const kx = (cx - rd.cx) / rd.focal;
+    const ky = -(cy - rd.cy) / rd.focal;
     const ax = this.camF[0] + this.camR[0] * kx + this.camU[0] * ky;
     const ay = this.camF[1] + this.camR[1] * kx + this.camU[1] * ky;
     const az = this.camF[2] + this.camR[2] * kx + this.camU[2] * ky;
@@ -539,59 +658,55 @@ export class Game {
     const ty = this.eye[1] + (ay / al) * AIM_DIST;
     const tz = this.eye[2] + (az / al) * AIM_DIST;
 
-    if (inp.firing) {
-      // Lasers: immediate on press, then a steady cadence while held.
-      this.fireTimer -= dt;
-      if (inp.takePress()) this.fireTimer = 0;
-      if (this.fireTimer <= 0) {
-        this.fireTimer = LASER_CADENCE;
-        for (const m of MUZZLES) {
-          shipLocalToWorld(this.shipPos, this.basis, m[0], m[1], m[2], this._p);
-          let dx = tx - this._p[0], dy = ty - this._p[1], dz = tz - this._p[2];
-          const dl = Math.hypot(dx, dy, dz) || 1;
-          this.weapons.fireLaser(this._p[0], this._p[1], this._p[2], dx / dl, dy / dl, dz / dl);
-        }
-        this.audio.laser();
-      }
-
-      // Lock: hold the crosshair on a lockable target long enough.
-      if (best) {
-        if (this.lockTarget !== best) {
-          this.lockTarget = best;
-          this.lockProgress = 0;
-        }
-        const before = this.lockProgress;
-        this.lockProgress += dt / LOCK_TIME;
-        if (Math.floor(before * 8) !== Math.floor(this.lockProgress * 8)) this.audio.lockTick();
-        if (this.lockProgress >= 1) this.releaseMissile(best);
-      } else {
-        this.lockTarget = null;
-        this.lockProgress = Math.max(0, this.lockProgress - dt * 2);
-      }
-    } else {
-      inp.takePress();
-      this.lockTarget = null;
-      this.lockProgress = Math.max(0, this.lockProgress - dt * 3);
+    this.fireTimer -= dt;
+    if (this.input.takePress()) this.fireTimer = 0;
+    if (this.fireTimer > 0) return;
+    this.fireTimer = GUN_CADENCE;
+    for (const m of MUZZLES) {
+      shipLocalToWorld(this.shipPos, this.basis, m[0], m[1], m[2], this._p);
+      let dx = tx - this._p[0], dy = ty - this._p[1], dz = tz - this._p[2];
+      const dl = Math.hypot(dx, dy, dz) || 1;
+      this.weapons.fireLaser(this._p[0], this._p[1], this._p[2], dx / dl, dy / dl, dz / dl);
     }
+    this.audio.laser();
   }
 
-  releaseMissile(target) {
-    this.lockProgress = 0;
-    this.lockTarget = null;
-    if (this.missiles <= 0) {
-      this.say('NO MISSILES');
+  /** Everything painted, struck at once. */
+  launchMissiles() {
+    if (this.missileCooldown > 0) {
+      this.say(`RELOADING ${this.missileCooldown.toFixed(1)}`, 0.8);
       return;
     }
-    this.missiles--;
+    if (!this.locks.length) {
+      this.say('NOTHING LOCKED', 0.9);
+      return;
+    }
+
+    const n = this.locks.length;
+    this.locks.forEach((target, i) => {
+      shipLocalToWorld(this.shipPos, this.basis, 0, -2, 4, this._p);
+      let dx = target.world[0] - this._p[0];
+      let dy = target.world[1] - this._p[1];
+      let dz = target.world[2] - this._p[2];
+      const l = Math.hypot(dx, dy, dz) || 1;
+      // Fanned on launch so a salvo reads as a salvo. Homing pulls them back in.
+      const spread = n > 1 ? ((i / (n - 1)) - 0.5) * 0.5 : 0;
+      const sx = dx / l + this.camR[0] * spread + this.camU[0] * 0.25;
+      const sy = dy / l + this.camR[1] * spread + this.camU[1] * 0.25;
+      const sz = dz / l + this.camR[2] * spread + this.camU[2] * 0.25;
+      const sl = Math.hypot(sx, sy, sz) || 1;
+      this.weapons.fireMissile(this._p[0], this._p[1], this._p[2],
+        sx / sl, sy / sl, sz / sl, target);
+    });
+
+    for (const e of this.locks) e.paint = 0;
+    this.locks = [];
+    this.paintTarget = null;
+    this.paintProgress = 0;
+    this.missileCooldown = MISSILE_COOLDOWN;
     this.lockedFlash = 1;
-    shipLocalToWorld(this.shipPos, this.basis, 0, -2, 4, this._p);
-    let dx = target.world[0] - this._p[0];
-    let dy = target.world[1] - this._p[1];
-    let dz = target.world[2] - this._p[2];
-    const l = Math.hypot(dx, dy, dz) || 1;
-    this.weapons.fireMissile(this._p[0], this._p[1], this._p[2], dx / l, dy / l, dz / l, target);
     this.audio.missile();
-    this.say('FOX TWO', 1.1);
+    this.say(n > 1 ? `FOX TWO x${n}` : 'FOX TWO', 1.1);
   }
 
   /** All projectile resolution: player fire, enemy fire, missiles. */
@@ -672,13 +787,20 @@ export class Game {
     }
   }
 
-  /** Does a world point sit inside nearby obstacle geometry? */
+  /**
+   * Does a world point sit inside nearby obstacle geometry?
+   *
+   * The trench wall only counts below the rim. Above it there is no rock, and
+   * treating the whole half-width as solid at every height meant anything shot
+   * at a surface turret -- which by definition stands outside the trench --
+   * detonated on empty air the moment it crossed the line.
+   */
   hitsScenery(x, y, z) {
     const tr = this.track;
     const obs = this.level.obstacles;
     tr.worldToLocal(x, y, z, this._q);
     const lt = this._q[0], lx = this._q[1], ly = this._q[2];
-    if (Math.abs(lx) > tr.halfWidth(lt) + 4) return true;
+    if (Math.abs(lx) > tr.halfWidth(lt) + 4 && ly < tr.rim(lt)) return true;
     for (let i = this.obCursor; i < obs.length; i++) {
       const ob = obs[i];
       if (ob.t > lt + 30) break;
@@ -710,7 +832,8 @@ export class Game {
       this.say('DIRECT HIT', 5);
       this.audio.win();
     } else if (e.kind === 'emplacement') {
-      this.missiles = Math.min(MISSILE_MAX, this.missiles + 1);
+      // Worth the trouble: a heavy kill buys back part of the launcher wait.
+      this.missileCooldown = Math.max(0, this.missileCooldown - 2);
       this.say('EMPLACEMENT DOWN');
     }
   }
@@ -755,19 +878,26 @@ export class Game {
     const port = this.level.port;
 
     if (this.phase === 'flying') {
-      // Target boxes on everything lockable that is on screen.
+      // Every lockable thing on screen gets a box; the one being painted fills
+      // up; the ones already locked are drawn held, with a tether back to the
+      // crosshair so a salvo of eight still reads as one decision.
       const arrs = [this.level.enemies, this.drones];
       if (port) arrs.push([port]);
+      const cx = this.aimSX ?? rd.cx;
+      const cy = this.aimSY ?? rd.cy;
       for (const arr of arrs) {
         for (const e of arr) {
           if (!e.alive || !e.onScreen || !e.lockable) continue;
-          const isTarget = e === this.lockTarget;
+          const locked = this.locks.includes(e);
           drawTargetBox(rd, e.sx, e.sy, rd.scale,
-            isTarget ? this.lockProgress : 0, isTarget && this.lockProgress > 0.99);
+            locked ? 0 : clamp(e.paint || 0, 0, 1), locked);
+          if (locked) {
+            rd.line2(cx, cy, e.sx, e.sy, 1 * rd.scale, 1, 0.55, 0.2, 0.16, 0.4);
+          }
         }
       }
-      drawReticle(rd, this.aimSX ?? rd.cx, this.aimSY ?? rd.cy, rd.scale,
-        this.lockProgress, this.lockedFlash > 0.5, !!this.hoverTarget);
+      drawReticle(rd, cx, cy, rd.scale,
+        this.paintProgress, this.lockedFlash > 0.5, !!this.hoverTarget);
     }
 
     const nextSeal = this.level.seals.find((s) => s > this.t - 40);
@@ -777,7 +907,12 @@ export class Game {
       score: this.score,
       speed: this.speed || 0,
       levelName: this.spec.name,
-      missiles: this.missiles,
+      locks: this.locks.length,
+      lockMax: LOCK_MAX,
+      heat: this.heat,
+      overheated: this.overheated,
+      missileCooldown: this.missileCooldown,
+      missileMax: MISSILE_COOLDOWN,
       altitude: this.shipY,
       rimHeight: tr.rim(this.t),
       ceiling: this.ceiling || tr.rim(this.t) + 92,
