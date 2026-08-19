@@ -398,8 +398,14 @@ function drawText(rd, str, x, y, size, w, r, g, b, a = 1, align = -1) {
   if (align === 0) ox -= textWidth(str, size) * 0.5;
   else if (align === 1) ox -= textWidth(str, size);
 
-  for (let i = 0; i < str.length; i++) {
-    const ch = str[i];
+  // The table is uppercase only, and an unknown glyph still advances -- so
+  // lowercase input used to draw as blank space of exactly the right width,
+  // invisible but still shoving its neighbours around. Fold it instead. Case
+  // folding never changes the length, so textWidth agrees either way.
+  const text = str.toUpperCase();
+
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
     const glyph = GLYPHS[ch];
     if (glyph) {
       for (let p = 0; p < glyph.length; p++) {
@@ -1474,70 +1480,126 @@ const STOP = new Set(['then', 'with', 'that', 'this', 'into', 'over', 'from', 't
 const PREBUILT = [
   {
     label: "SHAKEDOWN",
-    blurb: "The tutorial that is not a tutorial. Wide, bright and forgiving, with one bulkhead near the end so you meet the climb before it can kill you.",
+    blurb: "The first minute of this game. It opens almost empty and wide on purpose: nothing shoots at you until you have flown a while, and the one bulkhead waits until you have already learned to climb.",
     spec: {
       "name": "SHAKEDOWN",
       "seed": 4211,
       "speed": {
-        "start": 250,
-        "end": 330
+        "start": 230,
+        "end": 300
       },
       "finale": "port",
       "sections": [
         {
           "name": "open approach",
-          "length": 900,
-          "width": 104,
-          "depth": 92,
-          "curviness": 0.14,
-          "hilliness": 0.2,
+          "length": 3000,
+          "width": 112,
+          "depth": 88,
+          "curviness": 0.08,
+          "hilliness": 0.15,
           "roughness": 0.3,
-          "obstacles": 0.35,
+          "obstacles": 0.1,
+          "kinds": [
+            "pylon"
+          ],
+          "turrets": 0,
+          "wallguns": 0,
+          "drones": 0.15,
+          "seals": 0,
+          "hue": 0.5
+        },
+        {
+          "name": "first columns",
+          "length": 3000,
+          "width": 100,
+          "depth": 96,
+          "curviness": 0.18,
+          "hilliness": 0.22,
+          "roughness": 0.36,
+          "obstacles": 0.22,
           "kinds": [
             "pylon"
           ],
           "turrets": 0.1,
           "wallguns": 0,
-          "drones": 0.3,
+          "drones": 0.25,
           "seals": 0,
           "hue": 0.5
         },
         {
-          "name": "first fangs",
-          "length": 1100,
-          "width": 78,
-          "depth": 112,
-          "curviness": 0.34,
+          "name": "the bend",
+          "length": 3000,
+          "width": 88,
+          "depth": 108,
+          "curviness": 0.38,
           "hilliness": 0.3,
           "roughness": 0.42,
-          "obstacles": 0.55,
+          "obstacles": 0.3,
           "kinds": [
             "pylon",
             "fang"
           ],
-          "turrets": 0.2,
-          "wallguns": 0.16,
-          "drones": 0.42,
+          "turrets": 0.18,
+          "wallguns": 0.12,
+          "drones": 0.28,
           "seals": 0,
-          "hue": 0.5
+          "hue": 0.51
+        },
+        {
+          "name": "hanging fangs",
+          "length": 3000,
+          "width": 80,
+          "depth": 116,
+          "curviness": 0.42,
+          "hilliness": 0.35,
+          "roughness": 0.46,
+          "obstacles": 0.38,
+          "kinds": [
+            "pylon",
+            "fang"
+          ],
+          "turrets": 0.25,
+          "wallguns": 0.2,
+          "drones": 0.3,
+          "seals": 0,
+          "hue": 0.51
         },
         {
           "name": "one bulkhead",
-          "length": 1100,
-          "width": 70,
-          "depth": 122,
-          "curviness": 0.3,
+          "length": 3000,
+          "width": 74,
+          "depth": 124,
+          "curviness": 0.36,
           "hilliness": 0.32,
           "roughness": 0.45,
-          "obstacles": 0.5,
+          "obstacles": 0.3,
           "kinds": [
             "pylon",
             "fang"
           ],
-          "turrets": 0.46,
-          "wallguns": 0.2,
-          "drones": 0.4,
+          "turrets": 0.5,
+          "wallguns": 0.18,
+          "drones": 0.25,
           "seals": 1,
+          "hue": 0.52
+        },
+        {
+          "name": "run to the port",
+          "length": 3000,
+          "width": 68,
+          "depth": 120,
+          "curviness": 0.4,
+          "hilliness": 0.3,
+          "roughness": 0.45,
+          "obstacles": 0.36,
+          "kinds": [
+            "fang",
+            "gate"
+          ],
+          "turrets": 0.3,
+          "wallguns": 0.3,
+          "drones": 0.2,
+          "seals": 0,
           "hue": 0.52
         }
       ]
@@ -1550,86 +1612,141 @@ const PREBUILT = [
       "name": "BULKHEAD RUN",
       "seed": 90210,
       "speed": {
-        "start": 300,
-        "end": 470
+        "start": 260,
+        "end": 430
       },
       "finale": "port",
       "sections": [
         {
           "name": "wide mouth",
-          "length": 800,
-          "width": 112,
+          "length": 4350,
+          "width": 118,
+          "depth": 110,
+          "curviness": 0.12,
+          "hilliness": 0.2,
+          "roughness": 0.35,
+          "obstacles": 0.12,
+          "kinds": [
+            "pylon"
+          ],
+          "turrets": 0.05,
+          "wallguns": 0,
+          "drones": 0.2,
+          "seals": 0,
+          "hue": 0.13
+        },
+        {
+          "name": "first narrowing",
+          "length": 4350,
+          "width": 96,
           "depth": 128,
-          "curviness": 0.2,
+          "curviness": 0.3,
           "hilliness": 0.28,
-          "roughness": 0.4,
-          "obstacles": 0.36,
+          "roughness": 0.45,
+          "obstacles": 0.26,
           "kinds": [
             "pylon",
             "fang"
           ],
-          "turrets": 0.2,
-          "wallguns": 0.14,
-          "drones": 0.26,
+          "turrets": 0.15,
+          "wallguns": 0.12,
+          "drones": 0.25,
           "seals": 0,
           "hue": 0.13
         },
         {
           "name": "the narrows",
-          "length": 1400,
-          "width": 56,
-          "depth": 150,
-          "curviness": 0.6,
-          "hilliness": 0.44,
-          "roughness": 0.55,
-          "obstacles": 0.66,
+          "length": 4350,
+          "width": 74,
+          "depth": 145,
+          "curviness": 0.5,
+          "hilliness": 0.4,
+          "roughness": 0.52,
+          "obstacles": 0.4,
           "kinds": [
             "pylon",
             "fang",
             "gate"
           ],
-          "turrets": 0.36,
-          "wallguns": 0.42,
+          "turrets": 0.3,
+          "wallguns": 0.3,
           "drones": 0.3,
           "seals": 1,
           "hue": 0.12
         },
         {
+          "name": "deep water",
+          "length": 4350,
+          "width": 62,
+          "depth": 158,
+          "curviness": 0.62,
+          "hilliness": 0.45,
+          "roughness": 0.58,
+          "obstacles": 0.48,
+          "kinds": [
+            "fang",
+            "gate"
+          ],
+          "turrets": 0.45,
+          "wallguns": 0.4,
+          "drones": 0.28,
+          "seals": 1,
+          "hue": 0.11
+        },
+        {
           "name": "sealed deep",
-          "length": 1800,
-          "width": 48,
+          "length": 4350,
+          "width": 54,
           "depth": 168,
-          "curviness": 0.68,
-          "hilliness": 0.5,
+          "curviness": 0.66,
+          "hilliness": 0.48,
           "roughness": 0.6,
-          "obstacles": 0.62,
+          "obstacles": 0.44,
           "kinds": [
             "fang",
             "gate",
             "ring"
           ],
-          "turrets": 0.68,
-          "wallguns": 0.38,
+          "turrets": 0.6,
+          "wallguns": 0.35,
           "drones": 0.24,
-          "seals": 2,
+          "seals": 1,
           "hue": 0.1
         },
         {
           "name": "the choke",
-          "length": 900,
-          "width": 38,
-          "depth": 148,
-          "curviness": 0.48,
+          "length": 4350,
+          "width": 44,
+          "depth": 156,
+          "curviness": 0.5,
           "hilliness": 0.35,
-          "roughness": 0.5,
-          "obstacles": 0.58,
+          "roughness": 0.52,
+          "obstacles": 0.5,
           "kinds": [
             "ring",
             "gate"
           ],
-          "turrets": 0.3,
-          "wallguns": 0.48,
+          "turrets": 0.35,
+          "wallguns": 0.45,
           "drones": 0.2,
+          "seals": 0,
+          "hue": 0.09
+        },
+        {
+          "name": "last light",
+          "length": 4350,
+          "width": 40,
+          "depth": 150,
+          "curviness": 0.42,
+          "hilliness": 0.3,
+          "roughness": 0.48,
+          "obstacles": 0.45,
+          "kinds": [
+            "ring"
+          ],
+          "turrets": 0.3,
+          "wallguns": 0.4,
+          "drones": 0.18,
           "seals": 0,
           "hue": 0.08
         }
@@ -1638,89 +1755,165 @@ const PREBUILT = [
   },
   {
     label: "REACTOR",
-    blurb: "Everything at once, on fire, at speed. Staggered slabs, an iris chain, four bulkheads and a core that will not open until you hold the lock.",
+    blurb: "Everything at once, on fire, at speed. It still starts gently -- then staggered slabs, an iris chain, four bulkheads, and a core that will not open until you hold the lock.",
     spec: {
       "name": "REACTOR",
       "seed": 66613,
       "speed": {
-        "start": 380,
-        "end": 560
+        "start": 300,
+        "end": 500
       },
       "finale": "port",
       "sections": [
         {
-          "name": "descent",
-          "length": 1000,
-          "width": 62,
+          "name": "the descent",
+          "length": 5200,
+          "width": 100,
+          "depth": 130,
+          "curviness": 0.15,
+          "hilliness": 0.3,
+          "roughness": 0.5,
+          "obstacles": 0.14,
+          "kinds": [
+            "pylon"
+          ],
+          "turrets": 0.08,
+          "wallguns": 0,
+          "drones": 0.25,
+          "seals": 0,
+          "hue": 0.02
+        },
+        {
+          "name": "into the red",
+          "length": 5200,
+          "width": 82,
+          "depth": 150,
+          "curviness": 0.35,
+          "hilliness": 0.45,
+          "roughness": 0.6,
+          "obstacles": 0.3,
+          "kinds": [
+            "pylon",
+            "stack"
+          ],
+          "turrets": 0.2,
+          "wallguns": 0.2,
+          "drones": 0.3,
+          "seals": 0,
+          "hue": 0.02
+        },
+        {
+          "name": "slab field",
+          "length": 5200,
+          "width": 66,
           "depth": 168,
           "curviness": 0.5,
-          "hilliness": 0.58,
-          "roughness": 0.68,
-          "obstacles": 0.75,
+          "hilliness": 0.55,
+          "roughness": 0.65,
+          "obstacles": 0.45,
           "kinds": [
             "stack",
             "pylon"
           ],
           "turrets": 0.3,
-          "wallguns": 0.48,
-          "drones": 0.5,
+          "wallguns": 0.35,
+          "drones": 0.35,
           "seals": 1,
-          "hue": 0.02
+          "hue": 0.01
         },
         {
-          "name": "slab gauntlet",
-          "length": 1800,
-          "width": 46,
-          "depth": 186,
-          "curviness": 0.72,
-          "hilliness": 0.58,
+          "name": "gauntlet",
+          "length": 5200,
+          "width": 56,
+          "depth": 180,
+          "curviness": 0.65,
+          "hilliness": 0.55,
           "roughness": 0.65,
-          "obstacles": 0.95,
+          "obstacles": 0.55,
           "kinds": [
             "stack",
             "gate",
             "fang"
           ],
-          "turrets": 0.5,
-          "wallguns": 0.56,
-          "drones": 0.6,
+          "turrets": 0.45,
+          "wallguns": 0.45,
+          "drones": 0.35,
+          "seals": 0,
+          "hue": 0.01
+        },
+        {
+          "name": "sealed core",
+          "length": 5200,
+          "width": 50,
+          "depth": 192,
+          "curviness": 0.7,
+          "hilliness": 0.5,
+          "roughness": 0.6,
+          "obstacles": 0.5,
+          "kinds": [
+            "gate",
+            "fang",
+            "ring"
+          ],
+          "turrets": 0.62,
+          "wallguns": 0.42,
+          "drones": 0.3,
           "seals": 2,
           "hue": 0.01
         },
         {
           "name": "iris chain",
-          "length": 1300,
-          "width": 40,
+          "length": 5200,
+          "width": 44,
           "depth": 196,
-          "curviness": 0.78,
-          "hilliness": 0.46,
+          "curviness": 0.75,
+          "hilliness": 0.45,
           "roughness": 0.55,
-          "obstacles": 0.9,
+          "obstacles": 0.55,
           "kinds": [
             "ring",
             "gate"
           ],
-          "turrets": 0.58,
-          "wallguns": 0.52,
-          "drones": 0.55,
-          "seals": 1,
+          "turrets": 0.55,
+          "wallguns": 0.5,
+          "drones": 0.28,
+          "seals": 0,
           "hue": 0.04
         },
         {
+          "name": "last bulkhead",
+          "length": 5200,
+          "width": 40,
+          "depth": 190,
+          "curviness": 0.6,
+          "hilliness": 0.4,
+          "roughness": 0.55,
+          "obstacles": 0.5,
+          "kinds": [
+            "ring",
+            "gate"
+          ],
+          "turrets": 0.6,
+          "wallguns": 0.5,
+          "drones": 0.26,
+          "seals": 1,
+          "hue": 0.03
+        },
+        {
           "name": "core approach",
-          "length": 800,
-          "width": 34,
-          "depth": 176,
+          "length": 5200,
+          "width": 36,
+          "depth": 180,
           "curviness": 0.42,
           "hilliness": 0.3,
           "roughness": 0.45,
-          "obstacles": 0.62,
+          "obstacles": 0.42,
           "kinds": [
             "ring"
           ],
           "turrets": 0.4,
-          "wallguns": 0.58,
-          "drones": 0.4,
+          "wallguns": 0.5,
+          "drones": 0.22,
           "seals": 0,
           "hue": 0
         }
@@ -2026,10 +2219,10 @@ const NUMERIC = ['width', 'depth', 'curviness', 'hilliness', 'roughness', 'hue']
 
 // Obstacles must not crowd a bulkhead's approach, but guns near one are the
 // point: they punish the climb the bulkhead forces. Hence two clearances.
-const OB_CLEARANCE = 260;
-const GUN_CLEARANCE = 150;
-const MIN_OB_GAP = 110;      // no unavoidable stacked pairs
-const SEAL_PITCH = 900;      // minimum track per seal in a section
+const OB_CLEARANCE = 420;
+const GUN_CLEARANCE = 220;
+const MIN_OB_GAP = 240;      // no unavoidable stacked pairs
+const SEAL_PITCH = 2600;   // minimum track per seal in a section
 
 function obstacle(t, dz, kind, boxes, extra) {
   return { t, dz, kind, boxes, hit: false, ...extra };
@@ -2044,7 +2237,14 @@ function enemy(kind, t, x, y, over) {
   };
 }
 
-/** Spacing in track units for a 0..1 density, or Infinity when off. */
+/**
+ * Spacing in track units for a 0..1 density, or Infinity when off.
+ *
+ * The bases are large because the useful unit here is seconds, not units: at
+ * 400 units a second, a 1000-unit gap is two and a half seconds, and anything
+ * under about 400 arrives faster than a player can read it. Density picks a
+ * rhythm between roughly three seconds and one; it does not pick a wall.
+ */
 const spacing = (density, base, gain) =>
   density <= 0.001 ? Infinity : base / (0.12 + density * gain);
 
@@ -2088,7 +2288,7 @@ function buildLevel(spec, track) {
     const end = track.bounds[si + 1];
 
     // Trench obstacles.
-    const og = spacing(sec.obstacles, 1000, 6.2);
+    const og = spacing(sec.obstacles, 2500, 6.2);
     let lastOb = -Infinity;
     for (let t = start + og * rand(); t < end; t += og * (0.72 + rand() * 0.56)) {
       if (nearSeal(t) || nearPort(t)) continue;
@@ -2143,7 +2343,9 @@ function buildLevel(spec, track) {
         const mid = rim * 0.45;
         obstacles.push(obstacle(t, 18, 'stack',
           [low ? [-hw - 30, 5, -30, mid] : [-hw - 30, 5, mid, rim + 14]]));
-        const t2 = t + 95;
+        // Far enough apart to be a chicane rather than a coin flip: at 450
+        // units a second this is two thirds of a second to cross the trench.
+        const t2 = t + 300;
         lastOb = t2;
         if (!nearSeal(t2) && !nearPort(t2)) {
           obstacles.push(obstacle(t2, 18, 'stack',
@@ -2153,7 +2355,7 @@ function buildLevel(spec, track) {
     }
 
     // Surface batteries.
-    const tg = spacing(sec.turrets, 1200, 4.2);
+    const tg = spacing(sec.turrets, 2000, 4.2);
     for (let t = start + tg * rand(); t < end; t += tg * (0.7 + rand() * 0.6)) {
       if (nearPort(t)) continue;
       const hw = track.halfWidth(t);
@@ -2162,7 +2364,7 @@ function buildLevel(spec, track) {
     }
 
     // Wall guns inside the trench.
-    const wg = spacing(sec.wallguns, 1400, 6.5);
+    const wg = spacing(sec.wallguns, 2600, 6.5);
     for (let t = start + wg * rand(); t < end; t += wg * (0.7 + rand() * 0.6)) {
       if (nearSealGun(t) || nearPort(t)) continue;
       const hw = track.halfWidth(t);
@@ -2173,7 +2375,7 @@ function buildLevel(spec, track) {
     }
 
     // Drone waves.
-    const dg = spacing(sec.drones, 1600, 2.6);
+    const dg = spacing(sec.drones, 2800, 2.6);
     for (let t = start + dg * rand(); t < end; t += dg * (0.7 + rand() * 0.6)) {
       if (nearPort(t)) continue;
       drones.push({ t, n: 1 + Math.floor(rand() * 3), spawned: false });
@@ -3065,26 +3267,86 @@ function drawHud(rd, st) {
  *
  * `band` is the vertical slice of canvas the design panel leaves free.
  */
+/**
+ * Packs labels into a fixed set of text rows, refusing any that would touch one
+ * already placed. A schematic can be asked to caption 24 sections and six
+ * bulkheads inside a band a couple of centimetres tall, so "where does this go"
+ * has to account for what is already there. Anything that fits nowhere is
+ * dropped: a missing name costs a reader less than two names drawn through each
+ * other. Returns the row's baseline, or null.
+ */
+function rowPacker(rows, s, left, right) {
+  const used = rows.map(() => []);
+  const pad = 5 * s;
+  return (text, x, size, align = -1) => {
+    const w = textWidth(text, size);
+    // Nudged back inside the frame first. A label anchored to a section that
+    // starts near the end of the run would otherwise hang off the right edge,
+    // which is the one collision more rows cannot fix.
+    const want = align === 0 ? x - w * 0.5 : align === 1 ? x - w : x;
+    const a = clamp(want, left, Math.max(left, right - w));
+    for (let i = 0; i < rows.length; i++) {
+      if (used[i].some(([c, d]) => a - pad < d && a + w + pad > c)) continue;
+      used[i].push([a, a + w]);
+      return { x: a, y: rows[i], text };
+    }
+    return null;
+  };
+}
+
+const PLAN_CAP = 'PLAN  (WIDTH AND TURN)';
+
 function drawSchematic(rd, track, level, alpha = 1, band = null) {
   const W = rd.width, s = rd.scale;
   const y0 = band ? band.y0 : rd.height * 0.08;
   const y1 = band ? band.y1 : rd.height * 0.92;
-  const h = Math.max(70 * s, y1 - y0);
   const L = Math.max(1, track.total);
   const x0 = W * 0.07, x1 = W * 0.955;
   const mapX = (t) => x0 + ((x1 - x0) * clamp(t / L, 0, 1));
 
   const fit = fitOf(track, L);
-  const labelRow = y0 + 8 * s;
-  const top = y0 + 22 * s;
-  const usable = Math.max(40 * s, y1 - 14 * s - top);
-  const planMid = top + usable * 0.26;
-  const floorY = top + usable * 0.98;
 
-  const driftS = (usable * 0.13) / fit.maxDrift;
-  const widthS = (usable * 0.15) / fit.maxHw;
-  const depthS = (usable * 0.46) / fit.maxRim;
-  const hillS = (usable * 0.10) / fit.maxHill;
+  // Text rows are reserved first and the plot is fitted into what is left over:
+  // three rows above it for the plan caption, section names and bulkheads, two
+  // below for the elevation caption and the total. Every label lives in a row,
+  // so no label can land on the curves, and the packer keeps them off each
+  // other. Sizing the plot to the leftovers is what makes that safe -- the plot
+  // cannot grow into the rows later.
+  const TEXT = 7 * s;
+  const pad = 5 * s;
+
+  // How many rows the labels actually need. Reserving three when one will do
+  // costs a three-section level a quarter of its plot height for nothing, and
+  // reserving one when six bulkheads want captioning is how they end up on top
+  // of each other. Estimate from total label width against the axis.
+  const secLabels = track.spec.sections.map(
+    (sec) => `${sec.name} W${Math.round(sec.width)} D${Math.round(sec.depth)}`);
+  const wanted = [PLAN_CAP, ...level.seals.map(() => 'SEAL'),
+    ...track.spec.sections.map((sec) => sec.name)]
+    .reduce((a, t) => a + textWidth(t, TEXT) + pad, 0);
+  // Packing is never perfect -- labels sit where their section starts, not
+  // wherever there is room -- so budget rows against three quarters of the
+  // axis. Estimating tightly drops labels a further row would have held.
+  const nRows = clamp(Math.ceil(wanted / ((x1 - x0) * 0.75)), 1, 3);
+  const rows = [];
+  for (let i = 0; i < nRows; i++) rows.push(y0 + TEXT + i * 11 * s);
+
+  const footY = y1 - 2 * s;
+  const elevCapY = footY - 15 * s;
+
+  const top = rows[nRows - 1] + 5 * s;
+  const bottom = elevCapY - TEXT - 3 * s;
+  const usable = Math.max(40 * s, bottom - top);
+
+  // Two bands that no longer share space: the plan's widest reach is 0.48 of the
+  // way down, the elevation's highest rim is 0.54. They used to cross, which
+  // read as one tangled plot rather than two.
+  const planMid = top + usable * 0.24;
+  const floorY = top + usable * 0.9;
+  const driftS = (usable * 0.11) / fit.maxDrift;
+  const widthS = (usable * 0.13) / fit.maxHw;
+  const depthS = (usable * 0.36) / fit.maxRim;
+  const hillS = (usable * 0.09) / fit.maxHill;
 
   const N = 240;
   let prev = null;
@@ -3119,31 +3381,39 @@ function drawSchematic(rd, track, level, alpha = 1, band = null) {
     }
     prev = cur;
   }
-  drawText(rd, 'PLAN  (WIDTH AND TURN)', x0, planMid - usable * 0.17, 7.5 * s, 0.9 * s,
-    DIM[0], DIM[1], DIM[2], 0.65 * alpha);
-  drawText(rd, 'ELEVATION  (RIM ABOVE FLOOR)', x0, floorY + 11 * s, 7.5 * s, 0.9 * s,
-    DIM[0], DIM[1], DIM[2], 0.65 * alpha);
 
   // Placed content: obstacles below the plan axis, guns above it.
-  const tick = usable * 0.045;
-  const obY = planMid + usable * 0.17;
+  const tick = usable * 0.04;
+  const obY = planMid + usable * 0.16;
   for (const ob of level.obstacles) {
     if (ob.kind === 'seal') continue;
     const x = mapX(ob.t);
     rd.line2(x, obY, x, obY + tick, 1 * s, 1, 0.5, 0.18, 0.7 * alpha, 0.2 * alpha);
   }
-  const gunY = planMid - usable * 0.17;
+  const gunY = planMid - usable * 0.16;
   for (const e of level.enemies) {
     const x = mapX(e.t);
     const up = e.kind === 'turret';
     rd.line2(x, gunY, x, gunY - tick * (up ? 1 : 0.55), 1.2 * s,
       RED[0], RED[1], RED[2], (up ? 0.9 : 0.45) * alpha, 0.2 * alpha);
   }
+
+  // Rows are claimed in the order a reader can least afford to lose: the caption
+  // anchors the top-left, then bulkheads, then section names fill the gaps.
+  const place = rowPacker(rows, s, 6 * s, W - 6 * s);
+  const cap = place(PLAN_CAP, x0, TEXT);
+  if (cap) {
+    drawText(rd, PLAN_CAP, cap.x, cap.y, TEXT, 0.9 * s,
+      DIM[0], DIM[1], DIM[2], 0.65 * alpha);
+  }
+
   for (const t of level.seals) {
     const x = mapX(t);
     rd.line2(x, top, x, floorY, 1.6 * s, RED[0], RED[1], RED[2], 0.8 * alpha, 0.15 * alpha);
-    drawText(rd, 'SEAL', x, top - 2 * s, 7 * s, 0.9 * s, RED[0], RED[1], RED[2], alpha, 0);
+    const p = place('SEAL', x, TEXT, 0);
+    if (p) drawText(rd, 'SEAL', p.x, p.y, TEXT, 0.9 * s, RED[0], RED[1], RED[2], alpha);
   }
+
   if (track.portT > 0) {
     const x = mapX(track.portT);
     const R = 8 * s;
@@ -3156,20 +3426,27 @@ function drawSchematic(rd, track, level, alpha = 1, band = null) {
     drawText(rd, 'PORT', x, cy - R - 3 * s, 7.5 * s, 1 * s, 1, 0.6, 0.15, alpha, 0);
   }
 
-  // Section boundaries. Labels alternate rows so neighbours never collide.
   track.bounds.forEach((t, i) => {
     if (i >= track.spec.sections.length) return;
     const x = mapX(t);
     rd.line2(x, top, x, floorY + 4 * s, 1 * s, DIM[0], DIM[1], DIM[2],
       0.3 * alpha, 0.08 * alpha);
-    const sec = track.spec.sections[i];
-    drawText(rd, `${sec.name} W${Math.round(sec.width)} D${Math.round(sec.depth)}`,
-      x + 3 * s, labelRow + (i % 2) * 8.5 * s, 7 * s, 0.9 * s,
-      DIM[0], DIM[1], DIM[2], 0.8 * alpha);
+    // Full label if it fits, bare name if it does not. The width and depth it
+    // drops are the two things the plot underneath is already drawing, so an
+    // eight-section run loses the redundant half rather than whole sections.
+    const p = place(secLabels[i], x + 3 * s, TEXT)
+      ?? place(track.spec.sections[i].name, x + 3 * s, TEXT);
+    if (p) {
+      const label = p.text;
+      drawText(rd, label, p.x, p.y, TEXT, 0.9 * s,
+        DIM[0], DIM[1], DIM[2], 0.8 * alpha);
+    }
   });
 
+  drawText(rd, 'ELEVATION  (RIM ABOVE FLOOR)', x0, elevCapY, TEXT, 0.9 * s,
+    DIM[0], DIM[1], DIM[2], 0.65 * alpha);
   drawText(rd, `${Math.round(L)} UNITS  /  ${track.spec.sections.length} SECTIONS`,
-    W * 0.5, y1 - 1 * s, 8.5 * s, 1.05 * s, AMBER[0], AMBER[1], AMBER[2], 0.85 * alpha, 0);
+    W * 0.5, footY, 8.5 * s, 1.05 * s, AMBER[0], AMBER[1], AMBER[2], 0.85 * alpha, 0);
 }
 
 /** Plot extents, computed once per track rather than every frame. */
@@ -3362,8 +3639,14 @@ class Audio {
 
 
 
-const FULL_TILT = 4.2;   // m/s^2 of deviation from neutral for full deflection
-const DEADZONE = 0.07;
+// Deviation from neutral, in m/s^2, that counts as full deflection. The two
+// axes are not the same number on purpose: rolling a phone left and right is
+// free, but pitching it forward and back tips the screen away from your face,
+// so people simply will not do it as far. Asking for the same tilt on both is
+// what made climbing feel unresponsive when steering left and right did not.
+const FULL_TILT_X = 3.6;
+const FULL_TILT_Y = 2.8;
+const DEADZONE = 0.05;
 
 /** Deadzone plus a mild expo curve: precise near centre, quick at the edges. */
 function shape(v) {
@@ -3371,7 +3654,9 @@ function shape(v) {
   const a = Math.abs(v);
   if (a < DEADZONE) return 0;
   const t = (a - DEADZONE) / (1 - DEADZONE);
-  return s * (t * t * 0.6 + t * 0.4);
+  // Weighted toward linear: the old curve gave a third of the deflection for
+  // half the tilt, which reads as the ship ignoring you rather than as finesse.
+  return s * (t * t * 0.35 + t * 0.65);
 }
 
 class Input {
@@ -3542,8 +3827,8 @@ class Input {
     let sy = 0;
 
     if (this.motion === 'granted' && this.hasReading && !this.needsCalibration) {
-      sx = shape(clamp(((this.gx - this.nx) / FULL_TILT) * this.sensitivity, -1.4, 1.4));
-      sy = shape(clamp((-(this.gy - this.ny) / FULL_TILT) * this.sensitivity, -1.4, 1.4));
+      sx = shape(clamp(((this.gx - this.nx) / FULL_TILT_X) * this.sensitivity, -1.4, 1.4));
+      sy = shape(clamp((-(this.gy - this.ny) / FULL_TILT_Y) * this.sensitivity, -1.4, 1.4));
     }
 
     if (this.stick !== null && this.pointers.has(this.stick)) {
@@ -3599,8 +3884,19 @@ class Input {
 
 
 
-const MAX_VX = 115;
-const MAX_VY = 100;
+// The ship's motion limits. Exported because tools/audit.mjs proves levels are
+// flyable against them -- a copy of these numbers that drifted would make the
+// audit confidently wrong.
+//
+// Vertical is the faster axis, which looks backwards until you count what each
+// one is for: lateral movement crosses a trench 50 to 300 wide, while vertical
+// movement has to climb a rim up to 240 tall and do it inside the warning a
+// bulkhead gives you. At parity the climb is the thing that kills you.
+const MAX_VX = 145;
+const MAX_VY = 160;
+
+/** How fast steering input becomes velocity. 1/rate is the lag, in seconds. */
+const STEER_RATE = 14;
 const LOCK_TIME = 1.05;
 const LASER_CADENCE = 0.115;
 const FAR = CANYON.DRAW;
@@ -3758,8 +4054,8 @@ class Game {
     const rim = tr.rim(this.t);
     this.ceiling = rim + 92;
 
-    this.velX = approach(this.velX, inp.steerX * MAX_VX, 7.5, dt);
-    this.velY = approach(this.velY, inp.steerY * MAX_VY, 7.5, dt);
+    this.velX = approach(this.velX, inp.steerX * MAX_VX, STEER_RATE, dt);
+    this.velY = approach(this.velY, inp.steerY * MAX_VY, STEER_RATE, dt);
     this.shipX += this.velX * dt;
     this.shipY += this.velY * dt;
 
@@ -4707,7 +5003,16 @@ class UI {
     const rd = this.rd;
     const W = rd.width, H = rd.height, s = rd.scale;
     const t = performance.now() / 1000;
-    const horizon = H * 0.62;
+    // The horizon is placed under the boot copy rather than at a fixed fraction
+    // of the height. That copy is DOM: how tall it is depends on font size and
+    // where it wraps, and on a narrow screen it reaches well past 0.62 -- which
+    // is what put grid lines through the text and the caption through the
+    // button. Measure it, the same way the schematic measures the sheet.
+    const r = rd.canvas.getBoundingClientRect();
+    const k = H / Math.max(1, r.height);
+    const note = document.getElementById('bootnote').getBoundingClientRect();
+    const horizon = Math.min(H * 0.8,
+      Math.max(H * 0.62, (note.bottom - r.top) * k + 30 * s));
     for (let i = 0; i < 22; i++) {
       const k = ((i / 22) + (t * 0.06 % (1 / 22))) % 1;
       const y = horizon + (H - horizon) * k * k;
@@ -4719,7 +5024,7 @@ class UI {
       rd.line2(W * 0.5 + i * 8 * s, horizon, x * 1.6 - W * 0.3, H, 1 * s,
         0.3, 0.7, 0.85, 0.05, 0.3);
     }
-    drawText(rd, 'VECTOR CANYON SIMULATOR', W * 0.5, horizon - 18 * s, 9 * s, 1.1 * s,
+    drawText(rd, 'VECTOR CANYON SIMULATOR', W * 0.5, horizon - 11 * s, 9 * s, 1.1 * s,
       0.35, 0.6, 0.7, 0.6, 0);
   }
 }

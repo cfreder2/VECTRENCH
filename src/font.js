@@ -75,8 +75,14 @@ export function drawText(rd, str, x, y, size, w, r, g, b, a = 1, align = -1) {
   if (align === 0) ox -= textWidth(str, size) * 0.5;
   else if (align === 1) ox -= textWidth(str, size);
 
-  for (let i = 0; i < str.length; i++) {
-    const ch = str[i];
+  // The table is uppercase only, and an unknown glyph still advances -- so
+  // lowercase input used to draw as blank space of exactly the right width,
+  // invisible but still shoving its neighbours around. Fold it instead. Case
+  // folding never changes the length, so textWidth agrees either way.
+  const text = str.toUpperCase();
+
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
     const glyph = G[ch];
     if (glyph) {
       for (let p = 0; p < glyph.length; p++) {

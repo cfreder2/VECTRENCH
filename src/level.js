@@ -10,10 +10,10 @@ import { rng, clamp } from './math.js';
 
 // Obstacles must not crowd a bulkhead's approach, but guns near one are the
 // point: they punish the climb the bulkhead forces. Hence two clearances.
-const OB_CLEARANCE = 260;
-const GUN_CLEARANCE = 150;
-const MIN_OB_GAP = 110;      // no unavoidable stacked pairs
-const SEAL_PITCH = 900;      // minimum track per seal in a section
+const OB_CLEARANCE = 420;
+const GUN_CLEARANCE = 220;
+const MIN_OB_GAP = 240;      // no unavoidable stacked pairs
+export const SEAL_PITCH = 2600;   // minimum track per seal in a section
 
 function obstacle(t, dz, kind, boxes, extra) {
   return { t, dz, kind, boxes, hit: false, ...extra };
@@ -28,7 +28,14 @@ function enemy(kind, t, x, y, over) {
   };
 }
 
-/** Spacing in track units for a 0..1 density, or Infinity when off. */
+/**
+ * Spacing in track units for a 0..1 density, or Infinity when off.
+ *
+ * The bases are large because the useful unit here is seconds, not units: at
+ * 400 units a second, a 1000-unit gap is two and a half seconds, and anything
+ * under about 400 arrives faster than a player can read it. Density picks a
+ * rhythm between roughly three seconds and one; it does not pick a wall.
+ */
 const spacing = (density, base, gain) =>
   density <= 0.001 ? Infinity : base / (0.12 + density * gain);
 
@@ -72,7 +79,7 @@ export function buildLevel(spec, track) {
     const end = track.bounds[si + 1];
 
     // Trench obstacles.
-    const og = spacing(sec.obstacles, 1000, 6.2);
+    const og = spacing(sec.obstacles, 2500, 6.2);
     let lastOb = -Infinity;
     for (let t = start + og * rand(); t < end; t += og * (0.72 + rand() * 0.56)) {
       if (nearSeal(t) || nearPort(t)) continue;
@@ -127,7 +134,9 @@ export function buildLevel(spec, track) {
         const mid = rim * 0.45;
         obstacles.push(obstacle(t, 18, 'stack',
           [low ? [-hw - 30, 5, -30, mid] : [-hw - 30, 5, mid, rim + 14]]));
-        const t2 = t + 95;
+        // Far enough apart to be a chicane rather than a coin flip: at 450
+        // units a second this is two thirds of a second to cross the trench.
+        const t2 = t + 300;
         lastOb = t2;
         if (!nearSeal(t2) && !nearPort(t2)) {
           obstacles.push(obstacle(t2, 18, 'stack',
@@ -137,7 +146,7 @@ export function buildLevel(spec, track) {
     }
 
     // Surface batteries.
-    const tg = spacing(sec.turrets, 1200, 4.2);
+    const tg = spacing(sec.turrets, 2000, 4.2);
     for (let t = start + tg * rand(); t < end; t += tg * (0.7 + rand() * 0.6)) {
       if (nearPort(t)) continue;
       const hw = track.halfWidth(t);
@@ -146,7 +155,7 @@ export function buildLevel(spec, track) {
     }
 
     // Wall guns inside the trench.
-    const wg = spacing(sec.wallguns, 1400, 6.5);
+    const wg = spacing(sec.wallguns, 2600, 6.5);
     for (let t = start + wg * rand(); t < end; t += wg * (0.7 + rand() * 0.6)) {
       if (nearSealGun(t) || nearPort(t)) continue;
       const hw = track.halfWidth(t);
@@ -157,7 +166,7 @@ export function buildLevel(spec, track) {
     }
 
     // Drone waves.
-    const dg = spacing(sec.drones, 1600, 2.6);
+    const dg = spacing(sec.drones, 2800, 2.6);
     for (let t = start + dg * rand(); t < end; t += dg * (0.7 + rand() * 0.6)) {
       if (nearPort(t)) continue;
       drones.push({ t, n: 1 + Math.floor(rand() * 3), spawned: false });

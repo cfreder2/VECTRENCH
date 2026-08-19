@@ -18,8 +18,19 @@ import { drawHud, drawReticle, drawTargetBox } from './hud.js';
 import { segSphere } from './collide.js';
 import { drawText } from './font.js';
 
-const MAX_VX = 115;
-const MAX_VY = 100;
+// The ship's motion limits. Exported because tools/audit.mjs proves levels are
+// flyable against them -- a copy of these numbers that drifted would make the
+// audit confidently wrong.
+//
+// Vertical is the faster axis, which looks backwards until you count what each
+// one is for: lateral movement crosses a trench 50 to 300 wide, while vertical
+// movement has to climb a rim up to 240 tall and do it inside the warning a
+// bulkhead gives you. At parity the climb is the thing that kills you.
+export const MAX_VX = 145;
+export const MAX_VY = 160;
+
+/** How fast steering input becomes velocity. 1/rate is the lag, in seconds. */
+const STEER_RATE = 14;
 const LOCK_TIME = 1.05;
 const LASER_CADENCE = 0.115;
 const FAR = CANYON.DRAW;
@@ -177,8 +188,8 @@ export class Game {
     const rim = tr.rim(this.t);
     this.ceiling = rim + 92;
 
-    this.velX = approach(this.velX, inp.steerX * MAX_VX, 7.5, dt);
-    this.velY = approach(this.velY, inp.steerY * MAX_VY, 7.5, dt);
+    this.velX = approach(this.velX, inp.steerX * MAX_VX, STEER_RATE, dt);
+    this.velY = approach(this.velY, inp.steerY * MAX_VY, STEER_RATE, dt);
     this.shipX += this.velX * dt;
     this.shipY += this.velY * dt;
 

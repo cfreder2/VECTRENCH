@@ -11,8 +11,10 @@ import { parseProse } from '../src/nl.js';
 import { EXAMPLES } from '../src/spec.js';
 import { Track } from '../src/track.js';
 import { buildLevel } from '../src/level.js';
+// The real limits, not a copy of them: if the ship gets faster and this file
+// does not hear about it, the audit keeps proving a harder game than shipped.
+import { MAX_VX, MAX_VY } from '../src/game.js';
 
-const MAX_VX = 115, MAX_VY = 100;
 const SHIP_HX = 7, SHIP_HY = 5;
 const NX = 49, NY = 37;
 

@@ -312,7 +312,16 @@ export class UI {
     const rd = this.rd;
     const W = rd.width, H = rd.height, s = rd.scale;
     const t = performance.now() / 1000;
-    const horizon = H * 0.62;
+    // The horizon is placed under the boot copy rather than at a fixed fraction
+    // of the height. That copy is DOM: how tall it is depends on font size and
+    // where it wraps, and on a narrow screen it reaches well past 0.62 -- which
+    // is what put grid lines through the text and the caption through the
+    // button. Measure it, the same way the schematic measures the sheet.
+    const r = rd.canvas.getBoundingClientRect();
+    const k = H / Math.max(1, r.height);
+    const note = document.getElementById('bootnote').getBoundingClientRect();
+    const horizon = Math.min(H * 0.8,
+      Math.max(H * 0.62, (note.bottom - r.top) * k + 30 * s));
     for (let i = 0; i < 22; i++) {
       const k = ((i / 22) + (t * 0.06 % (1 / 22))) % 1;
       const y = horizon + (H - horizon) * k * k;
@@ -324,7 +333,7 @@ export class UI {
       rd.line2(W * 0.5 + i * 8 * s, horizon, x * 1.6 - W * 0.3, H, 1 * s,
         0.3, 0.7, 0.85, 0.05, 0.3);
     }
-    drawText(rd, 'VECTOR CANYON SIMULATOR', W * 0.5, horizon - 18 * s, 9 * s, 1.1 * s,
+    drawText(rd, 'VECTOR CANYON SIMULATOR', W * 0.5, horizon - 11 * s, 9 * s, 1.1 * s,
       0.35, 0.6, 0.7, 0.6, 0);
   }
 }

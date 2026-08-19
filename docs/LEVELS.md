@@ -168,28 +168,50 @@ or missing entirely is replaced with a legal value rather than rejected. That is
 deliberate: a spec from a link, a typo, or a model can be strange, but it cannot
 be unplayable.
 
+### How long should a level be?
+
+Long enough to have a shape, short enough that dying is cheap: **one to two
+minutes**, which `node tools/levels.mjs` enforces. Length in units is the wrong
+handle for that, because speed varies — a 30,000-unit run at 430 units a second
+is a minute and a half, and the same track at 250 would be two. Write the
+sections you want, run the tool, and scale them until the time is right.
+
+As a starting point: six to eight sections of 3000–5500 units each.
+
 ### Densities are rates
 
 `obstacles: 0.6` does not mean "six obstacles". It sets a spacing — roughly
-`1000 / (0.12 + density * 6.2)` units between placements, jittered — so
+`2500 / (0.12 + density * 6.2)` units between placements, jittered — so
 lengthening a section makes it longer without making it different. Tune the feel
 once, then set `length` freely.
 
-For calibration, the shipped levels land between 1.9 and 3.3 obstacles per 1000
-units of track. Above about 4 the run stops being readable at speed.
+The number that matters is not units, it is **seconds**, because that is what a
+player experiences. At 400 units a second:
+
+| `obstacles` | Gap | Feels like |
+| --- | --- | --- |
+| 0.15 | ~2400u | 6s — empty, which is what an opening section wants |
+| 0.30 | ~1250u | 3s — read it, move, breathe |
+| 0.50 | ~780u | 2s — busy |
+| 0.75 | ~520u | 1.3s — hard |
+| 1.00 | ~400u | 1s — the ceiling, and only worth it late in a run |
+
+The shipped levels average one obstacle every 5.0s, 3.0s and 2.1s respectively,
+and each of them opens far gentler than its own average.
 
 ### What the compiler will do to your section
 
 These rules are why a level can be aggressive without being unfair, and why
 what you author is sometimes not exactly what you get:
 
-- **One bulkhead per 900 units of section.** A 1400-unit section asking for two
-  seals realizes one. Lengthen the section, or split the seals across two.
+- **One bulkhead per 2600 units of section.** A 4000-unit section asking for two
+  seals realizes one. Lengthen the section, or split the seals across two — the
+  audit tells you which authored seals did not make it.
 - **No bulkhead within 1200 units of the port.** The finale is a lock, not a wall.
-- **No obstacle within 260 units of a bulkhead**, so the forced climb is never
-  also a dodge. Guns are only kept 150 units clear — punishing that climb is the
+- **No obstacle within 420 units of a bulkhead**, so the forced climb is never
+  also a dodge. Guns are only kept 220 units clear — punishing that climb is the
   entire point of a bulkhead.
-- **No obstacle within 110 units of another**, so you never meet an unavoidable
+- **No obstacle within 240 units of another**, so you never meet an unavoidable
   stacked pair.
 - **Nothing in the last 620 units before the port.**
 - Two heavy emplacements are placed 1750 and 1050 units ahead of the port,
@@ -225,9 +247,12 @@ node tools/bundle.mjs
 Step 4 is the one that matters. It reports, per level:
 
 ```
-ok   SHAKEDOWN       3100u  3 sections, 8 obstacles, 1/1 seals, 12 guns, reseed 40/40 clearable
+ok   SHAKEDOWN    75s   18000u  6 sections, 15 obstacles (one per 5.0s), 1/1 seals, 21 guns, reseed 40/40 clearable
 ```
 
+- **`75s`** — how long the level takes to fly. Levels outside 60–135 seconds
+  fail: under a minute is a demo, and much over two minutes means a death near
+  the end costs more than it teaches.
 - **`1/1 seals`** — realized versus authored. `3/4` means a bulkhead did not fit.
 - **`reseed 40/40 clearable`** — the level is re-audited under 40 different seeds,
   because **RESEED** re-rolls the seed in play. A shape that only works on its
@@ -283,17 +308,17 @@ reactor.
   "speed": { "start": 330, "end": 470 },
   "finale": "port",
   "sections": [
-    { "name": "mouth",  "length": 900,  "width": 96, "depth": 130,
+    { "name": "mouth",  "length": 4000, "width": 96, "depth": 130,
       "curviness": 0.3, "hilliness": 0.35, "roughness": 0.5,
       "obstacles": 0.3, "kinds": ["pylon"],
       "turrets": 0.2, "wallguns": 0.1, "drones": 0.3, "seals": 0, "hue": 0.01 },
 
-    { "name": "irises", "length": 1900, "width": 42, "depth": 170,
+    { "name": "irises", "length": 5400, "width": 42, "depth": 170,
       "curviness": 0.82, "hilliness": 0.5, "roughness": 0.6,
       "obstacles": 0.7, "kinds": ["ring", "gate"],
       "turrets": 0.65, "wallguns": 0.5, "drones": 0.3, "seals": 2, "hue": 0.02 },
 
-    { "name": "choke",  "length": 800,  "width": 34, "depth": 150,
+    { "name": "choke",  "length": 3200, "width": 34, "depth": 150,
       "curviness": 0.45, "hilliness": 0.3, "roughness": 0.45,
       "obstacles": 0.5, "kinds": ["ring"],
       "turrets": 0.35, "wallguns": 0.55, "drones": 0.2, "seals": 0, "hue": 0.0 }
@@ -301,4 +326,6 @@ reactor.
 }
 ```
 
-Note `irises` is 1900 units long. It has to be, to hold two bulkheads.
+Note `irises` is 5400 units long. It has to be, to hold two bulkheads — and the
+three sections together have to add up to a minute or more of flying, which at
+these speeds is a lot more track than it looks.

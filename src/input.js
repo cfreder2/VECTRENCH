@@ -10,8 +10,14 @@
 
 import { clamp } from './math.js';
 
-const FULL_TILT = 4.2;   // m/s^2 of deviation from neutral for full deflection
-const DEADZONE = 0.07;
+// Deviation from neutral, in m/s^2, that counts as full deflection. The two
+// axes are not the same number on purpose: rolling a phone left and right is
+// free, but pitching it forward and back tips the screen away from your face,
+// so people simply will not do it as far. Asking for the same tilt on both is
+// what made climbing feel unresponsive when steering left and right did not.
+const FULL_TILT_X = 3.6;
+const FULL_TILT_Y = 2.8;
+const DEADZONE = 0.05;
 
 /** Deadzone plus a mild expo curve: precise near centre, quick at the edges. */
 function shape(v) {
@@ -19,7 +25,9 @@ function shape(v) {
   const a = Math.abs(v);
   if (a < DEADZONE) return 0;
   const t = (a - DEADZONE) / (1 - DEADZONE);
-  return s * (t * t * 0.6 + t * 0.4);
+  // Weighted toward linear: the old curve gave a third of the deflection for
+  // half the tilt, which reads as the ship ignoring you rather than as finesse.
+  return s * (t * t * 0.35 + t * 0.65);
 }
 
 export class Input {
@@ -190,8 +198,8 @@ export class Input {
     let sy = 0;
 
     if (this.motion === 'granted' && this.hasReading && !this.needsCalibration) {
-      sx = shape(clamp(((this.gx - this.nx) / FULL_TILT) * this.sensitivity, -1.4, 1.4));
-      sy = shape(clamp((-(this.gy - this.ny) / FULL_TILT) * this.sensitivity, -1.4, 1.4));
+      sx = shape(clamp(((this.gx - this.nx) / FULL_TILT_X) * this.sensitivity, -1.4, 1.4));
+      sy = shape(clamp((-(this.gy - this.ny) / FULL_TILT_Y) * this.sensitivity, -1.4, 1.4));
     }
 
     if (this.stick !== null && this.pointers.has(this.stick)) {

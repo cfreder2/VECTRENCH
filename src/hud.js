@@ -157,26 +157,86 @@ export function drawHud(rd, st) {
  *
  * `band` is the vertical slice of canvas the design panel leaves free.
  */
+/**
+ * Packs labels into a fixed set of text rows, refusing any that would touch one
+ * already placed. A schematic can be asked to caption 24 sections and six
+ * bulkheads inside a band a couple of centimetres tall, so "where does this go"
+ * has to account for what is already there. Anything that fits nowhere is
+ * dropped: a missing name costs a reader less than two names drawn through each
+ * other. Returns the row's baseline, or null.
+ */
+function rowPacker(rows, s, left, right) {
+  const used = rows.map(() => []);
+  const pad = 5 * s;
+  return (text, x, size, align = -1) => {
+    const w = textWidth(text, size);
+    // Nudged back inside the frame first. A label anchored to a section that
+    // starts near the end of the run would otherwise hang off the right edge,
+    // which is the one collision more rows cannot fix.
+    const want = align === 0 ? x - w * 0.5 : align === 1 ? x - w : x;
+    const a = clamp(want, left, Math.max(left, right - w));
+    for (let i = 0; i < rows.length; i++) {
+      if (used[i].some(([c, d]) => a - pad < d && a + w + pad > c)) continue;
+      used[i].push([a, a + w]);
+      return { x: a, y: rows[i], text };
+    }
+    return null;
+  };
+}
+
+const PLAN_CAP = 'PLAN  (WIDTH AND TURN)';
+
 export function drawSchematic(rd, track, level, alpha = 1, band = null) {
   const W = rd.width, s = rd.scale;
   const y0 = band ? band.y0 : rd.height * 0.08;
   const y1 = band ? band.y1 : rd.height * 0.92;
-  const h = Math.max(70 * s, y1 - y0);
   const L = Math.max(1, track.total);
   const x0 = W * 0.07, x1 = W * 0.955;
   const mapX = (t) => x0 + ((x1 - x0) * clamp(t / L, 0, 1));
 
   const fit = fitOf(track, L);
-  const labelRow = y0 + 8 * s;
-  const top = y0 + 22 * s;
-  const usable = Math.max(40 * s, y1 - 14 * s - top);
-  const planMid = top + usable * 0.26;
-  const floorY = top + usable * 0.98;
 
-  const driftS = (usable * 0.13) / fit.maxDrift;
-  const widthS = (usable * 0.15) / fit.maxHw;
-  const depthS = (usable * 0.46) / fit.maxRim;
-  const hillS = (usable * 0.10) / fit.maxHill;
+  // Text rows are reserved first and the plot is fitted into what is left over:
+  // three rows above it for the plan caption, section names and bulkheads, two
+  // below for the elevation caption and the total. Every label lives in a row,
+  // so no label can land on the curves, and the packer keeps them off each
+  // other. Sizing the plot to the leftovers is what makes that safe -- the plot
+  // cannot grow into the rows later.
+  const TEXT = 7 * s;
+  const pad = 5 * s;
+
+  // How many rows the labels actually need. Reserving three when one will do
+  // costs a three-section level a quarter of its plot height for nothing, and
+  // reserving one when six bulkheads want captioning is how they end up on top
+  // of each other. Estimate from total label width against the axis.
+  const secLabels = track.spec.sections.map(
+    (sec) => `${sec.name} W${Math.round(sec.width)} D${Math.round(sec.depth)}`);
+  const wanted = [PLAN_CAP, ...level.seals.map(() => 'SEAL'),
+    ...track.spec.sections.map((sec) => sec.name)]
+    .reduce((a, t) => a + textWidth(t, TEXT) + pad, 0);
+  // Packing is never perfect -- labels sit where their section starts, not
+  // wherever there is room -- so budget rows against three quarters of the
+  // axis. Estimating tightly drops labels a further row would have held.
+  const nRows = clamp(Math.ceil(wanted / ((x1 - x0) * 0.75)), 1, 3);
+  const rows = [];
+  for (let i = 0; i < nRows; i++) rows.push(y0 + TEXT + i * 11 * s);
+
+  const footY = y1 - 2 * s;
+  const elevCapY = footY - 15 * s;
+
+  const top = rows[nRows - 1] + 5 * s;
+  const bottom = elevCapY - TEXT - 3 * s;
+  const usable = Math.max(40 * s, bottom - top);
+
+  // Two bands that no longer share space: the plan's widest reach is 0.48 of the
+  // way down, the elevation's highest rim is 0.54. They used to cross, which
+  // read as one tangled plot rather than two.
+  const planMid = top + usable * 0.24;
+  const floorY = top + usable * 0.9;
+  const driftS = (usable * 0.11) / fit.maxDrift;
+  const widthS = (usable * 0.13) / fit.maxHw;
+  const depthS = (usable * 0.36) / fit.maxRim;
+  const hillS = (usable * 0.09) / fit.maxHill;
 
   const N = 240;
   let prev = null;
@@ -211,31 +271,39 @@ export function drawSchematic(rd, track, level, alpha = 1, band = null) {
     }
     prev = cur;
   }
-  drawText(rd, 'PLAN  (WIDTH AND TURN)', x0, planMid - usable * 0.17, 7.5 * s, 0.9 * s,
-    DIM[0], DIM[1], DIM[2], 0.65 * alpha);
-  drawText(rd, 'ELEVATION  (RIM ABOVE FLOOR)', x0, floorY + 11 * s, 7.5 * s, 0.9 * s,
-    DIM[0], DIM[1], DIM[2], 0.65 * alpha);
 
   // Placed content: obstacles below the plan axis, guns above it.
-  const tick = usable * 0.045;
-  const obY = planMid + usable * 0.17;
+  const tick = usable * 0.04;
+  const obY = planMid + usable * 0.16;
   for (const ob of level.obstacles) {
     if (ob.kind === 'seal') continue;
     const x = mapX(ob.t);
     rd.line2(x, obY, x, obY + tick, 1 * s, 1, 0.5, 0.18, 0.7 * alpha, 0.2 * alpha);
   }
-  const gunY = planMid - usable * 0.17;
+  const gunY = planMid - usable * 0.16;
   for (const e of level.enemies) {
     const x = mapX(e.t);
     const up = e.kind === 'turret';
     rd.line2(x, gunY, x, gunY - tick * (up ? 1 : 0.55), 1.2 * s,
       RED[0], RED[1], RED[2], (up ? 0.9 : 0.45) * alpha, 0.2 * alpha);
   }
+
+  // Rows are claimed in the order a reader can least afford to lose: the caption
+  // anchors the top-left, then bulkheads, then section names fill the gaps.
+  const place = rowPacker(rows, s, 6 * s, W - 6 * s);
+  const cap = place(PLAN_CAP, x0, TEXT);
+  if (cap) {
+    drawText(rd, PLAN_CAP, cap.x, cap.y, TEXT, 0.9 * s,
+      DIM[0], DIM[1], DIM[2], 0.65 * alpha);
+  }
+
   for (const t of level.seals) {
     const x = mapX(t);
     rd.line2(x, top, x, floorY, 1.6 * s, RED[0], RED[1], RED[2], 0.8 * alpha, 0.15 * alpha);
-    drawText(rd, 'SEAL', x, top - 2 * s, 7 * s, 0.9 * s, RED[0], RED[1], RED[2], alpha, 0);
+    const p = place('SEAL', x, TEXT, 0);
+    if (p) drawText(rd, 'SEAL', p.x, p.y, TEXT, 0.9 * s, RED[0], RED[1], RED[2], alpha);
   }
+
   if (track.portT > 0) {
     const x = mapX(track.portT);
     const R = 8 * s;
@@ -248,20 +316,27 @@ export function drawSchematic(rd, track, level, alpha = 1, band = null) {
     drawText(rd, 'PORT', x, cy - R - 3 * s, 7.5 * s, 1 * s, 1, 0.6, 0.15, alpha, 0);
   }
 
-  // Section boundaries. Labels alternate rows so neighbours never collide.
   track.bounds.forEach((t, i) => {
     if (i >= track.spec.sections.length) return;
     const x = mapX(t);
     rd.line2(x, top, x, floorY + 4 * s, 1 * s, DIM[0], DIM[1], DIM[2],
       0.3 * alpha, 0.08 * alpha);
-    const sec = track.spec.sections[i];
-    drawText(rd, `${sec.name} W${Math.round(sec.width)} D${Math.round(sec.depth)}`,
-      x + 3 * s, labelRow + (i % 2) * 8.5 * s, 7 * s, 0.9 * s,
-      DIM[0], DIM[1], DIM[2], 0.8 * alpha);
+    // Full label if it fits, bare name if it does not. The width and depth it
+    // drops are the two things the plot underneath is already drawing, so an
+    // eight-section run loses the redundant half rather than whole sections.
+    const p = place(secLabels[i], x + 3 * s, TEXT)
+      ?? place(track.spec.sections[i].name, x + 3 * s, TEXT);
+    if (p) {
+      const label = p.text;
+      drawText(rd, label, p.x, p.y, TEXT, 0.9 * s,
+        DIM[0], DIM[1], DIM[2], 0.8 * alpha);
+    }
   });
 
+  drawText(rd, 'ELEVATION  (RIM ABOVE FLOOR)', x0, elevCapY, TEXT, 0.9 * s,
+    DIM[0], DIM[1], DIM[2], 0.65 * alpha);
   drawText(rd, `${Math.round(L)} UNITS  /  ${track.spec.sections.length} SECTIONS`,
-    W * 0.5, y1 - 1 * s, 8.5 * s, 1.05 * s, AMBER[0], AMBER[1], AMBER[2], 0.85 * alpha, 0);
+    W * 0.5, footY, 8.5 * s, 1.05 * s, AMBER[0], AMBER[1], AMBER[2], 0.85 * alpha, 0);
 }
 
 /** Plot extents, computed once per track rather than every frame. */

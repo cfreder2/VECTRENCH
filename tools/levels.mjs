@@ -18,6 +18,7 @@ import { normalizeSpec, encodeSpec, specLength } from '../src/spec.js';
 import { Track } from '../src/track.js';
 import { buildLevel } from '../src/level.js';
 import { audit } from './audit.mjs';
+import { SEAL_PITCH } from '../src/level.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(here, '..');
@@ -29,7 +30,17 @@ const OUT = join(ROOT, 'src', 'levels.js');
 // authored rather than alphabetical.
 const ORDER = ['shakedown.json', 'bulkhead-run.json', 'reactor.json'];
 
-const SWEEP = 40;   // seeds tried per level, because RESEED re-rolls in play
+const SWEEP = 40;      // seeds tried per level, because RESEED re-rolls in play
+const MIN_SECS = 60;   // a level shorter than this is a demo, not a level
+const MAX_SECS = 135;  // longer than this and a death costs more than it teaches
+
+/** Wall-clock seconds to fly a level, which is the only length a player feels. */
+function duration(track) {
+  let t = 0, secs = 0;
+  const step = 5;
+  while (t < track.total) { secs += step / track.speedAt(t); t += step; }
+  return secs;
+}
 
 const files = readdirSync(DIR)
   .filter((f) => f.endsWith('.json'))
@@ -106,14 +117,21 @@ if (!isMain) {
       if (!audit({ ...l.spec, seed }).ok) reseedFail++;
     }
 
-    const bad = !r.ok || got !== asked || reseedFail > 0;
+    const secs = duration(track);
+    const tooShort = secs < MIN_SECS, tooLong = secs > MAX_SECS;
+
+    const bad = !r.ok || got !== asked || reseedFail > 0 || tooShort || tooLong;
     if (bad) failed++;
     console.log(
-      `${bad ? 'FAIL' : 'ok  '} ${l.label.padEnd(14)} ${String(specLength(l.spec)).padStart(5)}u  ` +
-      `${l.spec.sections.length} sections, ${lv.obstacles.length} obstacles, ` +
+      `${bad ? 'FAIL' : 'ok  '} ${l.label.padEnd(14)} ${secs.toFixed(0).padStart(3)}s  ` +
+      `${String(specLength(l.spec)).padStart(6)}u  ` +
+      `${l.spec.sections.length} sections, ${lv.obstacles.length} obstacles ` +
+      `(one per ${(secs / Math.max(1, lv.obstacles.length)).toFixed(1)}s), ` +
       `${got}/${asked} seals, ${lv.enemies.length} guns, reseed ${SWEEP - reseedFail}/${SWEEP} clearable`);
     if (r.blocked.length) console.log(`     blocked: ${JSON.stringify(r.blocked)}`);
-    if (got !== asked) console.log(`     ${asked - got} authored seal(s) did not fit -- lengthen the section (one seal per 900u)`);
+    if (got !== asked) console.log(`     ${asked - got} authored seal(s) did not fit -- lengthen the section (one seal per ${SEAL_PITCH}u)`);
+    if (tooShort) console.log(`     ${secs.toFixed(0)}s is under the ${MIN_SECS}s floor -- lengthen the sections or slow it down`);
+    if (tooLong) console.log(`     ${secs.toFixed(0)}s is over the ${MAX_SECS}s ceiling -- shorten it`);
     console.log(`     #lvl=${encodeSpec(l.spec)}`);
   }
   if (failed) process.exit(1);
