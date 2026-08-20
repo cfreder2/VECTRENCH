@@ -118,7 +118,7 @@ const OB_COL = {
  * the corners go through exactly the transform collision inverts, so what you
  * see and what you hit cannot drift apart.
  */
-function box(rd, track, t, dz, x0, x1, y0, y1, col, w, a, ob = null, time = 0) {
+function box(rd, track, t, dz, x0, x1, y0, y1, col, w, a, ob = null, time = 0, ang = 0) {
   const p = _obp;
   const c = _obc;
   // Front and back rectangles plus the four connecting edges.
@@ -126,7 +126,7 @@ function box(rd, track, t, dz, x0, x1, y0, y1, col, w, a, ob = null, time = 0) {
     for (let k = 0; k < 4; k++) {
       const ox = k === 0 || k === 3 ? x0 : x1;
       const oy = k < 2 ? y0 : y1;
-      if (ob) { obstacleToLocal(ob, time, ox, oy, c); track.localToWorld(tt, c[0], c[1], p[idx + k]); }
+      if (ob) { obstacleToLocal(ob, time, ox, oy, c, ang); track.localToWorld(tt, c[0], c[1], p[idx + k]); }
       else track.localToWorld(tt, ox, oy, p[idx + k]);
     }
   }
@@ -261,8 +261,8 @@ export function drawObstacles(rd, track, obstacles, cursor, camT, far, time) {
       continue;
     }
 
-    for (const [x0, x1, y0, y1] of ob.boxes) {
-      box(rd, track, ob.t, ob.dz, x0, x1, y0, y1, col, 1.2, 1, ob, time);
+    for (const [x0, x1, y0, y1, ang] of ob.boxes) {
+      box(rd, track, ob.t, ob.dz, x0, x1, y0, y1, col, 1.2, 1, ob, time, ang || 0);
     }
   }
 }
@@ -513,15 +513,17 @@ export class Weapons {
   }
 
   /**
-   * An enemy heat-seeker. Slower than the ship and slower to turn than it can
-   * bank, so it is beaten by flying rather than by luck -- and it can be shot
-   * out of the air, which is what the gun is for when a battery empties itself
-   * at you.
+   * An enemy heat-seeker. It out-runs the ship -- it used to top out at 430,
+   * under REACTOR's 500, which meant the hardest level's missiles could not
+   * catch anyone and the surface there was the safest place in the game. It is
+   * still slower to turn than the ship can bank, so it is beaten by flying, and
+   * it can be shot out of the air, which is what the gun is for when a battery
+   * empties itself at you.
    */
   fireSeeker(x, y, z, dx, dy, dz) {
     this.seekers.push({
       x, y, z, px: x, py: y, pz: z, dx, dy, dz,
-      speed: 250, accel: 190, maxSpeed: 430, turn: 1.9, life: 7, arm: 0.35,
+      speed: 300, accel: 265, maxSpeed: 640, turn: 2.05, life: 7, arm: 0.35,
     });
   }
 

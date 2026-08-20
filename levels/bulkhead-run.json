@@ -17,14 +17,16 @@
       "hilliness": 0.2,
       "roughness": 0.35,
       "obstacles": 0.12,
-      "kinds": ["pylon"],
-      "turrets": 0.05,
+      "kinds": [
+        "pylon"
+      ],
+      "turrets": 0.22,
       "wallguns": 0,
       "drones": 0.2,
       "seals": 0,
       "hue": 0.13,
-      "gatlings": 0.0,
-      "batteries": 0.0,
+      "gatlings": 0.26,
+      "batteries": 0.2,
       "panels": 2
     },
     {
@@ -36,14 +38,17 @@
       "hilliness": 0.28,
       "roughness": 0.45,
       "obstacles": 0.26,
-      "kinds": ["pylon", "fang"],
-      "turrets": 0.15,
+      "kinds": [
+        "pylon",
+        "fang"
+      ],
+      "turrets": 0.22,
       "wallguns": 0.12,
       "drones": 0.25,
       "seals": 0,
       "hue": 0.13,
-      "gatlings": 0.12,
-      "batteries": 0.08,
+      "gatlings": 0.26,
+      "batteries": 0.2,
       "panels": 2
     },
     {
@@ -55,14 +60,18 @@
       "hilliness": 0.4,
       "roughness": 0.52,
       "obstacles": 0.4,
-      "kinds": ["pylon", "fang", "gate"],
-      "turrets": 0.3,
+      "kinds": [
+        "pylon",
+        "fang",
+        "gate"
+      ],
+      "turrets": 0.42,
       "wallguns": 0.3,
       "drones": 0.3,
       "seals": 1,
       "hue": 0.12,
-      "gatlings": 0.28,
-      "batteries": 0.22,
+      "gatlings": 0.48,
+      "batteries": 0.35,
       "panels": 3
     },
     {
@@ -74,14 +83,18 @@
       "hilliness": 0.45,
       "roughness": 0.58,
       "obstacles": 0.48,
-      "kinds": ["fang", "gate", "slider"],
-      "turrets": 0.45,
+      "kinds": [
+        "fang",
+        "gate",
+        "slider"
+      ],
+      "turrets": 0.63,
       "wallguns": 0.4,
       "drones": 0.28,
       "seals": 1,
       "hue": 0.11,
-      "gatlings": 0.4,
-      "batteries": 0.35,
+      "gatlings": 0.68,
+      "batteries": 0.56,
       "panels": 2
     },
     {
@@ -93,14 +106,18 @@
       "hilliness": 0.48,
       "roughness": 0.6,
       "obstacles": 0.44,
-      "kinds": ["fang", "gate", "ring"],
-      "turrets": 0.6,
+      "kinds": [
+        "fang",
+        "gate",
+        "ring"
+      ],
+      "turrets": 0.84,
       "wallguns": 0.35,
       "drones": 0.24,
       "seals": 1,
       "hue": 0.1,
-      "gatlings": 0.55,
-      "batteries": 0.55,
+      "gatlings": 0.94,
+      "batteries": 0.88,
       "panels": 2
     },
     {
@@ -112,14 +129,18 @@
       "hilliness": 0.35,
       "roughness": 0.52,
       "obstacles": 0.5,
-      "kinds": ["ring", "gate", "press"],
-      "turrets": 0.35,
+      "kinds": [
+        "ring",
+        "gate",
+        "press"
+      ],
+      "turrets": 0.49,
       "wallguns": 0.45,
       "drones": 0.2,
       "seals": 0,
       "hue": 0.09,
-      "gatlings": 0.45,
-      "batteries": 0.4,
+      "gatlings": 0.77,
+      "batteries": 0.64,
       "panels": 2
     },
     {
@@ -131,14 +152,17 @@
       "hilliness": 0.3,
       "roughness": 0.48,
       "obstacles": 0.45,
-      "kinds": ["ring", "pinwheel"],
-      "turrets": 0.3,
+      "kinds": [
+        "ring",
+        "pinwheel"
+      ],
+      "turrets": 0.42,
       "wallguns": 0.4,
       "drones": 0.18,
       "seals": 0,
       "hue": 0.08,
-      "gatlings": 0.35,
-      "batteries": 0.3,
+      "gatlings": 0.59,
+      "batteries": 0.48,
       "panels": 2
     }
   ]

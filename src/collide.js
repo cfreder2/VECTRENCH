@@ -71,9 +71,19 @@ export function hitsObstacle(ob, time, lx, ly, padX = 0, padY = 0) {
     px = cx + ux * _f[2] + uy * _f[3];
     py = cy - ux * _f[3] + uy * _f[2];
   }
+  const cx = ob.cx || 0, cy = ob.cy || 0;
   for (let i = 0; i < ob.boxes.length; i++) {
     const b = ob.boxes[i];
-    if (px + padX > b[0] && px - padX < b[1] && py + padY > b[2] && py - padY < b[3]) {
+    let qx = px, qy = py;
+    // A fifth element is the box's own angle within the obstacle: it lets one
+    // rectangle be a whole pinwheel blade instead of a row of squares.
+    if (b[4]) {
+      const ca = Math.cos(b[4]), sa = Math.sin(b[4]);
+      const ux = px - cx, uy = py - cy;
+      qx = cx + ux * ca + uy * sa;
+      qy = cy - ux * sa + uy * ca;
+    }
+    if (qx + padX > b[0] && qx - padX < b[1] && qy + padY > b[2] && qy - padY < b[3]) {
       return true;
     }
   }
@@ -81,10 +91,16 @@ export function hitsObstacle(ob, time, lx, ly, padX = 0, padY = 0) {
 }
 
 /** A point of the obstacle's own frame, back in canyon-local coordinates. */
-export function obstacleToLocal(ob, time, ox, oy, out) {
+export function obstacleToLocal(ob, time, ox, oy, out, ang = 0) {
   frameOf(ob, time, _f);
   const cx = ob.cx || 0, cy = ob.cy || 0;
-  const ux = ox - cx, uy = oy - cy;
+  let ux = ox - cx, uy = oy - cy;
+  if (ang) {
+    const ca = Math.cos(ang), sa = Math.sin(ang);
+    const rx = ux * ca - uy * sa;
+    uy = ux * sa + uy * ca;
+    ux = rx;
+  }
   out[0] = cx + ux * _f[2] - uy * _f[3] + _f[0];
   out[1] = cy + ux * _f[3] + uy * _f[2] + _f[1];
   return out;

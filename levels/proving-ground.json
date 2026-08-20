@@ -20,9 +20,9 @@
       "kinds": [
         "pylon"
       ],
-      "turrets": 0.08,
-      "gatlings": 0,
-      "batteries": 0,
+      "turrets": 0.22,
+      "gatlings": 0.26,
+      "batteries": 0.2,
       "wallguns": 0,
       "drones": 0.2,
       "seals": 0,
@@ -41,9 +41,9 @@
       "kinds": [
         "slider"
       ],
-      "turrets": 0.12,
-      "gatlings": 0.08,
-      "batteries": 0,
+      "turrets": 0.22,
+      "gatlings": 0.26,
+      "batteries": 0.2,
       "wallguns": 0.1,
       "drones": 0.2,
       "seals": 0,
@@ -62,9 +62,9 @@
       "kinds": [
         "press"
       ],
-      "turrets": 0.15,
-      "gatlings": 0.1,
-      "batteries": 0.08,
+      "turrets": 0.22,
+      "gatlings": 0.26,
+      "batteries": 0.2,
       "wallguns": 0.14,
       "drones": 0.22,
       "seals": 0,
@@ -83,9 +83,9 @@
       "kinds": [
         "pinwheel"
       ],
-      "turrets": 0.18,
-      "gatlings": 0.12,
-      "batteries": 0.1,
+      "turrets": 0.25,
+      "gatlings": 0.26,
+      "batteries": 0.2,
       "wallguns": 0.18,
       "drones": 0.24,
       "seals": 0,
@@ -104,9 +104,9 @@
       "kinds": [
         "cross"
       ],
-      "turrets": 0.2,
-      "gatlings": 0.15,
-      "batteries": 0.12,
+      "turrets": 0.28,
+      "gatlings": 0.26,
+      "batteries": 0.2,
       "wallguns": 0.2,
       "drones": 0.24,
       "seals": 0,
@@ -125,9 +125,9 @@
       "kinds": [
         "ring"
       ],
-      "turrets": 0.22,
-      "gatlings": 0.18,
-      "batteries": 0.15,
+      "turrets": 0.31,
+      "gatlings": 0.31,
+      "batteries": 0.24,
       "wallguns": 0.22,
       "drones": 0.22,
       "seals": 0,
@@ -146,9 +146,9 @@
       "kinds": [
         "gate"
       ],
-      "turrets": 0.22,
-      "gatlings": 0.18,
-      "batteries": 0.15,
+      "turrets": 0.31,
+      "gatlings": 0.31,
+      "batteries": 0.24,
       "wallguns": 0.22,
       "drones": 0.22,
       "seals": 0,
@@ -168,9 +168,9 @@
         "pylon",
         "fang"
       ],
-      "turrets": 0.35,
-      "gatlings": 0.3,
-      "batteries": 0.25,
+      "turrets": 0.49,
+      "gatlings": 0.51,
+      "batteries": 0.4,
       "wallguns": 0.16,
       "drones": 0.2,
       "seals": 1,
@@ -189,9 +189,9 @@
       "kinds": [
         "stack"
       ],
-      "turrets": 0.55,
-      "gatlings": 0.5,
-      "batteries": 0.45,
+      "turrets": 0.77,
+      "gatlings": 0.85,
+      "batteries": 0.72,
       "wallguns": 0.3,
       "drones": 0.24,
       "seals": 0,
@@ -211,9 +211,9 @@
         "pylon",
         "fang"
       ],
-      "turrets": 0.5,
-      "gatlings": 0.45,
-      "batteries": 0.4,
+      "turrets": 0.7,
+      "gatlings": 0.77,
+      "batteries": 0.64,
       "wallguns": 0.2,
       "drones": 0.24,
       "seals": 1,
@@ -234,9 +234,9 @@
         "gate",
         "pinwheel"
       ],
-      "turrets": 0.3,
-      "gatlings": 0.25,
-      "batteries": 0.2,
+      "turrets": 0.42,
+      "gatlings": 0.42,
+      "batteries": 0.32,
       "wallguns": 0.28,
       "drones": 0.2,
       "seals": 0,

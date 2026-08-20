@@ -402,9 +402,19 @@ function hitsObstacle(ob, time, lx, ly, padX = 0, padY = 0) {
     px = cx + ux * _f[2] + uy * _f[3];
     py = cy - ux * _f[3] + uy * _f[2];
   }
+  const cx = ob.cx || 0, cy = ob.cy || 0;
   for (let i = 0; i < ob.boxes.length; i++) {
     const b = ob.boxes[i];
-    if (px + padX > b[0] && px - padX < b[1] && py + padY > b[2] && py - padY < b[3]) {
+    let qx = px, qy = py;
+    // A fifth element is the box's own angle within the obstacle: it lets one
+    // rectangle be a whole pinwheel blade instead of a row of squares.
+    if (b[4]) {
+      const ca = Math.cos(b[4]), sa = Math.sin(b[4]);
+      const ux = px - cx, uy = py - cy;
+      qx = cx + ux * ca + uy * sa;
+      qy = cy - ux * sa + uy * ca;
+    }
+    if (qx + padX > b[0] && qx - padX < b[1] && qy + padY > b[2] && qy - padY < b[3]) {
       return true;
     }
   }
@@ -412,10 +422,16 @@ function hitsObstacle(ob, time, lx, ly, padX = 0, padY = 0) {
 }
 
 /** A point of the obstacle's own frame, back in canyon-local coordinates. */
-function obstacleToLocal(ob, time, ox, oy, out) {
+function obstacleToLocal(ob, time, ox, oy, out, ang = 0) {
   frameOf(ob, time, _f);
   const cx = ob.cx || 0, cy = ob.cy || 0;
-  const ux = ox - cx, uy = oy - cy;
+  let ux = ox - cx, uy = oy - cy;
+  if (ang) {
+    const ca = Math.cos(ang), sa = Math.sin(ang);
+    const rx = ux * ca - uy * sa;
+    uy = ux * sa + uy * ca;
+    ux = rx;
+  }
   out[0] = cx + ux * _f[2] - uy * _f[3] + _f[0];
   out[1] = cy + ux * _f[3] + uy * _f[2] + _f[1];
   return out;
@@ -958,9 +974,9 @@ const FIELDS = {
   hilliness: { min: 0,    max: 1,    def: 0.35 },
   roughness: { min: 0,    max: 1,    def: 0.5 },
   obstacles: { min: 0,    max: 1,    def: 0.4 },
-  turrets:   { min: 0,    max: 1,    def: 0.3 },
-  gatlings:  { min: 0,    max: 1,    def: 0.15, unit: 'surface gatling guns' },
-  batteries: { min: 0,    max: 1,    def: 0.12, unit: 'surface missile batteries' },
+  turrets:   { min: 0,    max: 1,    def: 0.42 },
+  gatlings:  { min: 0,    max: 1,    def: 0.32, unit: 'surface gatling guns' },
+  batteries: { min: 0,    max: 1,    def: 0.28, unit: 'surface missile batteries' },
   wallguns:  { min: 0,    max: 1,    def: 0.32 },
   drones:    { min: 0,    max: 1,    def: 0.3 },
   seals:     { min: 0,    max: 6,    def: 0 },
@@ -1645,9 +1661,9 @@ const PREBUILT = [
           "kinds": [
             "pylon"
           ],
-          "turrets": 0.08,
-          "gatlings": 0,
-          "batteries": 0,
+          "turrets": 0.22,
+          "gatlings": 0.26,
+          "batteries": 0.2,
           "wallguns": 0,
           "drones": 0.2,
           "seals": 0,
@@ -1666,9 +1682,9 @@ const PREBUILT = [
           "kinds": [
             "slider"
           ],
-          "turrets": 0.12,
-          "gatlings": 0.08,
-          "batteries": 0,
+          "turrets": 0.22,
+          "gatlings": 0.26,
+          "batteries": 0.2,
           "wallguns": 0.1,
           "drones": 0.2,
           "seals": 0,
@@ -1687,9 +1703,9 @@ const PREBUILT = [
           "kinds": [
             "press"
           ],
-          "turrets": 0.15,
-          "gatlings": 0.1,
-          "batteries": 0.08,
+          "turrets": 0.22,
+          "gatlings": 0.26,
+          "batteries": 0.2,
           "wallguns": 0.14,
           "drones": 0.22,
           "seals": 0,
@@ -1708,9 +1724,9 @@ const PREBUILT = [
           "kinds": [
             "pinwheel"
           ],
-          "turrets": 0.18,
-          "gatlings": 0.12,
-          "batteries": 0.1,
+          "turrets": 0.25,
+          "gatlings": 0.26,
+          "batteries": 0.2,
           "wallguns": 0.18,
           "drones": 0.24,
           "seals": 0,
@@ -1729,9 +1745,9 @@ const PREBUILT = [
           "kinds": [
             "cross"
           ],
-          "turrets": 0.2,
-          "gatlings": 0.15,
-          "batteries": 0.12,
+          "turrets": 0.28,
+          "gatlings": 0.26,
+          "batteries": 0.2,
           "wallguns": 0.2,
           "drones": 0.24,
           "seals": 0,
@@ -1750,9 +1766,9 @@ const PREBUILT = [
           "kinds": [
             "ring"
           ],
-          "turrets": 0.22,
-          "gatlings": 0.18,
-          "batteries": 0.15,
+          "turrets": 0.31,
+          "gatlings": 0.31,
+          "batteries": 0.24,
           "wallguns": 0.22,
           "drones": 0.22,
           "seals": 0,
@@ -1771,9 +1787,9 @@ const PREBUILT = [
           "kinds": [
             "gate"
           ],
-          "turrets": 0.22,
-          "gatlings": 0.18,
-          "batteries": 0.15,
+          "turrets": 0.31,
+          "gatlings": 0.31,
+          "batteries": 0.24,
           "wallguns": 0.22,
           "drones": 0.22,
           "seals": 0,
@@ -1793,9 +1809,9 @@ const PREBUILT = [
             "pylon",
             "fang"
           ],
-          "turrets": 0.35,
-          "gatlings": 0.3,
-          "batteries": 0.25,
+          "turrets": 0.49,
+          "gatlings": 0.51,
+          "batteries": 0.4,
           "wallguns": 0.16,
           "drones": 0.2,
           "seals": 1,
@@ -1814,9 +1830,9 @@ const PREBUILT = [
           "kinds": [
             "stack"
           ],
-          "turrets": 0.55,
-          "gatlings": 0.5,
-          "batteries": 0.45,
+          "turrets": 0.77,
+          "gatlings": 0.85,
+          "batteries": 0.72,
           "wallguns": 0.3,
           "drones": 0.24,
           "seals": 0,
@@ -1836,9 +1852,9 @@ const PREBUILT = [
             "pylon",
             "fang"
           ],
-          "turrets": 0.5,
-          "gatlings": 0.45,
-          "batteries": 0.4,
+          "turrets": 0.7,
+          "gatlings": 0.77,
+          "batteries": 0.64,
           "wallguns": 0.2,
           "drones": 0.24,
           "seals": 1,
@@ -1859,9 +1875,9 @@ const PREBUILT = [
             "gate",
             "pinwheel"
           ],
-          "turrets": 0.3,
-          "gatlings": 0.25,
-          "batteries": 0.2,
+          "turrets": 0.42,
+          "gatlings": 0.42,
+          "batteries": 0.32,
           "wallguns": 0.28,
           "drones": 0.2,
           "seals": 0,
@@ -1873,7 +1889,7 @@ const PREBUILT = [
   },
   {
     label: "SHAKEDOWN",
-    blurb: "The first minute of this game. It opens almost empty and wide on purpose: nothing shoots at you until you have flown a while, and the one bulkhead waits until you have already learned to climb.",
+    blurb: "The first minute of this game. It opens almost empty and wide on purpose: nothing shoots at you down in the trench until you have flown a while, the rim is watched from the start, and the one bulkhead waits until you have already learned to climb.",
     spec: {
       "name": "SHAKEDOWN",
       "seed": 4211,
@@ -1895,9 +1911,9 @@ const PREBUILT = [
           "kinds": [
             "pylon"
           ],
-          "turrets": 0,
-          "gatlings": 0,
-          "batteries": 0,
+          "turrets": 0.22,
+          "gatlings": 0.26,
+          "batteries": 0.2,
           "wallguns": 0,
           "drones": 0.15,
           "seals": 0,
@@ -1916,9 +1932,9 @@ const PREBUILT = [
           "kinds": [
             "pylon"
           ],
-          "turrets": 0.1,
-          "gatlings": 0,
-          "batteries": 0,
+          "turrets": 0.22,
+          "gatlings": 0.26,
+          "batteries": 0.2,
           "wallguns": 0,
           "drones": 0.25,
           "seals": 0,
@@ -1938,9 +1954,9 @@ const PREBUILT = [
             "pylon",
             "fang"
           ],
-          "turrets": 0.18,
-          "gatlings": 0.1,
-          "batteries": 0,
+          "turrets": 0.25,
+          "gatlings": 0.26,
+          "batteries": 0.2,
           "wallguns": 0.12,
           "drones": 0.28,
           "seals": 0,
@@ -1960,9 +1976,9 @@ const PREBUILT = [
             "pylon",
             "fang"
           ],
-          "turrets": 0.25,
-          "gatlings": 0.18,
-          "batteries": 0.1,
+          "turrets": 0.35,
+          "gatlings": 0.31,
+          "batteries": 0.2,
           "wallguns": 0.2,
           "drones": 0.3,
           "seals": 0,
@@ -1982,9 +1998,9 @@ const PREBUILT = [
             "pylon",
             "fang"
           ],
-          "turrets": 0.5,
-          "gatlings": 0.3,
-          "batteries": 0.25,
+          "turrets": 0.7,
+          "gatlings": 0.51,
+          "batteries": 0.4,
           "wallguns": 0.18,
           "drones": 0.25,
           "seals": 1,
@@ -2004,9 +2020,9 @@ const PREBUILT = [
             "fang",
             "gate"
           ],
-          "turrets": 0.3,
-          "gatlings": 0.22,
-          "batteries": 0.15,
+          "turrets": 0.42,
+          "gatlings": 0.37,
+          "batteries": 0.24,
           "wallguns": 0.3,
           "drones": 0.2,
           "seals": 0,
@@ -2040,9 +2056,9 @@ const PREBUILT = [
           "kinds": [
             "pylon"
           ],
-          "turrets": 0.05,
-          "gatlings": 0,
-          "batteries": 0,
+          "turrets": 0.22,
+          "gatlings": 0.26,
+          "batteries": 0.2,
           "wallguns": 0,
           "drones": 0.2,
           "seals": 0,
@@ -2062,9 +2078,9 @@ const PREBUILT = [
             "pylon",
             "fang"
           ],
-          "turrets": 0.15,
-          "gatlings": 0.12,
-          "batteries": 0.08,
+          "turrets": 0.22,
+          "gatlings": 0.26,
+          "batteries": 0.2,
           "wallguns": 0.12,
           "drones": 0.25,
           "seals": 0,
@@ -2085,9 +2101,9 @@ const PREBUILT = [
             "fang",
             "gate"
           ],
-          "turrets": 0.3,
-          "gatlings": 0.28,
-          "batteries": 0.22,
+          "turrets": 0.42,
+          "gatlings": 0.48,
+          "batteries": 0.35,
           "wallguns": 0.3,
           "drones": 0.3,
           "seals": 1,
@@ -2108,9 +2124,9 @@ const PREBUILT = [
             "gate",
             "slider"
           ],
-          "turrets": 0.45,
-          "gatlings": 0.4,
-          "batteries": 0.35,
+          "turrets": 0.63,
+          "gatlings": 0.68,
+          "batteries": 0.56,
           "wallguns": 0.4,
           "drones": 0.28,
           "seals": 1,
@@ -2131,9 +2147,9 @@ const PREBUILT = [
             "gate",
             "ring"
           ],
-          "turrets": 0.6,
-          "gatlings": 0.55,
-          "batteries": 0.55,
+          "turrets": 0.84,
+          "gatlings": 0.94,
+          "batteries": 0.88,
           "wallguns": 0.35,
           "drones": 0.24,
           "seals": 1,
@@ -2154,9 +2170,9 @@ const PREBUILT = [
             "gate",
             "press"
           ],
-          "turrets": 0.35,
-          "gatlings": 0.45,
-          "batteries": 0.4,
+          "turrets": 0.49,
+          "gatlings": 0.77,
+          "batteries": 0.64,
           "wallguns": 0.45,
           "drones": 0.2,
           "seals": 0,
@@ -2176,9 +2192,9 @@ const PREBUILT = [
             "ring",
             "pinwheel"
           ],
-          "turrets": 0.3,
-          "gatlings": 0.35,
-          "batteries": 0.3,
+          "turrets": 0.42,
+          "gatlings": 0.59,
+          "batteries": 0.48,
           "wallguns": 0.4,
           "drones": 0.18,
           "seals": 0,
@@ -2212,9 +2228,9 @@ const PREBUILT = [
           "kinds": [
             "pylon"
           ],
-          "turrets": 0.08,
-          "gatlings": 0.05,
-          "batteries": 0,
+          "turrets": 0.22,
+          "gatlings": 0.26,
+          "batteries": 0.2,
           "wallguns": 0,
           "drones": 0.25,
           "seals": 0,
@@ -2235,9 +2251,9 @@ const PREBUILT = [
             "stack",
             "slider"
           ],
-          "turrets": 0.2,
-          "gatlings": 0.2,
-          "batteries": 0.15,
+          "turrets": 0.28,
+          "gatlings": 0.34,
+          "batteries": 0.24,
           "wallguns": 0.2,
           "drones": 0.3,
           "seals": 0,
@@ -2257,9 +2273,9 @@ const PREBUILT = [
             "stack",
             "pylon"
           ],
-          "turrets": 0.3,
-          "gatlings": 0.35,
-          "batteries": 0.3,
+          "turrets": 0.42,
+          "gatlings": 0.59,
+          "batteries": 0.48,
           "wallguns": 0.35,
           "drones": 0.35,
           "seals": 1,
@@ -2280,9 +2296,9 @@ const PREBUILT = [
             "gate",
             "press"
           ],
-          "turrets": 0.45,
-          "gatlings": 0.5,
-          "batteries": 0.45,
+          "turrets": 0.63,
+          "gatlings": 0.85,
+          "batteries": 0.72,
           "wallguns": 0.45,
           "drones": 0.35,
           "seals": 0,
@@ -2303,9 +2319,9 @@ const PREBUILT = [
             "fang",
             "ring"
           ],
-          "turrets": 0.62,
-          "gatlings": 0.62,
-          "batteries": 0.7,
+          "turrets": 0.87,
+          "gatlings": 1,
+          "batteries": 1,
           "wallguns": 0.42,
           "drones": 0.3,
           "seals": 2,
@@ -2326,9 +2342,9 @@ const PREBUILT = [
             "gate",
             "pinwheel"
           ],
-          "turrets": 0.55,
-          "gatlings": 0.7,
-          "batteries": 0.6,
+          "turrets": 0.77,
+          "gatlings": 1,
+          "batteries": 0.96,
           "wallguns": 0.5,
           "drones": 0.28,
           "seals": 0,
@@ -2348,9 +2364,9 @@ const PREBUILT = [
             "ring",
             "cross"
           ],
-          "turrets": 0.6,
-          "gatlings": 0.75,
-          "batteries": 0.8,
+          "turrets": 0.84,
+          "gatlings": 1,
+          "batteries": 1,
           "wallguns": 0.5,
           "drones": 0.26,
           "seals": 1,
@@ -2369,9 +2385,9 @@ const PREBUILT = [
           "kinds": [
             "ring"
           ],
-          "turrets": 0.4,
-          "gatlings": 0.6,
-          "batteries": 0.5,
+          "turrets": 0.56,
+          "gatlings": 1,
+          "batteries": 0.8,
           "wallguns": 0.5,
           "drones": 0.22,
           "seals": 0,
@@ -2747,8 +2763,8 @@ function enemy(kind, t, x, y, over) {
  * it leans harder as a section does.
  */
 function batterySize(rand, menace) {
-  const r = rand() * (0.55 + menace * 0.95);
-  const tubes = r > 1.25 ? 12 : r > 0.95 ? 6 : r > 0.68 ? 3 : r > 0.4 ? 2 : 1;
+  const r = rand() * (0.8 + menace * 1.1);
+  const tubes = r > 1.2 ? 12 : r > 0.9 ? 8 : r > 0.62 ? 6 : r > 0.34 ? 4 : 2;
   return {
     tubes,
     hp: 4 + tubes,
@@ -2899,18 +2915,14 @@ function buildLevel(spec, track) {
         const reach = Math.min(hw - 6, rim * 0.62);
         const thick = kind === 'cross' ? 13 : 9;
         const cy = rim * 0.5;
+        // One rectangle per blade, carrying its own angle. Written as a chain
+        // of five squares marching outward -- which is what it used to be --
+        // an arm reads as a row of beads rather than a blade, and a five-armed
+        // pinwheel costs twenty-five boxes and three hundred drawn lines.
         const boxes = [];
         for (let i = 0; i < arms; i++) {
-          // Written as one horizontal arm each, then rotated into place by the
-          // frame: the boxes stay axis aligned, which is the whole trick.
           const a = (i / arms) * Math.PI * 2;
-          const ca = Math.cos(a), sa = Math.sin(a);
-          const steps = 5;
-          for (let k = 1; k <= steps; k++) {
-            const r = (reach * k) / steps;
-            const px = ca * r, py = cy + sa * r;
-            boxes.push([px - thick, px + thick, py - thick, py + thick]);
-          }
+          boxes.push([-thick * 0.7, reach, cy - thick, cy + thick, a]);
         }
         obstacles.push(obstacle(t, 16, kind, boxes, {
           cx: 0, cy,
@@ -2969,7 +2981,7 @@ function buildLevel(spec, track) {
     }
 
     // Surface batteries.
-    const tg = spacing(sec.turrets, 2000, 4.2);
+    const tg = spacing(sec.turrets, 1750, 4.2);
     for (let t = start + tg * rand(); t < end; t += tg * (0.7 + rand() * 0.6)) {
       if (nearPort(t)) continue;
       const hw = track.halfWidth(t);
@@ -2979,7 +2991,7 @@ function buildLevel(spec, track) {
 
     // Surface gatlings: they sit close to the lip, because their job is to make
     // the few seconds above the rim expensive rather than to snipe.
-    const gg = spacing(sec.gatlings, 2600, 5.0);
+    const gg = spacing(sec.gatlings, 1900, 5.0);
     for (let t = start + gg * rand(); t < end; t += gg * (0.7 + rand() * 0.6)) {
       if (nearPort(t)) continue;
       const hw = track.halfWidth(t);
@@ -2991,7 +3003,7 @@ function buildLevel(spec, track) {
     }
 
     // Surface missile batteries.
-    const bg = spacing(sec.batteries, 3000, 4.0);
+    const bg = spacing(sec.batteries, 2300, 4.0);
     for (let t = start + bg * rand(); t < end; t += bg * (0.7 + rand() * 0.6)) {
       if (nearPort(t)) continue;
       const hw = track.halfWidth(t);
@@ -3426,7 +3438,7 @@ const OB_COL = {
  * the corners go through exactly the transform collision inverts, so what you
  * see and what you hit cannot drift apart.
  */
-function box(rd, track, t, dz, x0, x1, y0, y1, col, w, a, ob = null, time = 0) {
+function box(rd, track, t, dz, x0, x1, y0, y1, col, w, a, ob = null, time = 0, ang = 0) {
   const p = _obp;
   const c = _obc;
   // Front and back rectangles plus the four connecting edges.
@@ -3434,7 +3446,7 @@ function box(rd, track, t, dz, x0, x1, y0, y1, col, w, a, ob = null, time = 0) {
     for (let k = 0; k < 4; k++) {
       const ox = k === 0 || k === 3 ? x0 : x1;
       const oy = k < 2 ? y0 : y1;
-      if (ob) { obstacleToLocal(ob, time, ox, oy, c); track.localToWorld(tt, c[0], c[1], p[idx + k]); }
+      if (ob) { obstacleToLocal(ob, time, ox, oy, c, ang); track.localToWorld(tt, c[0], c[1], p[idx + k]); }
       else track.localToWorld(tt, ox, oy, p[idx + k]);
     }
   }
@@ -3569,8 +3581,8 @@ function drawObstacles(rd, track, obstacles, cursor, camT, far, time) {
       continue;
     }
 
-    for (const [x0, x1, y0, y1] of ob.boxes) {
-      box(rd, track, ob.t, ob.dz, x0, x1, y0, y1, col, 1.2, 1, ob, time);
+    for (const [x0, x1, y0, y1, ang] of ob.boxes) {
+      box(rd, track, ob.t, ob.dz, x0, x1, y0, y1, col, 1.2, 1, ob, time, ang || 0);
     }
   }
 }
@@ -3821,15 +3833,17 @@ class Weapons {
   }
 
   /**
-   * An enemy heat-seeker. Slower than the ship and slower to turn than it can
-   * bank, so it is beaten by flying rather than by luck -- and it can be shot
-   * out of the air, which is what the gun is for when a battery empties itself
-   * at you.
+   * An enemy heat-seeker. It out-runs the ship -- it used to top out at 430,
+   * under REACTOR's 500, which meant the hardest level's missiles could not
+   * catch anyone and the surface there was the safest place in the game. It is
+   * still slower to turn than the ship can bank, so it is beaten by flying, and
+   * it can be shot out of the air, which is what the gun is for when a battery
+   * empties itself at you.
    */
   fireSeeker(x, y, z, dx, dy, dz) {
     this.seekers.push({
       x, y, z, px: x, py: y, pz: z, dx, dy, dz,
-      speed: 250, accel: 190, maxSpeed: 430, turn: 1.9, life: 7, arm: 0.35,
+      speed: 300, accel: 265, maxSpeed: 640, turn: 2.05, life: 7, arm: 0.35,
     });
   }
 
@@ -4496,7 +4510,13 @@ const BARS = [
   'f4 f#4 g4 g#4 a4 a#4 a4 g#4',
 ];
 
-const MELODY = BARS.flatMap((bar) => bar.split(' ').map(midi));
+// One knob for the whole tune, in semitones. -12 drops it an octave; much
+// below -5 and the low bars fall under 250Hz, where a phone speaker has
+// nothing to reproduce them with, so the melody would vanish on the device
+// this game is mostly played on.
+const TRANSPOSE = 0;
+
+const MELODY = BARS.flatMap((bar) => bar.split(' ').map((n) => midi(n) + TRANSPOSE));
 
 // One root a bar. Null is a bar the score leaves unaccompanied -- the opening
 // descent is nearly solo, and filling it in would trample the best moment in
@@ -4529,7 +4549,7 @@ class Music {
     this.bus.gain.value = 0;
     const tame = ctx.createBiquadFilter();
     tame.type = 'lowpass';
-    tame.frequency.value = 5200;
+    tame.frequency.value = 3800;
     this.bus.connect(tame);
     tame.connect(dest);
   }
@@ -4581,7 +4601,16 @@ class Music {
   }
 
   _emit(i, t) {
-    this._pulse(hz(MELODY[i]), t, STEP * 0.92, 0.2, 'square');
+    // A raw square gets shrill fast: the opening sits up at E6 and was the
+    // brightest, loudest thing in the mix. Roll the harmonics off as the tune
+    // climbs, take a little gain out of the top, and lay a quiet triangle an
+    // octave under it -- that last part is what puts weight back where the
+    // square lost it, without moving a single note off the score.
+    const f = hz(MELODY[i]);
+    const tilt = f > 500 ? Math.max(0.6, 1 - (f - 500) / 1500) : 1;
+    const cut = Math.min(3200, Math.max(1100, f * 2.4));
+    this._pulse(f, t, STEP * 0.92, 0.2 * tilt, 'square', cut);
+    this._pulse(f / 2, t, STEP * 0.92, 0.085, 'triangle', 1400);
 
     const beat = i % BEATS;
     const root = ROOTS[(i / BEATS) | 0];
@@ -4729,6 +4758,39 @@ class Audio {
 
     this.music = new Music(ctx, master, this._noise(2));
     this.music.setEnabled(this.musicWanted);
+    this._watchPage();
+  }
+
+  /**
+   * Come back from being away.
+   *
+   * A browser suspends the audio context when the page stops being visible --
+   * switching apps on a phone, locking it, another tab -- and nothing resumes
+   * it on the way back, so the game returned silent and stayed silent for the
+   * rest of the run. The scheduler and the engine survive it; only the clock
+   * they are hung on stops, so resuming is the whole repair.
+   */
+  _watchPage() {
+    const back = () => this.resume();
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) back(); });
+    window.addEventListener('pageshow', back);
+    window.addEventListener('focus', back);
+    // iOS can refuse a resume that is not inside a gesture, so try the first
+    // touch after coming back as well. Resuming a running context is a no-op.
+    for (const ev of ['pointerdown', 'touchend', 'keydown']) {
+      window.addEventListener(ev, back, { passive: true });
+    }
+  }
+
+  /** Safe to call at any time, from anywhere, however often. */
+  resume() {
+    if (!this.ctx) return;
+    if (this.ctx.state !== 'running') {
+      try { this.ctx.resume()?.catch?.(() => {}); } catch { /* not resumable yet */ }
+    }
+    // If the run is still going, the music should be too. start() is a no-op
+    // when it never stopped, so this only revives a scheduler that was killed.
+    if (this._flying && this.musicWanted) this.music?.start();
   }
 
   _noise(seconds) {
@@ -5272,11 +5334,11 @@ const SEAL_WARN_SECS = 3.6;   // how long before a bulkhead the alarm starts
 
 // The surface. These are the numbers that decide whether breaking the rim
 // feels like a decision or like a formality.
-const SALVO_INTERVAL = 0.16;  // seconds between tubes of one rack
-const BATTERY_RELOAD = 5.5;
-const GATLING_SPINUP = 0.75;  // long enough to see it and duck back under
-const GATLING_CADENCE = 0.055;
-const GATLING_SPREAD = 1;
+const SALVO_INTERVAL = 0.11;  // seconds between tubes of one rack
+const BATTERY_RELOAD = 3.2;
+const GATLING_SPINUP = 0.55;  // long enough to see it and duck back under
+const GATLING_CADENCE = 0.04;
+const GATLING_SPREAD = 0.78;  // tighter: the stream is meant to connect
 const SEAL_DROP_SPEED = 190;  // how fast a bulkhead sinks once its panels go
 
 const RADIUS = { turret: 13, wallgun: 11, emplacement: 21, drone: 11, port: 20 };
@@ -5379,6 +5441,7 @@ class Game {
     for (const ob of this.level.obstacles) ob.hit = false;
     this.weapons.clear();
     this.particles.clear();
+    this.aimDist = AIM_DIST;
     this.phase = 'flying';
   }
 
@@ -5732,8 +5795,8 @@ class Game {
         let reload = 1.4;
         if (e.kind === 'turret') {
           // Surface batteries only engage a ship that has broken the rim.
-          wants = this.exposed && ahead < 780 && ahead > -40;
-          reload = 1.15;
+          wants = this.exposed && ahead < 940 && ahead > -60;
+          reload = 0.85;
         } else if (e.kind === 'wallgun') {
           wants = !this.exposed && ahead < 620 && ahead > 30;
           reload = 1.7;
@@ -5769,7 +5832,7 @@ class Game {
         e.cool -= dt;
         if (wants && e.cool <= 0) {
           e.cool = reload * (0.75 + hash2((this.time * 60) | 0, (e.t | 0) & 255) * 0.6);
-          const speed = heavy ? 380 : 440;
+          const speed = heavy ? 420 : 520;
           // Lead the target, or the shot always trails a ship this fast.
           const lead = dist / speed;
           const px = this.shipPos[0] + this.camF[0] * this.speed * lead * 0.85;
@@ -5890,9 +5953,22 @@ class Game {
     this.paintProgress = best ? clamp(best.paint || 0, 0, 1) : 0;
 
     // Sized to the range of what it is over, so the marker reads as sitting on
-    // the thing rather than floating on the glass in front of it.
-    if (best) aimDist = best.dist || AIM_DIST;
-    this.aimSize = clamp(rd.focal * RETICLE_WORLD / Math.max(60, aimDist),
+    // the thing rather than floating on the glass in front of it. What it is
+    // over is the target under it when there is one and the rock otherwise --
+    // a wall, the floor, a bulkhead, the blade of a pinwheel.
+    const kx = (cx - rd.cx) / rd.focal;
+    const ky = -(cy - rd.cy) / rd.focal;
+    const ax = this.camF[0] + this.camR[0] * kx + this.camU[0] * ky;
+    const ay = this.camF[1] + this.camR[1] * kx + this.camU[1] * ky;
+    const az = this.camF[2] + this.camR[2] * kx + this.camU[2] * ky;
+    const al = Math.hypot(ax, ay, az) || 1;
+    const rock = this.aimRockRange(ax / al, ay / al, az / al);
+    if (best) aimDist = Math.min(best.dist || AIM_DIST, rock);
+    else if (rock < AIM_DIST) aimDist = rock;
+    // Eased, because the ray can cross an edge between one frame and the next
+    // and the marker should not snap when it does.
+    this.aimDist = approach(this.aimDist || aimDist, aimDist, 14, dt);
+    this.aimSize = clamp(rd.focal * RETICLE_WORLD / Math.max(60, this.aimDist),
       13 * rd.scale, 84 * rd.scale);
 
     // A lock survives being flown past -- the missiles are heat-seekers and can
@@ -5932,7 +6008,7 @@ class Game {
    * is the cost of being up here.
    */
   updateBattery(e, dt, ahead) {
-    const inRange = ahead < 1500 && ahead > -260;
+    const inRange = ahead < 1600 && ahead > -420;
     if (e.salvo > 0) {
       // Mid-rack: keep launching regardless of what the ship does now.
       e.salvoTimer -= dt;
@@ -5971,7 +6047,7 @@ class Game {
    * asking. Individual rounds are cheap; standing in the stream is not.
    */
   updateGatling(e, dt, ahead) {
-    const wants = this.exposed && ahead < 900 && ahead > -120;
+    const wants = this.exposed && ahead < 1020 && ahead > -160;
     e.wind = clamp(e.wind + (wants ? dt / GATLING_SPINUP : -dt * 1.1), 0, 1);
     e.barrel = (e.barrel || 0) + dt * (2 + e.wind * 26);
     if (e.wind < 1) return;
@@ -5981,7 +6057,7 @@ class Game {
     e.cool = GATLING_CADENCE;
     const dist = Math.hypot(
       this.shipPos[0] - e.world[0], this.shipPos[1] - e.world[1], this.shipPos[2] - e.world[2]) || 1;
-    const speed = 620;
+    const speed = 700;
     const lead = dist / speed;
     // Leads the ship, then scatters: a stream that converged perfectly would be
     // a hitscan death sentence, and one that did not converge would be scenery.
@@ -6176,7 +6252,7 @@ class Game {
         const s = W.bolts[i];
         if (segSphere(s.px, s.py, s.pz, s.x, s.y, s.z,
           this.shipPos[0], this.shipPos[1], this.shipPos[2], 11)) {
-          this.damage(s.tracer ? 5 : s.heavy ? 19 : 11);
+          this.damage(s.tracer ? 6 : s.heavy ? 19 : 12);
           this.particles.burst(s.x, s.y, s.z, 10, 140, 1, 0.5, 0.25, 0.4, 1.8);
           W.bolts.splice(i, 1);
         }
@@ -6234,11 +6310,12 @@ class Game {
    * at a surface turret -- which by definition stands outside the trench --
    * detonated on empty air the moment it crossed the line.
    */
-  hitsScenery(x, y, z) {
+  hitsScenery(x, y, z, floor = false) {
     const tr = this.track;
     const obs = this.level.obstacles;
     tr.worldToLocal(x, y, z, this._q);
     const lt = this._q[0], lx = this._q[1], ly = this._q[2];
+    if (floor && ly < tr.floorAt(lt, lx)) return true;
     if (Math.abs(lx) > tr.halfWidth(lt) + 4 && ly < tr.rim(lt)) return true;
     for (let i = this.obCursor; i < obs.length; i++) {
       const ob = obs[i];
@@ -6248,6 +6325,40 @@ class Game {
       if (hitsObstacle(ob, this.time, lx, ly)) return true;
     }
     return false;
+  }
+
+  /**
+   * How far down the crosshair's own ray the rock is, from the eye.
+   *
+   * The marker is sized by range so that it reads as sitting on the thing it
+   * is over, but range only ever came from a target -- so a wall two ship
+   * lengths ahead drew exactly the same small marker as an empty trench, and
+   * the only thing in the world with depth was an enemy.
+   *
+   * Marched coarsely and then bisected: a fixed step makes the size pop as the
+   * samples cross a surface, and the steps are packed toward the near end
+   * because that is where a few units of error are visible.
+   */
+  aimRockRange(dx, dy, dz, max = 1500) {
+    const NEAR = 45;
+    const STEPS = 22;
+    let prev = NEAR;
+    for (let i = 1; i <= STEPS; i++) {
+      const d = NEAR + (max - NEAR) * (i / STEPS) ** 1.7;
+      if (this.hitsScenery(this.eye[0] + dx * d, this.eye[1] + dy * d,
+        this.eye[2] + dz * d, true)) {
+        let lo = prev, hi = d;
+        for (let k = 0; k < 5; k++) {
+          const mid = (lo + hi) * 0.5;
+          if (this.hitsScenery(this.eye[0] + dx * mid, this.eye[1] + dy * mid,
+            this.eye[2] + dz * mid, true)) hi = mid;
+          else lo = mid;
+        }
+        return hi;
+      }
+      prev = d;
+    }
+    return Infinity;
   }
 
   destroy(e) {

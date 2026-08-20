@@ -79,11 +79,11 @@ const SEAL_WARN_SECS = 3.6;   // how long before a bulkhead the alarm starts
 
 // The surface. These are the numbers that decide whether breaking the rim
 // feels like a decision or like a formality.
-const SALVO_INTERVAL = 0.16;  // seconds between tubes of one rack
-const BATTERY_RELOAD = 5.5;
-const GATLING_SPINUP = 0.75;  // long enough to see it and duck back under
-const GATLING_CADENCE = 0.055;
-const GATLING_SPREAD = 1;
+const SALVO_INTERVAL = 0.11;  // seconds between tubes of one rack
+const BATTERY_RELOAD = 3.2;
+const GATLING_SPINUP = 0.55;  // long enough to see it and duck back under
+const GATLING_CADENCE = 0.04;
+const GATLING_SPREAD = 0.78;  // tighter: the stream is meant to connect
 const SEAL_DROP_SPEED = 190;  // how fast a bulkhead sinks once its panels go
 
 const RADIUS = { turret: 13, wallgun: 11, emplacement: 21, drone: 11, port: 20 };
@@ -186,6 +186,7 @@ export class Game {
     for (const ob of this.level.obstacles) ob.hit = false;
     this.weapons.clear();
     this.particles.clear();
+    this.aimDist = AIM_DIST;
     this.phase = 'flying';
   }
 
@@ -539,8 +540,8 @@ export class Game {
         let reload = 1.4;
         if (e.kind === 'turret') {
           // Surface batteries only engage a ship that has broken the rim.
-          wants = this.exposed && ahead < 780 && ahead > -40;
-          reload = 1.15;
+          wants = this.exposed && ahead < 940 && ahead > -60;
+          reload = 0.85;
         } else if (e.kind === 'wallgun') {
           wants = !this.exposed && ahead < 620 && ahead > 30;
           reload = 1.7;
@@ -576,7 +577,7 @@ export class Game {
         e.cool -= dt;
         if (wants && e.cool <= 0) {
           e.cool = reload * (0.75 + hash2((this.time * 60) | 0, (e.t | 0) & 255) * 0.6);
-          const speed = heavy ? 380 : 440;
+          const speed = heavy ? 420 : 520;
           // Lead the target, or the shot always trails a ship this fast.
           const lead = dist / speed;
           const px = this.shipPos[0] + this.camF[0] * this.speed * lead * 0.85;
@@ -697,9 +698,22 @@ export class Game {
     this.paintProgress = best ? clamp(best.paint || 0, 0, 1) : 0;
 
     // Sized to the range of what it is over, so the marker reads as sitting on
-    // the thing rather than floating on the glass in front of it.
-    if (best) aimDist = best.dist || AIM_DIST;
-    this.aimSize = clamp(rd.focal * RETICLE_WORLD / Math.max(60, aimDist),
+    // the thing rather than floating on the glass in front of it. What it is
+    // over is the target under it when there is one and the rock otherwise --
+    // a wall, the floor, a bulkhead, the blade of a pinwheel.
+    const kx = (cx - rd.cx) / rd.focal;
+    const ky = -(cy - rd.cy) / rd.focal;
+    const ax = this.camF[0] + this.camR[0] * kx + this.camU[0] * ky;
+    const ay = this.camF[1] + this.camR[1] * kx + this.camU[1] * ky;
+    const az = this.camF[2] + this.camR[2] * kx + this.camU[2] * ky;
+    const al = Math.hypot(ax, ay, az) || 1;
+    const rock = this.aimRockRange(ax / al, ay / al, az / al);
+    if (best) aimDist = Math.min(best.dist || AIM_DIST, rock);
+    else if (rock < AIM_DIST) aimDist = rock;
+    // Eased, because the ray can cross an edge between one frame and the next
+    // and the marker should not snap when it does.
+    this.aimDist = approach(this.aimDist || aimDist, aimDist, 14, dt);
+    this.aimSize = clamp(rd.focal * RETICLE_WORLD / Math.max(60, this.aimDist),
       13 * rd.scale, 84 * rd.scale);
 
     // A lock survives being flown past -- the missiles are heat-seekers and can
@@ -739,7 +753,7 @@ export class Game {
    * is the cost of being up here.
    */
   updateBattery(e, dt, ahead) {
-    const inRange = ahead < 1500 && ahead > -260;
+    const inRange = ahead < 1600 && ahead > -420;
     if (e.salvo > 0) {
       // Mid-rack: keep launching regardless of what the ship does now.
       e.salvoTimer -= dt;
@@ -778,7 +792,7 @@ export class Game {
    * asking. Individual rounds are cheap; standing in the stream is not.
    */
   updateGatling(e, dt, ahead) {
-    const wants = this.exposed && ahead < 900 && ahead > -120;
+    const wants = this.exposed && ahead < 1020 && ahead > -160;
     e.wind = clamp(e.wind + (wants ? dt / GATLING_SPINUP : -dt * 1.1), 0, 1);
     e.barrel = (e.barrel || 0) + dt * (2 + e.wind * 26);
     if (e.wind < 1) return;
@@ -788,7 +802,7 @@ export class Game {
     e.cool = GATLING_CADENCE;
     const dist = Math.hypot(
       this.shipPos[0] - e.world[0], this.shipPos[1] - e.world[1], this.shipPos[2] - e.world[2]) || 1;
-    const speed = 620;
+    const speed = 700;
     const lead = dist / speed;
     // Leads the ship, then scatters: a stream that converged perfectly would be
     // a hitscan death sentence, and one that did not converge would be scenery.
@@ -983,7 +997,7 @@ export class Game {
         const s = W.bolts[i];
         if (segSphere(s.px, s.py, s.pz, s.x, s.y, s.z,
           this.shipPos[0], this.shipPos[1], this.shipPos[2], 11)) {
-          this.damage(s.tracer ? 5 : s.heavy ? 19 : 11);
+          this.damage(s.tracer ? 6 : s.heavy ? 19 : 12);
           this.particles.burst(s.x, s.y, s.z, 10, 140, 1, 0.5, 0.25, 0.4, 1.8);
           W.bolts.splice(i, 1);
         }
@@ -1041,11 +1055,12 @@ export class Game {
    * at a surface turret -- which by definition stands outside the trench --
    * detonated on empty air the moment it crossed the line.
    */
-  hitsScenery(x, y, z) {
+  hitsScenery(x, y, z, floor = false) {
     const tr = this.track;
     const obs = this.level.obstacles;
     tr.worldToLocal(x, y, z, this._q);
     const lt = this._q[0], lx = this._q[1], ly = this._q[2];
+    if (floor && ly < tr.floorAt(lt, lx)) return true;
     if (Math.abs(lx) > tr.halfWidth(lt) + 4 && ly < tr.rim(lt)) return true;
     for (let i = this.obCursor; i < obs.length; i++) {
       const ob = obs[i];
@@ -1055,6 +1070,40 @@ export class Game {
       if (hitsObstacle(ob, this.time, lx, ly)) return true;
     }
     return false;
+  }
+
+  /**
+   * How far down the crosshair's own ray the rock is, from the eye.
+   *
+   * The marker is sized by range so that it reads as sitting on the thing it
+   * is over, but range only ever came from a target -- so a wall two ship
+   * lengths ahead drew exactly the same small marker as an empty trench, and
+   * the only thing in the world with depth was an enemy.
+   *
+   * Marched coarsely and then bisected: a fixed step makes the size pop as the
+   * samples cross a surface, and the steps are packed toward the near end
+   * because that is where a few units of error are visible.
+   */
+  aimRockRange(dx, dy, dz, max = 1500) {
+    const NEAR = 45;
+    const STEPS = 22;
+    let prev = NEAR;
+    for (let i = 1; i <= STEPS; i++) {
+      const d = NEAR + (max - NEAR) * (i / STEPS) ** 1.7;
+      if (this.hitsScenery(this.eye[0] + dx * d, this.eye[1] + dy * d,
+        this.eye[2] + dz * d, true)) {
+        let lo = prev, hi = d;
+        for (let k = 0; k < 5; k++) {
+          const mid = (lo + hi) * 0.5;
+          if (this.hitsScenery(this.eye[0] + dx * mid, this.eye[1] + dy * mid,
+            this.eye[2] + dz * mid, true)) hi = mid;
+          else lo = mid;
+        }
+        return hi;
+      }
+      prev = d;
+    }
+    return Infinity;
   }
 
   destroy(e) {

@@ -55,7 +55,13 @@ const BARS = [
   'f4 f#4 g4 g#4 a4 a#4 a4 g#4',
 ];
 
-const MELODY = BARS.flatMap((bar) => bar.split(' ').map(midi));
+// One knob for the whole tune, in semitones. -12 drops it an octave; much
+// below -5 and the low bars fall under 250Hz, where a phone speaker has
+// nothing to reproduce them with, so the melody would vanish on the device
+// this game is mostly played on.
+const TRANSPOSE = 0;
+
+const MELODY = BARS.flatMap((bar) => bar.split(' ').map((n) => midi(n) + TRANSPOSE));
 
 // One root a bar. Null is a bar the score leaves unaccompanied -- the opening
 // descent is nearly solo, and filling it in would trample the best moment in
@@ -88,7 +94,7 @@ export class Music {
     this.bus.gain.value = 0;
     const tame = ctx.createBiquadFilter();
     tame.type = 'lowpass';
-    tame.frequency.value = 5200;
+    tame.frequency.value = 3800;
     this.bus.connect(tame);
     tame.connect(dest);
   }
@@ -140,7 +146,16 @@ export class Music {
   }
 
   _emit(i, t) {
-    this._pulse(hz(MELODY[i]), t, STEP * 0.92, 0.2, 'square');
+    // A raw square gets shrill fast: the opening sits up at E6 and was the
+    // brightest, loudest thing in the mix. Roll the harmonics off as the tune
+    // climbs, take a little gain out of the top, and lay a quiet triangle an
+    // octave under it -- that last part is what puts weight back where the
+    // square lost it, without moving a single note off the score.
+    const f = hz(MELODY[i]);
+    const tilt = f > 500 ? Math.max(0.6, 1 - (f - 500) / 1500) : 1;
+    const cut = Math.min(3200, Math.max(1100, f * 2.4));
+    this._pulse(f, t, STEP * 0.92, 0.2 * tilt, 'square', cut);
+    this._pulse(f / 2, t, STEP * 0.92, 0.085, 'triangle', 1400);
 
     const beat = i % BEATS;
     const root = ROOTS[(i / BEATS) | 0];

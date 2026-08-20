@@ -1,6 +1,6 @@
 {
   "name": "SHAKEDOWN",
-  "blurb": "The first minute of this game. It opens almost empty and wide on purpose: nothing shoots at you until you have flown a while, and the one bulkhead waits until you have already learned to climb.",
+  "blurb": "The first minute of this game. It opens almost empty and wide on purpose: nothing shoots at you down in the trench until you have flown a while, the rim is watched from the start, and the one bulkhead waits until you have already learned to climb.",
   "seed": 4211,
   "speed": {
     "start": 230,
@@ -17,14 +17,16 @@
       "hilliness": 0.15,
       "roughness": 0.3,
       "obstacles": 0.1,
-      "kinds": ["pylon"],
-      "turrets": 0,
+      "kinds": [
+        "pylon"
+      ],
+      "turrets": 0.22,
       "wallguns": 0,
       "drones": 0.15,
       "seals": 0,
       "hue": 0.5,
-      "gatlings": 0.0,
-      "batteries": 0.0,
+      "gatlings": 0.26,
+      "batteries": 0.2,
       "panels": 2
     },
     {
@@ -36,14 +38,16 @@
       "hilliness": 0.22,
       "roughness": 0.36,
       "obstacles": 0.22,
-      "kinds": ["pylon"],
-      "turrets": 0.1,
+      "kinds": [
+        "pylon"
+      ],
+      "turrets": 0.22,
       "wallguns": 0,
       "drones": 0.25,
       "seals": 0,
       "hue": 0.5,
-      "gatlings": 0.0,
-      "batteries": 0.0,
+      "gatlings": 0.26,
+      "batteries": 0.2,
       "panels": 2
     },
     {
@@ -55,14 +59,17 @@
       "hilliness": 0.3,
       "roughness": 0.42,
       "obstacles": 0.3,
-      "kinds": ["pylon", "fang"],
-      "turrets": 0.18,
+      "kinds": [
+        "pylon",
+        "fang"
+      ],
+      "turrets": 0.25,
       "wallguns": 0.12,
       "drones": 0.28,
       "seals": 0,
       "hue": 0.51,
-      "gatlings": 0.1,
-      "batteries": 0.0,
+      "gatlings": 0.26,
+      "batteries": 0.2,
       "panels": 2
     },
     {
@@ -74,14 +81,17 @@
       "hilliness": 0.35,
       "roughness": 0.46,
       "obstacles": 0.38,
-      "kinds": ["pylon", "fang"],
-      "turrets": 0.25,
+      "kinds": [
+        "pylon",
+        "fang"
+      ],
+      "turrets": 0.35,
       "wallguns": 0.2,
       "drones": 0.3,
       "seals": 0,
       "hue": 0.51,
-      "gatlings": 0.18,
-      "batteries": 0.1,
+      "gatlings": 0.31,
+      "batteries": 0.2,
       "panels": 2
     },
     {
@@ -93,14 +103,17 @@
       "hilliness": 0.32,
       "roughness": 0.45,
       "obstacles": 0.3,
-      "kinds": ["pylon", "fang"],
-      "turrets": 0.5,
+      "kinds": [
+        "pylon",
+        "fang"
+      ],
+      "turrets": 0.7,
       "wallguns": 0.18,
       "drones": 0.25,
       "seals": 1,
       "hue": 0.52,
-      "gatlings": 0.3,
-      "batteries": 0.25,
+      "gatlings": 0.51,
+      "batteries": 0.4,
       "panels": 3
     },
     {
@@ -112,14 +125,17 @@
       "hilliness": 0.3,
       "roughness": 0.45,
       "obstacles": 0.36,
-      "kinds": ["fang", "gate"],
-      "turrets": 0.3,
+      "kinds": [
+        "fang",
+        "gate"
+      ],
+      "turrets": 0.42,
       "wallguns": 0.3,
       "drones": 0.2,
       "seals": 0,
       "hue": 0.52,
-      "gatlings": 0.22,
-      "batteries": 0.15,
+      "gatlings": 0.37,
+      "batteries": 0.24,
       "panels": 2
     }
   ]

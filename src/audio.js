@@ -70,6 +70,39 @@ export class Audio {
 
     this.music = new Music(ctx, master, this._noise(2));
     this.music.setEnabled(this.musicWanted);
+    this._watchPage();
+  }
+
+  /**
+   * Come back from being away.
+   *
+   * A browser suspends the audio context when the page stops being visible --
+   * switching apps on a phone, locking it, another tab -- and nothing resumes
+   * it on the way back, so the game returned silent and stayed silent for the
+   * rest of the run. The scheduler and the engine survive it; only the clock
+   * they are hung on stops, so resuming is the whole repair.
+   */
+  _watchPage() {
+    const back = () => this.resume();
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) back(); });
+    window.addEventListener('pageshow', back);
+    window.addEventListener('focus', back);
+    // iOS can refuse a resume that is not inside a gesture, so try the first
+    // touch after coming back as well. Resuming a running context is a no-op.
+    for (const ev of ['pointerdown', 'touchend', 'keydown']) {
+      window.addEventListener(ev, back, { passive: true });
+    }
+  }
+
+  /** Safe to call at any time, from anywhere, however often. */
+  resume() {
+    if (!this.ctx) return;
+    if (this.ctx.state !== 'running') {
+      try { this.ctx.resume()?.catch?.(() => {}); } catch { /* not resumable yet */ }
+    }
+    // If the run is still going, the music should be too. start() is a no-op
+    // when it never stopped, so this only revives a scheduler that was killed.
+    if (this._flying && this.musicWanted) this.music?.start();
   }
 
   _noise(seconds) {

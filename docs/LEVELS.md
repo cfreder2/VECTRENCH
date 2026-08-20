@@ -189,9 +189,9 @@ Each section:
 | `roughness` | 0–1 | 0.5 | Wall detail. Cosmetic; costs no fairness |
 | `obstacles` | 0–1 | 0.4 | Rate, not a count — see below |
 | `kinds` | list | `["pylon","fang"]` | Which of `pylon` `fang` `gate` `ring` `stack` may appear |
-| `turrets` | 0–1 | 0.3 | Plain surface guns, above the rim |
-| `gatlings` | 0–1 | 0.15 | Surface rotary cannon: spin up, then a stream of tracer |
-| `batteries` | 0–1 | 0.12 | Surface missile racks. Density decides how many; the section's own value also decides how big, so a heavy section is where the twelve-tube ones appear |
+| `turrets` | 0–1 | 0.42 | Plain surface guns, above the rim |
+| `gatlings` | 0–1 | 0.32 | Surface rotary cannon: spin up, then a stream of tracer |
+| `batteries` | 0–1 | 0.28 | Surface missile racks. Density decides how many; the section's own value also decides how big, so a heavy section is where the twelve-tube ones appear |
 | `wallguns` | 0–1 | 0.32 | Guns on the trench walls |
 | `drones` | 0–1 | 0.3 | Fighter wave rate |
 | `seals` | 0–6 | 0 | Bulkheads that force you over the rim |
@@ -255,6 +255,12 @@ what you author is sometimes not exactly what you get:
   whatever the section asked for, because a forced climb with nothing waiting
   is not a decision. The battery's size leans on the section's `batteries`
   value, so a heavy section is where the twelve-tube ones stand.
+- **The rim is never unwatched.** Every shipped section carries at least 0.22
+  turrets, 0.26 gatlings and 0.2 batteries, because a stretch with an empty
+  surface is a stretch where climbing out of the trench is free, and free is
+  the one thing the surface must never be. Sustained flight above the rim kills
+  in three to seven seconds depending on the level; a climb over a bulkhead and
+  straight back down costs a tenth to a third of a shield.
 - The track runs 1100 units past your last section, and the port sits 720 units
   into that run-out.
 

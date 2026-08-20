@@ -46,8 +46,8 @@ function enemy(kind, t, x, y, over) {
  * it leans harder as a section does.
  */
 function batterySize(rand, menace) {
-  const r = rand() * (0.55 + menace * 0.95);
-  const tubes = r > 1.25 ? 12 : r > 0.95 ? 6 : r > 0.68 ? 3 : r > 0.4 ? 2 : 1;
+  const r = rand() * (0.8 + menace * 1.1);
+  const tubes = r > 1.2 ? 12 : r > 0.9 ? 8 : r > 0.62 ? 6 : r > 0.34 ? 4 : 2;
   return {
     tubes,
     hp: 4 + tubes,
@@ -198,18 +198,14 @@ export function buildLevel(spec, track) {
         const reach = Math.min(hw - 6, rim * 0.62);
         const thick = kind === 'cross' ? 13 : 9;
         const cy = rim * 0.5;
+        // One rectangle per blade, carrying its own angle. Written as a chain
+        // of five squares marching outward -- which is what it used to be --
+        // an arm reads as a row of beads rather than a blade, and a five-armed
+        // pinwheel costs twenty-five boxes and three hundred drawn lines.
         const boxes = [];
         for (let i = 0; i < arms; i++) {
-          // Written as one horizontal arm each, then rotated into place by the
-          // frame: the boxes stay axis aligned, which is the whole trick.
           const a = (i / arms) * Math.PI * 2;
-          const ca = Math.cos(a), sa = Math.sin(a);
-          const steps = 5;
-          for (let k = 1; k <= steps; k++) {
-            const r = (reach * k) / steps;
-            const px = ca * r, py = cy + sa * r;
-            boxes.push([px - thick, px + thick, py - thick, py + thick]);
-          }
+          boxes.push([-thick * 0.7, reach, cy - thick, cy + thick, a]);
         }
         obstacles.push(obstacle(t, 16, kind, boxes, {
           cx: 0, cy,
@@ -268,7 +264,7 @@ export function buildLevel(spec, track) {
     }
 
     // Surface batteries.
-    const tg = spacing(sec.turrets, 2000, 4.2);
+    const tg = spacing(sec.turrets, 1750, 4.2);
     for (let t = start + tg * rand(); t < end; t += tg * (0.7 + rand() * 0.6)) {
       if (nearPort(t)) continue;
       const hw = track.halfWidth(t);
@@ -278,7 +274,7 @@ export function buildLevel(spec, track) {
 
     // Surface gatlings: they sit close to the lip, because their job is to make
     // the few seconds above the rim expensive rather than to snipe.
-    const gg = spacing(sec.gatlings, 2600, 5.0);
+    const gg = spacing(sec.gatlings, 1900, 5.0);
     for (let t = start + gg * rand(); t < end; t += gg * (0.7 + rand() * 0.6)) {
       if (nearPort(t)) continue;
       const hw = track.halfWidth(t);
@@ -290,7 +286,7 @@ export function buildLevel(spec, track) {
     }
 
     // Surface missile batteries.
-    const bg = spacing(sec.batteries, 3000, 4.0);
+    const bg = spacing(sec.batteries, 2300, 4.0);
     for (let t = start + bg * rand(); t < end; t += bg * (0.7 + rand() * 0.6)) {
       if (nearPort(t)) continue;
       const hw = track.halfWidth(t);
