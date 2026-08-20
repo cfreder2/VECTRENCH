@@ -21,7 +21,11 @@ const NX = 49, NY = 37;
 export function audit(spec) {
   const track = new Track(spec);
   const lv = buildLevel(spec, track);
-  const obs = lv.obstacles.slice().sort((a, b) => a.t - b.t);
+  // Turbo gates are not obstructions: nothing about them can hurt the ship, and
+  // its boxes are only there to tell flying through the hoop from flying past
+  // it. Auditing them as walls would demand a line through every hoop.
+  const obs = lv.obstacles.filter((o) => o.kind !== 'boostgate')
+    .sort((a, b) => a.t - b.t);
   if (!obs.length) return { ok: true, blocked: [], tight: [] };
 
   let reach = null, prevT = 0;

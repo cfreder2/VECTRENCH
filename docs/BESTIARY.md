@@ -375,7 +375,8 @@ fins, and an engine flare whose length tracks the throttle.
 | **Cannon** | 0.09 s cadence, 1500 u/s, 1 damage. Heat 0.38/s up, 0.5/s down; overheats at 1 and will not fire again until 0.25 |
 | **Missiles** | Up to **8** locks, 5 s cooldown, 620 u/s, kills anything locked outright. Free to fire — you buy them by flying, since painting means holding the crosshair on a target for 0.24 s |
 | **Roll** | Held. 4.2 rad/s onto its edge, trading 14×10 for 5×18 — width for height |
-| **Burn** | Held. 1.5× for as long as the button is down and the tank has charge: 2.4 s of it, refilling over 8 s, and letting go early keeps what is left. A boost gate refills it, or takes it to 2.1× if you were already burning |
+| **Burn** | Held. 1.5× for as long as the button is down and the tank has charge: 2.4 s of it, refilling over 8 s, and letting go early keeps what is left. Run it dry and it latches off until you release. Both it and gate time spool in and out rather than switching |
+| **Gate time** | A separate 1.5× that a turbo gate grants for 3 s and stacks. Independent of the tank in both directions. Burning *and* gated is 2.1× |
 
 The crosshair is not aimed. It sits where the nose points, and the nose yaws up
 to 0.52 rad with your steering — so *flying* is how you put it on things, and a
@@ -439,7 +440,7 @@ does not need the roll at all.
 | --- | --- | --- |
 | <img src="assets/slot-upright.png" width="150"> | `slot` upright | A slit **13** units wide against a ship that is 5 wide on edge and 14 wide level: it only takes the ship **on edge**, with 4 units of room each side |
 | <img src="assets/slot-flat.png" width="150"> | `slot` flat | A slit **18** units tall against a ship 10 tall level and 18 on edge: it only takes the ship **level**, with 4 units above and below |
-| <img src="assets/boostgate.png" width="150"> | `boostgate` | Green, hexagonal, and the only thing out here that helps: fly through cleanly for +150 and a free burn — or a super burn, 2.1×, if you were already burning. Dims once taken. It is also the one obstacle that cannot hurt you: clip the frame and you simply do not get the burn |
+| <img src="assets/boostgate.png" width="150"> | `boostgate` | Green, hexagonal, and the only thing out here that helps. Fly through the hoop for +150 and **three seconds of speed**, on a stopwatch of its own: it does not spend the burn tank and does not fill it, so a gate is never wasted on a full one, and a second gate adds three more seconds to whatever is left. Take one while holding the burn as well and the two together make the super burn, 2.1×. Nothing about it is solid — the frame stops neither the ship nor a shot, and clipping it simply means you did not go through |
 
 ### Moving
 

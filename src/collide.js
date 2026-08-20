@@ -100,7 +100,14 @@ export function segSphere(ax, ay, az, bx, by, bz, cx, cy, cz, r) {
  */
 export function frameOf(ob, time, out) {
   const a = ob.anim;
-  if (!a) { out[0] = 0; out[1] = 0; out[2] = 1; out[3] = 0; return out; }
+  // A bulkhead sinking into the floor has no `anim` -- it is a static wall that
+  // moves exactly once -- and this used to return before reading dropY, so the
+  // drop was invisible to everything that goes through the frame. The wall was
+  // drawn falling and collided as though it were still standing, right up until
+  // it vanished at the end of the animation: shoot the last panel late and you
+  // flew into a bulkhead that was not there any more. Its outline stayed put
+  // too, so only the hatching appeared to sink.
+  if (!a) { out[0] = 0; out[1] = ob.dropY || 0; out[2] = 1; out[3] = 0; return out; }
   const s = time * a.rate + a.phase;
   out[0] = a.dx ? a.dx * Math.sin(s) : 0;
   out[1] = (a.dy ? a.dy * Math.sin(s + (a.dyPhase || 0)) : 0) + (ob.dropY || 0);

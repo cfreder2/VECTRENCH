@@ -101,7 +101,8 @@ const BOOST_TANK = 2.4;       // seconds of burn in a full tank
 const BOOST_REFILL = 8;       // seconds to fill it from empty
 const BURN_SPOOL_UP = 4;      // 1/rate is the lag in seconds, so about a third of one
 const BURN_SPOOL_DOWN = 6;
-const SUPER_MUL = 2.1;        // a gate taken while already burning
+const SUPER_MUL = 2.1;        // burning and gated at the same time
+const GATE_TIME = 3;          // seconds a turbo gate is worth, and they add up
 
 const SEAL_DROP_SPEED = 190;  // how fast a bulkhead sinks once its panels go
 
@@ -169,8 +170,8 @@ export class Game {
     this.boost = BOOST_TANK;    // seconds of burn left in the tank
     this.burning = false;
     this.burnSpent = false;
-    this.burnRamp = 0;
-    this.boostMul = BOOST_MUL;
+    this.gateTime = 0;
+    this.speedMul = 1;
     this.pitch = 0;
     this.yaw = 0;
     this.shield = SHIELD_MAX;
@@ -233,8 +234,8 @@ export class Game {
     this.boost = BOOST_TANK;
     this.burning = false;
     this.burnSpent = false;
-    this.burnRamp = 0;
-    this.boostMul = BOOST_MUL;
+    this.gateTime = 0;
+    this.speedMul = 1;
     this.phase = 'flying';
   }
 
@@ -313,17 +314,25 @@ export class Game {
       if (this.boost <= 0) { this.burnSpent = true; this.say('BURN SPENT', 0.8); }
     } else {
       this.boost = Math.min(BOOST_TANK, this.boost + dt * (BOOST_TANK / BOOST_REFILL));
-      this.boostMul = BOOST_MUL;
     }
     this.burning = wantBurn;
-    // Spooling, not switching. The multiplier used to step straight from 1 to
+
+    // Two independent sources of speed: the tank you hold open, and gate time,
+    // which is a stopwatch a turbo gate adds three seconds to. A gate neither
+    // spends the tank nor fills it, so taking one with a full tank is never
+    // wasted -- it just runs. Both at once is the super burn.
+    this.gateTime = Math.max(0, this.gateTime - dt);
+    const gated = this.gateTime > 0;
+    const target = wantBurn && gated ? SUPER_MUL
+      : wantBurn || gated ? BOOST_MUL : 1;
+    // Spooling, not switching: the multiplier used to step straight from 1 to
     // 1.5 and back, which is a jolt in the speed, the camera and the engine
     // note all at once. Up is slower than down, the way a jet actually is.
-    this.burnRamp = approach(this.burnRamp, wantBurn ? 1 : 0,
-      wantBurn ? BURN_SPOOL_UP : BURN_SPOOL_DOWN, dt);
+    this.speedMul = approach(this.speedMul, target,
+      this.speedMul < target ? BURN_SPOOL_UP : BURN_SPOOL_DOWN, dt);
     this.knife = approach(this.knife, inp.rolling ? 1 : 0, KNIFE_RATE, dt);
 
-    this.speed = tr.speedAt(this.t) * (1 + (this.boostMul - 1) * this.burnRamp);
+    this.speed = tr.speedAt(this.t) * this.speedMul;
     this.t += this.speed * dt;
 
     const hw = tr.halfWidth(this.t);
@@ -505,14 +514,13 @@ export class Game {
    * a good deal and briefly more speed than the trench really allows.
    */
   takeGate() {
+    this.gateTime += GATE_TIME;
     if (this.burning) {
-      this.boostMul = SUPER_MUL;
-      this.boost = BOOST_TANK;
       this.say('SUPER BURN', 1);
       this.shake = Math.min(1.5, this.shake + 0.5);
     } else {
-      this.boost = BOOST_TANK;
-      this.say('TANK FULL', 0.8);
+      this.say(`BOOST ${this.gateTime.toFixed(0)}`, 0.9);
+      this.shake = Math.min(1.5, this.shake + 0.3);
     }
     this.score += 150;
     this.audio.boost();
@@ -1295,6 +1303,9 @@ export class Game {
       if (ob.t > lt + 30) break;
       if (ob.t + ob.dz < lt - 30) continue;
       if (lt < ob.t || lt > ob.t + ob.dz) continue;
+      // A turbo gate is not solid to anything. Its boxes exist only to answer
+      // "did the ship go through the hoop", so shots pass straight through it.
+      if (ob.kind === 'boostgate') continue;
       if (hitsObstacle(ob, this.time, lx, ly)) return true;
     }
     return false;
