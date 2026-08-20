@@ -124,6 +124,10 @@
 
   /* --- flight --- */
   #flight { display: none; pointer-events: none; }
+  #flight button, #stage {
+    -webkit-user-select: none; user-select: none;
+    -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent;
+  }
   #pause {
     position: absolute; left: 50%; transform: translateX(-50%);
     top: max(10px, env(safe-area-inset-top));
@@ -142,7 +146,12 @@
     width: min(46vw, 260px);
   }
   #pad > button {
-    pointer-events: auto; touch-action: none; user-select: none;
+    pointer-events: auto; touch-action: none;
+    /* Held buttons on iOS: without the webkit spellings, a long press starts
+       selecting the label and puts the magnifier and the selection handles over
+       the game. The unprefixed user-select does not stop it on Safari. */
+    user-select: none; -webkit-user-select: none;
+    -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent;
     font: inherit; letter-spacing: .14em; border-radius: 10px;
   }
   #roll, #burn { padding: 15px 0; font-size: 13px; }
@@ -372,8 +381,8 @@ const PORT_BEAM = {
 const RING_BEAM = {
   arms: 8,
   gap: 22,        // how far past the hoop the tentacle tip sits
-  life: 0.4,
-  interval: 0.1,  // pew pew pew
+  rate: 0.2,      // seconds between tentacles, unless the section says otherwise
+  lit: 4,         // how many stand at once -- which is what sets a beam's life
   spread: 0.055,  // how much the wedge fans out over its length, in radians
   wide: 3,        // half width where it leaves the tentacle
   // How far in front of the hoop the light stands. Without this the beams are
@@ -383,6 +392,16 @@ const RING_BEAM = {
   // the way in cost something, while the hole stays clean.
   lead: 90,
 };
+
+/**
+ * How long one of a ring's beams hangs there.
+ *
+ * Derived from that ring's own fire rate rather than fixed, so slowing a ring
+ * down slows the sweep without thinning the wall: the same four beams stand,
+ * they just take twice as long to go round. The renderer fades on this and the
+ * game expires on it, so it lives here where both can reach it.
+ */
+const ringBeamLife = (ob) => (ob.beamRate || RING_BEAM.rate) * RING_BEAM.lit;
 
 function segSphere(ax, ay, az, bx, by, bz, cx, cy, cz, r) {
   const dx = bx - ax, dy = by - ay, dz = bz - az;
@@ -1034,6 +1053,7 @@ const FIELDS = {
   seals:     { min: 0,    max: 6,    def: 0 },
   panels:    { min: 0,    max: 4,    def: 2, unit: 'shootable panels per bulkhead' },
   slotgap:   { min: 2,    max: 14,   def: 4, unit: 'clearance each side of the ship in a slot' },
+  ringrate:  { min: 0.06, max: 1,    def: 0.2, unit: "seconds between a ring's beams" },
   hue:       { min: 0,    max: 1,    def: 0.5 },
 };
 
@@ -1062,6 +1082,7 @@ function normalizeSection(raw = {}) {
     seals: Math.round(num(raw.seals, FIELDS.seals)),
     panels: Math.round(num(raw.panels, FIELDS.panels)),
     slotgap: num(raw.slotgap, FIELDS.slotgap),
+    ringrate: num(raw.ringrate, FIELDS.ringrate),
     hue: num(raw.hue, FIELDS.hue),
   };
 }
@@ -1157,6 +1178,7 @@ const PREBUILT = [
           "seals": 0,
           "panels": 2,
           "slotgap": 4,
+          "ringrate": 0.2,
           "hue": 0.55
         },
         {
@@ -1180,6 +1202,7 @@ const PREBUILT = [
           "seals": 0,
           "panels": 2,
           "slotgap": 4,
+          "ringrate": 0.2,
           "hue": 0.5
         },
         {
@@ -1203,6 +1226,7 @@ const PREBUILT = [
           "seals": 0,
           "panels": 2,
           "slotgap": 4,
+          "ringrate": 0.2,
           "hue": 0.44
         },
         {
@@ -1226,6 +1250,7 @@ const PREBUILT = [
           "seals": 0,
           "panels": 2,
           "slotgap": 4,
+          "ringrate": 0.2,
           "hue": 0.36
         },
         {
@@ -1249,6 +1274,7 @@ const PREBUILT = [
           "seals": 0,
           "panels": 2,
           "slotgap": 4,
+          "ringrate": 0.2,
           "hue": 0.28
         },
         {
@@ -1272,6 +1298,7 @@ const PREBUILT = [
           "seals": 0,
           "panels": 2,
           "slotgap": 4,
+          "ringrate": 0.2,
           "hue": 0.2
         },
         {
@@ -1295,6 +1322,7 @@ const PREBUILT = [
           "seals": 0,
           "panels": 2,
           "slotgap": 4,
+          "ringrate": 0.2,
           "hue": 0.16
         },
         {
@@ -1319,6 +1347,7 @@ const PREBUILT = [
           "seals": 1,
           "panels": 3,
           "slotgap": 4,
+          "ringrate": 0.2,
           "hue": 0.14
         },
         {
@@ -1342,6 +1371,7 @@ const PREBUILT = [
           "seals": 0,
           "panels": 2,
           "slotgap": 4,
+          "ringrate": 0.2,
           "hue": 0.08
         },
         {
@@ -1366,6 +1396,7 @@ const PREBUILT = [
           "seals": 1,
           "panels": 4,
           "slotgap": 4,
+          "ringrate": 0.2,
           "hue": 0.05
         },
         {
@@ -1391,6 +1422,7 @@ const PREBUILT = [
           "seals": 0,
           "panels": 2,
           "slotgap": 4,
+          "ringrate": 0.2,
           "hue": 0.02
         }
       ]
@@ -1430,6 +1462,7 @@ const PREBUILT = [
           "seals": 0,
           "panels": 2,
           "slotgap": 4,
+          "ringrate": 0.2,
           "hue": 0.5
         },
         {
@@ -1453,6 +1486,7 @@ const PREBUILT = [
           "seals": 0,
           "panels": 2,
           "slotgap": 4,
+          "ringrate": 0.2,
           "hue": 0.5
         },
         {
@@ -1477,6 +1511,7 @@ const PREBUILT = [
           "seals": 0,
           "panels": 2,
           "slotgap": 4,
+          "ringrate": 0.2,
           "hue": 0.51
         },
         {
@@ -1501,6 +1536,7 @@ const PREBUILT = [
           "seals": 0,
           "panels": 2,
           "slotgap": 4,
+          "ringrate": 0.2,
           "hue": 0.51
         },
         {
@@ -1525,6 +1561,7 @@ const PREBUILT = [
           "seals": 1,
           "panels": 3,
           "slotgap": 4,
+          "ringrate": 0.2,
           "hue": 0.52
         },
         {
@@ -1549,6 +1586,7 @@ const PREBUILT = [
           "seals": 0,
           "panels": 2,
           "slotgap": 4,
+          "ringrate": 0.2,
           "hue": 0.52
         }
       ]
@@ -1588,6 +1626,7 @@ const PREBUILT = [
           "seals": 0,
           "panels": 2,
           "slotgap": 4,
+          "ringrate": 0.2,
           "hue": 0.13
         },
         {
@@ -1612,6 +1651,7 @@ const PREBUILT = [
           "seals": 0,
           "panels": 2,
           "slotgap": 4,
+          "ringrate": 0.2,
           "hue": 0.13
         },
         {
@@ -1637,6 +1677,7 @@ const PREBUILT = [
           "seals": 1,
           "panels": 3,
           "slotgap": 4,
+          "ringrate": 0.2,
           "hue": 0.12
         },
         {
@@ -1662,6 +1703,7 @@ const PREBUILT = [
           "seals": 1,
           "panels": 2,
           "slotgap": 4,
+          "ringrate": 0.2,
           "hue": 0.11
         },
         {
@@ -1687,6 +1729,7 @@ const PREBUILT = [
           "seals": 1,
           "panels": 2,
           "slotgap": 4,
+          "ringrate": 0.2,
           "hue": 0.1
         },
         {
@@ -1712,6 +1755,7 @@ const PREBUILT = [
           "seals": 0,
           "panels": 2,
           "slotgap": 4,
+          "ringrate": 0.2,
           "hue": 0.09
         },
         {
@@ -1736,6 +1780,7 @@ const PREBUILT = [
           "seals": 0,
           "panels": 2,
           "slotgap": 4,
+          "ringrate": 0.2,
           "hue": 0.08
         }
       ]
@@ -1775,6 +1820,7 @@ const PREBUILT = [
           "seals": 0,
           "panels": 2,
           "slotgap": 4,
+          "ringrate": 0.2,
           "hue": 0.02
         },
         {
@@ -1800,6 +1846,7 @@ const PREBUILT = [
           "seals": 0,
           "panels": 2,
           "slotgap": 4,
+          "ringrate": 0.2,
           "hue": 0.02
         },
         {
@@ -1824,6 +1871,7 @@ const PREBUILT = [
           "seals": 1,
           "panels": 3,
           "slotgap": 4,
+          "ringrate": 0.2,
           "hue": 0.01
         },
         {
@@ -1849,6 +1897,7 @@ const PREBUILT = [
           "seals": 0,
           "panels": 2,
           "slotgap": 4,
+          "ringrate": 0.2,
           "hue": 0.01
         },
         {
@@ -1874,6 +1923,7 @@ const PREBUILT = [
           "seals": 2,
           "panels": 4,
           "slotgap": 4,
+          "ringrate": 0.2,
           "hue": 0.01
         },
         {
@@ -1899,6 +1949,7 @@ const PREBUILT = [
           "seals": 0,
           "panels": 2,
           "slotgap": 4,
+          "ringrate": 0.2,
           "hue": 0.04
         },
         {
@@ -1923,6 +1974,7 @@ const PREBUILT = [
           "seals": 1,
           "panels": 3,
           "slotgap": 4,
+          "ringrate": 0.2,
           "hue": 0.03
         },
         {
@@ -1946,6 +1998,7 @@ const PREBUILT = [
           "seals": 0,
           "panels": 2,
           "slotgap": 4,
+          "ringrate": 0.2,
           "hue": 0
         }
       ]
@@ -1986,6 +2039,7 @@ const PREBUILT = [
           "seals": 0,
           "panels": 2,
           "slotgap": 4,
+          "ringrate": 0.2,
           "hue": 0.01
         },
         {
@@ -2010,6 +2064,7 @@ const PREBUILT = [
           "seals": 1,
           "panels": 3,
           "slotgap": 4,
+          "ringrate": 0.2,
           "hue": 0.01
         },
         {
@@ -2033,6 +2088,7 @@ const PREBUILT = [
           "seals": 1,
           "panels": 2,
           "slotgap": 4,
+          "ringrate": 0.2,
           "hue": 0.01
         },
         {
@@ -2057,6 +2113,7 @@ const PREBUILT = [
           "seals": 1,
           "panels": 3,
           "slotgap": 4,
+          "ringrate": 0.2,
           "hue": 0.02
         },
         {
@@ -2081,6 +2138,7 @@ const PREBUILT = [
           "seals": 1,
           "panels": 2,
           "slotgap": 4,
+          "ringrate": 0.2,
           "hue": 0.01
         },
         {
@@ -2105,6 +2163,7 @@ const PREBUILT = [
           "seals": 0,
           "panels": 2,
           "slotgap": 4,
+          "ringrate": 0.2,
           "hue": 0
         }
       ]
@@ -2112,206 +2171,287 @@ const PREBUILT = [
   },
   {
     label: "THE ESSES",
-    blurb: "A river, not a road. It snakes hard the whole way and the walls come at you from the side, with nine slits that alternate upright and flat so the ship spends the run rolling onto its edge and back, and turbo gates down the straights.",
+    blurb: "A river with room to think. Every bend is followed by a straight to line up on and then a run of slits -- wide enough to fly through level at first, and by the last set only the ship on its edge will pass. A little faster out of every S.",
     spec: {
       "name": "THE ESSES",
-      "seed": 8121,
+      "seed": 1265,
       "speed": {
-        "start": 250,
-        "end": 430
+        "start": 240,
+        "end": 400
       },
       "finale": "port",
       "armedPort": false,
       "sections": [
         {
-          "name": "the run in",
-          "length": 3000,
-          "width": 104,
-          "depth": 104,
-          "curviness": 0.9,
-          "snaking": 0.85,
+          "name": "open water",
+          "length": 2200,
+          "width": 120,
+          "depth": 118,
+          "curviness": 0.5,
+          "snaking": 0.3,
           "hilliness": 0.3,
-          "roughness": 0.42,
-          "obstacles": 0.2,
+          "roughness": 0.45,
+          "obstacles": 0.12,
           "kinds": [
-            "pylon"
+            "pylon",
+            "boostgate"
           ],
-          "turrets": 0.28,
-          "gatlings": 0.3,
-          "batteries": 0.22,
-          "wallguns": 0.3,
+          "turrets": 0.22,
+          "gatlings": 0.26,
+          "batteries": 0.2,
+          "wallguns": 0.2,
           "drones": 0.2,
           "seals": 0,
           "panels": 2,
           "slotgap": 4,
-          "hue": 0.42
+          "ringrate": 0.2,
+          "hue": 0.55
         },
         {
           "name": "first bend",
-          "length": 3000,
-          "width": 96,
-          "depth": 112,
+          "length": 2200,
+          "width": 120,
+          "depth": 118,
           "curviness": 0.9,
-          "snaking": 0.85,
+          "snaking": 0.55,
           "hilliness": 0.3,
-          "roughness": 0.42,
-          "obstacles": 0.34,
+          "roughness": 0.45,
+          "obstacles": 0.2,
           "kinds": [
-            "slot",
-            "pylon"
+            "pylon",
+            "fang"
           ],
-          "turrets": 0.28,
-          "gatlings": 0.3,
-          "batteries": 0.22,
-          "wallguns": 0.3,
+          "turrets": 0.22,
+          "gatlings": 0.26,
+          "batteries": 0.2,
+          "wallguns": 0.2,
           "drones": 0.24,
           "seals": 0,
           "panels": 2,
           "slotgap": 4,
+          "ringrate": 0.2,
+          "hue": 0.52
+        },
+        {
+          "name": "line up",
+          "length": 2200,
+          "width": 120,
+          "depth": 118,
+          "curviness": 0.12,
+          "snaking": 0.02,
+          "hilliness": 0.3,
+          "roughness": 0.45,
+          "obstacles": 0.42,
+          "kinds": [
+            "boostgate"
+          ],
+          "turrets": 0.22,
+          "gatlings": 0.26,
+          "batteries": 0.2,
+          "wallguns": 0.2,
+          "drones": 0.5,
+          "seals": 0,
+          "panels": 2,
+          "slotgap": 4,
+          "ringrate": 0.2,
+          "hue": 0.48
+        },
+        {
+          "name": "the wide slits",
+          "length": 2600,
+          "width": 120,
+          "depth": 118,
+          "curviness": 0.12,
+          "snaking": 0.02,
+          "hilliness": 0.3,
+          "roughness": 0.45,
+          "obstacles": 0.9,
+          "kinds": [
+            "slot",
+            "boostgate"
+          ],
+          "turrets": 0.22,
+          "gatlings": 0.26,
+          "batteries": 0.2,
+          "wallguns": 0.2,
+          "drones": 0.15,
+          "seals": 0,
+          "panels": 2,
+          "slotgap": 11,
+          "ringrate": 0.2,
+          "hue": 0.44
+        },
+        {
+          "name": "second bend",
+          "length": 2200,
+          "width": 120,
+          "depth": 118,
+          "curviness": 0.9,
+          "snaking": 0.6,
+          "hilliness": 0.3,
+          "roughness": 0.45,
+          "obstacles": 0.24,
+          "kinds": [
+            "pylon",
+            "fang"
+          ],
+          "turrets": 0.22,
+          "gatlings": 0.26,
+          "batteries": 0.2,
+          "wallguns": 0.2,
+          "drones": 0.24,
+          "seals": 0,
+          "panels": 2,
+          "slotgap": 4,
+          "ringrate": 0.2,
           "hue": 0.38
         },
         {
-          "name": "the cracks",
-          "length": 3000,
-          "width": 88,
+          "name": "line up again",
+          "length": 2200,
+          "width": 120,
           "depth": 118,
-          "curviness": 0.9,
-          "snaking": 0.85,
+          "curviness": 0.12,
+          "snaking": 0.02,
           "hilliness": 0.3,
-          "roughness": 0.42,
-          "obstacles": 0.44,
-          "kinds": [
-            "slot"
-          ],
-          "turrets": 0.28,
-          "gatlings": 0.3,
-          "batteries": 0.22,
-          "wallguns": 0.3,
-          "drones": 0.24,
-          "seals": 0,
-          "panels": 2,
-          "slotgap": 4,
-          "hue": 0.33
-        },
-        {
-          "name": "turn and burn",
-          "length": 3000,
-          "width": 84,
-          "depth": 120,
-          "curviness": 0.9,
-          "snaking": 0.85,
-          "hilliness": 0.3,
-          "roughness": 0.42,
-          "obstacles": 0.38,
-          "kinds": [
-            "slot",
-            "boostgate"
-          ],
-          "turrets": 0.28,
-          "gatlings": 0.3,
-          "batteries": 0.22,
-          "wallguns": 0.3,
-          "drones": 0.24,
-          "seals": 0,
-          "panels": 2,
-          "slotgap": 4,
-          "hue": 0.28
-        },
-        {
-          "name": "back the other way",
-          "length": 3000,
-          "width": 80,
-          "depth": 124,
-          "curviness": 0.9,
-          "snaking": 0.85,
-          "hilliness": 0.3,
-          "roughness": 0.42,
+          "roughness": 0.45,
           "obstacles": 0.42,
           "kinds": [
-            "slot",
-            "gate"
+            "boostgate"
           ],
-          "turrets": 0.4,
-          "gatlings": 0.42,
-          "batteries": 0.22,
-          "wallguns": 0.3,
-          "drones": 0.24,
+          "turrets": 0.22,
+          "gatlings": 0.26,
+          "batteries": 0.2,
+          "wallguns": 0.2,
+          "drones": 0.55,
           "seals": 0,
           "panels": 2,
           "slotgap": 4,
-          "hue": 0.22
+          "ringrate": 0.2,
+          "hue": 0.32
         },
         {
-          "name": "the letterboxes",
-          "length": 3000,
-          "width": 76,
-          "depth": 126,
-          "curviness": 0.9,
-          "snaking": 0.85,
+          "name": "narrower",
+          "length": 2600,
+          "width": 120,
+          "depth": 118,
+          "curviness": 0.12,
+          "snaking": 0.02,
           "hilliness": 0.3,
-          "roughness": 0.42,
-          "obstacles": 0.46,
+          "roughness": 0.45,
+          "obstacles": 0.9,
           "kinds": [
             "slot",
             "boostgate"
           ],
-          "turrets": 0.28,
-          "gatlings": 0.3,
-          "batteries": 0.22,
-          "wallguns": 0.3,
-          "drones": 0.24,
+          "turrets": 0.22,
+          "gatlings": 0.26,
+          "batteries": 0.2,
+          "wallguns": 0.2,
+          "drones": 0.15,
           "seals": 0,
           "panels": 2,
-          "slotgap": 4,
-          "hue": 0.16
+          "slotgap": 7,
+          "ringrate": 0.2,
+          "hue": 0.26
         },
         {
-          "name": "last crack",
-          "length": 3000,
-          "width": 72,
-          "depth": 124,
+          "name": "the hard bend",
+          "length": 2200,
+          "width": 120,
+          "depth": 118,
           "curviness": 0.9,
-          "snaking": 0.85,
+          "snaking": 0.68,
           "hilliness": 0.3,
-          "roughness": 0.42,
-          "obstacles": 0.44,
+          "roughness": 0.45,
+          "obstacles": 0.28,
           "kinds": [
-            "slot",
-            "ring"
+            "pylon",
+            "fang"
           ],
-          "turrets": 0.28,
-          "gatlings": 0.3,
-          "batteries": 0.22,
-          "wallguns": 0.4,
+          "turrets": 0.22,
+          "gatlings": 0.26,
+          "batteries": 0.2,
+          "wallguns": 0.2,
           "drones": 0.24,
           "seals": 0,
           "panels": 2,
           "slotgap": 4,
-          "hue": 0.1
+          "ringrate": 0.2,
+          "hue": 0.2
+        },
+        {
+          "name": "last runway",
+          "length": 2200,
+          "width": 120,
+          "depth": 118,
+          "curviness": 0.12,
+          "snaking": 0.02,
+          "hilliness": 0.3,
+          "roughness": 0.45,
+          "obstacles": 0.42,
+          "kinds": [
+            "boostgate"
+          ],
+          "turrets": 0.22,
+          "gatlings": 0.26,
+          "batteries": 0.2,
+          "wallguns": 0.2,
+          "drones": 0.6,
+          "seals": 0,
+          "panels": 2,
+          "slotgap": 4,
+          "ringrate": 0.2,
+          "hue": 0.14
+        },
+        {
+          "name": "on edge",
+          "length": 2600,
+          "width": 120,
+          "depth": 118,
+          "curviness": 0.12,
+          "snaking": 0.02,
+          "hilliness": 0.3,
+          "roughness": 0.45,
+          "obstacles": 0.9,
+          "kinds": [
+            "slot",
+            "boostgate"
+          ],
+          "turrets": 0.22,
+          "gatlings": 0.26,
+          "batteries": 0.2,
+          "wallguns": 0.2,
+          "drones": 0.15,
+          "seals": 0,
+          "panels": 2,
+          "slotgap": 4,
+          "ringrate": 0.2,
+          "hue": 0.08
         },
         {
           "name": "run to the port",
-          "length": 3000,
-          "width": 70,
+          "length": 2200,
+          "width": 120,
           "depth": 118,
-          "curviness": 0.9,
-          "snaking": 0.85,
+          "curviness": 0.5,
+          "snaking": 0.3,
           "hilliness": 0.3,
-          "roughness": 0.42,
-          "obstacles": 0.36,
+          "roughness": 0.45,
+          "obstacles": 0.42,
           "kinds": [
-            "boostgate",
-            "gate"
+            "ring"
           ],
-          "turrets": 0.28,
-          "gatlings": 0.3,
-          "batteries": 0.22,
-          "wallguns": 0.3,
+          "turrets": 0.22,
+          "gatlings": 0.26,
+          "batteries": 0.2,
+          "wallguns": 0.2,
           "drones": 0.24,
           "seals": 0,
           "panels": 2,
           "slotgap": 4,
-          "hue": 0.05
+          "ringrate": 0.2,
+          "hue": 0.02
         }
       ]
     },
@@ -2895,7 +3035,7 @@ function buildLevel(spec, track) {
           [cx + r, hw + 30, -30, rim + 14],
           [cx - r, cx + r, cy + r, rim + 14],
           [cx - r, cx + r, -30, cy - r],
-        ], { ring: { cx, cy, r } }));
+        ], { ring: { cx, cy, r }, beamRate: sec.ringrate }));
       } else if (kind === 'pinwheel' || kind === 'cross') {
         // Arms radiating from the trench centre, turning. Collision keeps the
         // arms as plain boxes and turns the frame instead, so a pinwheel costs
@@ -3561,7 +3701,7 @@ function drawObstacles(rd, track, obstacles, cursor, camT, far, time) {
       // glass. Bright orange as it leaves, yellow as it goes.
       if (ob.beams) {
         for (const b of ob.beams) {
-          const age = Math.min(1, (time - b.born) / RING_BEAM.life);
+          const age = Math.min(1, (time - b.born) / ringBeamLife(ob));
           const ca = Math.cos(b.ang), sa = Math.sin(b.ang);
           const nx = -sa, ny = ca;
           const w0 = RING_BEAM.wide;
@@ -5651,6 +5791,8 @@ const KNIFE_RATE = 4.2;       // how fast it goes over, and comes back
 const BOOST_MUL = 1.5;
 const BOOST_TANK = 2.4;       // seconds of burn in a full tank
 const BOOST_REFILL = 8;       // seconds to fill it from empty
+const BURN_SPOOL_UP = 4;      // 1/rate is the lag in seconds, so about a third of one
+const BURN_SPOOL_DOWN = 6;
 const SUPER_MUL = 2.1;        // a gate taken while already burning
 
 const SEAL_DROP_SPEED = 190;  // how fast a bulkhead sinks once its panels go
@@ -5718,6 +5860,8 @@ class Game {
     this.knife = 0;             // 0 level, 1 fully on edge
     this.boost = BOOST_TANK;    // seconds of burn left in the tank
     this.burning = false;
+    this.burnSpent = false;
+    this.burnRamp = 0;
     this.boostMul = BOOST_MUL;
     this.pitch = 0;
     this.yaw = 0;
@@ -5780,6 +5924,8 @@ class Game {
     this.knife = 0;
     this.boost = BOOST_TANK;
     this.burning = false;
+    this.burnSpent = false;
+    this.burnRamp = 0;
     this.boostMul = BOOST_MUL;
     this.phase = 'flying';
   }
@@ -5846,19 +5992,30 @@ class Game {
     const inp = this.input;
 
     // The burn, and the ship going over onto its edge.
-    const wantBurn = inp.boosting && this.boost > 0;
+    // Running the tank dry latches the burn off until the button is released.
+    // Without that it refills a hair the moment it stops burning, re-lights on
+    // the next frame, empties again -- and the whole thing stutters on and off
+    // several times a second, re-triggering the ignition each time. That is
+    // the jarring noise. Hold it dry now and it simply stops.
+    if (!inp.boosting) this.burnSpent = false;
+    const wantBurn = inp.boosting && !this.burnSpent && this.boost > 0;
     if (wantBurn) {
       if (!this.burning) { this.say('BURN', 0.7); this.audio.boost(); }
       this.boost = Math.max(0, this.boost - dt);
-      if (this.boost <= 0) this.say('BURN SPENT', 0.8);
+      if (this.boost <= 0) { this.burnSpent = true; this.say('BURN SPENT', 0.8); }
     } else {
       this.boost = Math.min(BOOST_TANK, this.boost + dt * (BOOST_TANK / BOOST_REFILL));
       this.boostMul = BOOST_MUL;
     }
-    this.burning = wantBurn && this.boost > 0;
+    this.burning = wantBurn;
+    // Spooling, not switching. The multiplier used to step straight from 1 to
+    // 1.5 and back, which is a jolt in the speed, the camera and the engine
+    // note all at once. Up is slower than down, the way a jet actually is.
+    this.burnRamp = approach(this.burnRamp, wantBurn ? 1 : 0,
+      wantBurn ? BURN_SPOOL_UP : BURN_SPOOL_DOWN, dt);
     this.knife = approach(this.knife, inp.rolling ? 1 : 0, KNIFE_RATE, dt);
 
-    this.speed = tr.speedAt(this.t) * (this.burning ? this.boostMul : 1);
+    this.speed = tr.speedAt(this.t) * (1 + (this.boostMul - 1) * this.burnRamp);
     this.t += this.speed * dt;
 
     const hw = tr.halfWidth(this.t);
@@ -6401,14 +6558,14 @@ class Game {
       if (!ob.beams) {
         ob.beams = [];
         ob.beamArm = (RING_TOP_ARM + 1) % RING_BEAM.arms;
-        ob.beamTimer = hash2(ob.t | 0, 11) * RING_BEAM.interval;
+        ob.beamTimer = hash2(ob.t | 0, 11) * (ob.beamRate || RING_BEAM.rate);
       }
       for (let i = ob.beams.length - 1; i >= 0; i--) {
-        if (now - ob.beams[i].born > RING_BEAM.life) ob.beams.splice(i, 1);
+        if (now - ob.beams[i].born > ringBeamLife(ob)) ob.beams.splice(i, 1);
       }
       ob.beamTimer -= dt;
       if (ob.beamTimer > 0) continue;
-      ob.beamTimer += RING_BEAM.interval;
+      ob.beamTimer += ob.beamRate || RING_BEAM.rate;
       ob.beamArm = (ob.beamArm - 1 + RING_BEAM.arms) % RING_BEAM.arms;
       const hw = this.track.halfWidth(ob.t);
       const rim = this.track.rim(ob.t);

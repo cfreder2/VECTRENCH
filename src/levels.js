@@ -39,6 +39,7 @@ export const PREBUILT = [
           "seals": 0,
           "panels": 2,
           "slotgap": 4,
+          "ringrate": 0.2,
           "hue": 0.55
         },
         {
@@ -62,6 +63,7 @@ export const PREBUILT = [
           "seals": 0,
           "panels": 2,
           "slotgap": 4,
+          "ringrate": 0.2,
           "hue": 0.5
         },
         {
@@ -85,6 +87,7 @@ export const PREBUILT = [
           "seals": 0,
           "panels": 2,
           "slotgap": 4,
+          "ringrate": 0.2,
           "hue": 0.44
         },
         {
@@ -108,6 +111,7 @@ export const PREBUILT = [
           "seals": 0,
           "panels": 2,
           "slotgap": 4,
+          "ringrate": 0.2,
           "hue": 0.36
         },
         {
@@ -131,6 +135,7 @@ export const PREBUILT = [
           "seals": 0,
           "panels": 2,
           "slotgap": 4,
+          "ringrate": 0.2,
           "hue": 0.28
         },
         {
@@ -154,6 +159,7 @@ export const PREBUILT = [
           "seals": 0,
           "panels": 2,
           "slotgap": 4,
+          "ringrate": 0.2,
           "hue": 0.2
         },
         {
@@ -177,6 +183,7 @@ export const PREBUILT = [
           "seals": 0,
           "panels": 2,
           "slotgap": 4,
+          "ringrate": 0.2,
           "hue": 0.16
         },
         {
@@ -201,6 +208,7 @@ export const PREBUILT = [
           "seals": 1,
           "panels": 3,
           "slotgap": 4,
+          "ringrate": 0.2,
           "hue": 0.14
         },
         {
@@ -224,6 +232,7 @@ export const PREBUILT = [
           "seals": 0,
           "panels": 2,
           "slotgap": 4,
+          "ringrate": 0.2,
           "hue": 0.08
         },
         {
@@ -248,6 +257,7 @@ export const PREBUILT = [
           "seals": 1,
           "panels": 4,
           "slotgap": 4,
+          "ringrate": 0.2,
           "hue": 0.05
         },
         {
@@ -273,6 +283,7 @@ export const PREBUILT = [
           "seals": 0,
           "panels": 2,
           "slotgap": 4,
+          "ringrate": 0.2,
           "hue": 0.02
         }
       ]
@@ -312,6 +323,7 @@ export const PREBUILT = [
           "seals": 0,
           "panels": 2,
           "slotgap": 4,
+          "ringrate": 0.2,
           "hue": 0.5
         },
         {
@@ -335,6 +347,7 @@ export const PREBUILT = [
           "seals": 0,
           "panels": 2,
           "slotgap": 4,
+          "ringrate": 0.2,
           "hue": 0.5
         },
         {
@@ -359,6 +372,7 @@ export const PREBUILT = [
           "seals": 0,
           "panels": 2,
           "slotgap": 4,
+          "ringrate": 0.2,
           "hue": 0.51
         },
         {
@@ -383,6 +397,7 @@ export const PREBUILT = [
           "seals": 0,
           "panels": 2,
           "slotgap": 4,
+          "ringrate": 0.2,
           "hue": 0.51
         },
         {
@@ -407,6 +422,7 @@ export const PREBUILT = [
           "seals": 1,
           "panels": 3,
           "slotgap": 4,
+          "ringrate": 0.2,
           "hue": 0.52
         },
         {
@@ -431,6 +447,7 @@ export const PREBUILT = [
           "seals": 0,
           "panels": 2,
           "slotgap": 4,
+          "ringrate": 0.2,
           "hue": 0.52
         }
       ]
@@ -470,6 +487,7 @@ export const PREBUILT = [
           "seals": 0,
           "panels": 2,
           "slotgap": 4,
+          "ringrate": 0.2,
           "hue": 0.13
         },
         {
@@ -494,6 +512,7 @@ export const PREBUILT = [
           "seals": 0,
           "panels": 2,
           "slotgap": 4,
+          "ringrate": 0.2,
           "hue": 0.13
         },
         {
@@ -519,6 +538,7 @@ export const PREBUILT = [
           "seals": 1,
           "panels": 3,
           "slotgap": 4,
+          "ringrate": 0.2,
           "hue": 0.12
         },
         {
@@ -544,6 +564,7 @@ export const PREBUILT = [
           "seals": 1,
           "panels": 2,
           "slotgap": 4,
+          "ringrate": 0.2,
           "hue": 0.11
         },
         {
@@ -569,6 +590,7 @@ export const PREBUILT = [
           "seals": 1,
           "panels": 2,
           "slotgap": 4,
+          "ringrate": 0.2,
           "hue": 0.1
         },
         {
@@ -594,6 +616,7 @@ export const PREBUILT = [
           "seals": 0,
           "panels": 2,
           "slotgap": 4,
+          "ringrate": 0.2,
           "hue": 0.09
         },
         {
@@ -618,6 +641,7 @@ export const PREBUILT = [
           "seals": 0,
           "panels": 2,
           "slotgap": 4,
+          "ringrate": 0.2,
           "hue": 0.08
         }
       ]
@@ -657,6 +681,7 @@ export const PREBUILT = [
           "seals": 0,
           "panels": 2,
           "slotgap": 4,
+          "ringrate": 0.2,
           "hue": 0.02
         },
         {
@@ -682,6 +707,7 @@ export const PREBUILT = [
           "seals": 0,
           "panels": 2,
           "slotgap": 4,
+          "ringrate": 0.2,
           "hue": 0.02
         },
         {
@@ -706,6 +732,7 @@ export const PREBUILT = [
           "seals": 1,
           "panels": 3,
           "slotgap": 4,
+          "ringrate": 0.2,
           "hue": 0.01
         },
         {
@@ -731,6 +758,7 @@ export const PREBUILT = [
           "seals": 0,
           "panels": 2,
           "slotgap": 4,
+          "ringrate": 0.2,
           "hue": 0.01
         },
         {
@@ -756,6 +784,7 @@ export const PREBUILT = [
           "seals": 2,
           "panels": 4,
           "slotgap": 4,
+          "ringrate": 0.2,
           "hue": 0.01
         },
         {
@@ -781,6 +810,7 @@ export const PREBUILT = [
           "seals": 0,
           "panels": 2,
           "slotgap": 4,
+          "ringrate": 0.2,
           "hue": 0.04
         },
         {
@@ -805,6 +835,7 @@ export const PREBUILT = [
           "seals": 1,
           "panels": 3,
           "slotgap": 4,
+          "ringrate": 0.2,
           "hue": 0.03
         },
         {
@@ -828,6 +859,7 @@ export const PREBUILT = [
           "seals": 0,
           "panels": 2,
           "slotgap": 4,
+          "ringrate": 0.2,
           "hue": 0
         }
       ]
@@ -868,6 +900,7 @@ export const PREBUILT = [
           "seals": 0,
           "panels": 2,
           "slotgap": 4,
+          "ringrate": 0.2,
           "hue": 0.01
         },
         {
@@ -892,6 +925,7 @@ export const PREBUILT = [
           "seals": 1,
           "panels": 3,
           "slotgap": 4,
+          "ringrate": 0.2,
           "hue": 0.01
         },
         {
@@ -915,6 +949,7 @@ export const PREBUILT = [
           "seals": 1,
           "panels": 2,
           "slotgap": 4,
+          "ringrate": 0.2,
           "hue": 0.01
         },
         {
@@ -939,6 +974,7 @@ export const PREBUILT = [
           "seals": 1,
           "panels": 3,
           "slotgap": 4,
+          "ringrate": 0.2,
           "hue": 0.02
         },
         {
@@ -963,6 +999,7 @@ export const PREBUILT = [
           "seals": 1,
           "panels": 2,
           "slotgap": 4,
+          "ringrate": 0.2,
           "hue": 0.01
         },
         {
@@ -987,6 +1024,7 @@ export const PREBUILT = [
           "seals": 0,
           "panels": 2,
           "slotgap": 4,
+          "ringrate": 0.2,
           "hue": 0
         }
       ]
@@ -994,206 +1032,287 @@ export const PREBUILT = [
   },
   {
     label: "THE ESSES",
-    blurb: "A river, not a road. It snakes hard the whole way and the walls come at you from the side, with nine slits that alternate upright and flat so the ship spends the run rolling onto its edge and back, and turbo gates down the straights.",
+    blurb: "A river with room to think. Every bend is followed by a straight to line up on and then a run of slits -- wide enough to fly through level at first, and by the last set only the ship on its edge will pass. A little faster out of every S.",
     spec: {
       "name": "THE ESSES",
-      "seed": 8121,
+      "seed": 1265,
       "speed": {
-        "start": 250,
-        "end": 430
+        "start": 240,
+        "end": 400
       },
       "finale": "port",
       "armedPort": false,
       "sections": [
         {
-          "name": "the run in",
-          "length": 3000,
-          "width": 104,
-          "depth": 104,
-          "curviness": 0.9,
-          "snaking": 0.85,
+          "name": "open water",
+          "length": 2200,
+          "width": 120,
+          "depth": 118,
+          "curviness": 0.5,
+          "snaking": 0.3,
           "hilliness": 0.3,
-          "roughness": 0.42,
-          "obstacles": 0.2,
+          "roughness": 0.45,
+          "obstacles": 0.12,
           "kinds": [
-            "pylon"
+            "pylon",
+            "boostgate"
           ],
-          "turrets": 0.28,
-          "gatlings": 0.3,
-          "batteries": 0.22,
-          "wallguns": 0.3,
+          "turrets": 0.22,
+          "gatlings": 0.26,
+          "batteries": 0.2,
+          "wallguns": 0.2,
           "drones": 0.2,
           "seals": 0,
           "panels": 2,
           "slotgap": 4,
-          "hue": 0.42
+          "ringrate": 0.2,
+          "hue": 0.55
         },
         {
           "name": "first bend",
-          "length": 3000,
-          "width": 96,
-          "depth": 112,
+          "length": 2200,
+          "width": 120,
+          "depth": 118,
           "curviness": 0.9,
-          "snaking": 0.85,
+          "snaking": 0.55,
           "hilliness": 0.3,
-          "roughness": 0.42,
-          "obstacles": 0.34,
+          "roughness": 0.45,
+          "obstacles": 0.2,
           "kinds": [
-            "slot",
-            "pylon"
+            "pylon",
+            "fang"
           ],
-          "turrets": 0.28,
-          "gatlings": 0.3,
-          "batteries": 0.22,
-          "wallguns": 0.3,
+          "turrets": 0.22,
+          "gatlings": 0.26,
+          "batteries": 0.2,
+          "wallguns": 0.2,
           "drones": 0.24,
           "seals": 0,
           "panels": 2,
           "slotgap": 4,
+          "ringrate": 0.2,
+          "hue": 0.52
+        },
+        {
+          "name": "line up",
+          "length": 2200,
+          "width": 120,
+          "depth": 118,
+          "curviness": 0.12,
+          "snaking": 0.02,
+          "hilliness": 0.3,
+          "roughness": 0.45,
+          "obstacles": 0.42,
+          "kinds": [
+            "boostgate"
+          ],
+          "turrets": 0.22,
+          "gatlings": 0.26,
+          "batteries": 0.2,
+          "wallguns": 0.2,
+          "drones": 0.5,
+          "seals": 0,
+          "panels": 2,
+          "slotgap": 4,
+          "ringrate": 0.2,
+          "hue": 0.48
+        },
+        {
+          "name": "the wide slits",
+          "length": 2600,
+          "width": 120,
+          "depth": 118,
+          "curviness": 0.12,
+          "snaking": 0.02,
+          "hilliness": 0.3,
+          "roughness": 0.45,
+          "obstacles": 0.9,
+          "kinds": [
+            "slot",
+            "boostgate"
+          ],
+          "turrets": 0.22,
+          "gatlings": 0.26,
+          "batteries": 0.2,
+          "wallguns": 0.2,
+          "drones": 0.15,
+          "seals": 0,
+          "panels": 2,
+          "slotgap": 11,
+          "ringrate": 0.2,
+          "hue": 0.44
+        },
+        {
+          "name": "second bend",
+          "length": 2200,
+          "width": 120,
+          "depth": 118,
+          "curviness": 0.9,
+          "snaking": 0.6,
+          "hilliness": 0.3,
+          "roughness": 0.45,
+          "obstacles": 0.24,
+          "kinds": [
+            "pylon",
+            "fang"
+          ],
+          "turrets": 0.22,
+          "gatlings": 0.26,
+          "batteries": 0.2,
+          "wallguns": 0.2,
+          "drones": 0.24,
+          "seals": 0,
+          "panels": 2,
+          "slotgap": 4,
+          "ringrate": 0.2,
           "hue": 0.38
         },
         {
-          "name": "the cracks",
-          "length": 3000,
-          "width": 88,
+          "name": "line up again",
+          "length": 2200,
+          "width": 120,
           "depth": 118,
-          "curviness": 0.9,
-          "snaking": 0.85,
+          "curviness": 0.12,
+          "snaking": 0.02,
           "hilliness": 0.3,
-          "roughness": 0.42,
-          "obstacles": 0.44,
-          "kinds": [
-            "slot"
-          ],
-          "turrets": 0.28,
-          "gatlings": 0.3,
-          "batteries": 0.22,
-          "wallguns": 0.3,
-          "drones": 0.24,
-          "seals": 0,
-          "panels": 2,
-          "slotgap": 4,
-          "hue": 0.33
-        },
-        {
-          "name": "turn and burn",
-          "length": 3000,
-          "width": 84,
-          "depth": 120,
-          "curviness": 0.9,
-          "snaking": 0.85,
-          "hilliness": 0.3,
-          "roughness": 0.42,
-          "obstacles": 0.38,
-          "kinds": [
-            "slot",
-            "boostgate"
-          ],
-          "turrets": 0.28,
-          "gatlings": 0.3,
-          "batteries": 0.22,
-          "wallguns": 0.3,
-          "drones": 0.24,
-          "seals": 0,
-          "panels": 2,
-          "slotgap": 4,
-          "hue": 0.28
-        },
-        {
-          "name": "back the other way",
-          "length": 3000,
-          "width": 80,
-          "depth": 124,
-          "curviness": 0.9,
-          "snaking": 0.85,
-          "hilliness": 0.3,
-          "roughness": 0.42,
+          "roughness": 0.45,
           "obstacles": 0.42,
           "kinds": [
-            "slot",
-            "gate"
+            "boostgate"
           ],
-          "turrets": 0.4,
-          "gatlings": 0.42,
-          "batteries": 0.22,
-          "wallguns": 0.3,
-          "drones": 0.24,
+          "turrets": 0.22,
+          "gatlings": 0.26,
+          "batteries": 0.2,
+          "wallguns": 0.2,
+          "drones": 0.55,
           "seals": 0,
           "panels": 2,
           "slotgap": 4,
-          "hue": 0.22
+          "ringrate": 0.2,
+          "hue": 0.32
         },
         {
-          "name": "the letterboxes",
-          "length": 3000,
-          "width": 76,
-          "depth": 126,
-          "curviness": 0.9,
-          "snaking": 0.85,
+          "name": "narrower",
+          "length": 2600,
+          "width": 120,
+          "depth": 118,
+          "curviness": 0.12,
+          "snaking": 0.02,
           "hilliness": 0.3,
-          "roughness": 0.42,
-          "obstacles": 0.46,
+          "roughness": 0.45,
+          "obstacles": 0.9,
           "kinds": [
             "slot",
             "boostgate"
           ],
-          "turrets": 0.28,
-          "gatlings": 0.3,
-          "batteries": 0.22,
-          "wallguns": 0.3,
-          "drones": 0.24,
+          "turrets": 0.22,
+          "gatlings": 0.26,
+          "batteries": 0.2,
+          "wallguns": 0.2,
+          "drones": 0.15,
           "seals": 0,
           "panels": 2,
-          "slotgap": 4,
-          "hue": 0.16
+          "slotgap": 7,
+          "ringrate": 0.2,
+          "hue": 0.26
         },
         {
-          "name": "last crack",
-          "length": 3000,
-          "width": 72,
-          "depth": 124,
+          "name": "the hard bend",
+          "length": 2200,
+          "width": 120,
+          "depth": 118,
           "curviness": 0.9,
-          "snaking": 0.85,
+          "snaking": 0.68,
           "hilliness": 0.3,
-          "roughness": 0.42,
-          "obstacles": 0.44,
+          "roughness": 0.45,
+          "obstacles": 0.28,
           "kinds": [
-            "slot",
-            "ring"
+            "pylon",
+            "fang"
           ],
-          "turrets": 0.28,
-          "gatlings": 0.3,
-          "batteries": 0.22,
-          "wallguns": 0.4,
+          "turrets": 0.22,
+          "gatlings": 0.26,
+          "batteries": 0.2,
+          "wallguns": 0.2,
           "drones": 0.24,
           "seals": 0,
           "panels": 2,
           "slotgap": 4,
-          "hue": 0.1
+          "ringrate": 0.2,
+          "hue": 0.2
+        },
+        {
+          "name": "last runway",
+          "length": 2200,
+          "width": 120,
+          "depth": 118,
+          "curviness": 0.12,
+          "snaking": 0.02,
+          "hilliness": 0.3,
+          "roughness": 0.45,
+          "obstacles": 0.42,
+          "kinds": [
+            "boostgate"
+          ],
+          "turrets": 0.22,
+          "gatlings": 0.26,
+          "batteries": 0.2,
+          "wallguns": 0.2,
+          "drones": 0.6,
+          "seals": 0,
+          "panels": 2,
+          "slotgap": 4,
+          "ringrate": 0.2,
+          "hue": 0.14
+        },
+        {
+          "name": "on edge",
+          "length": 2600,
+          "width": 120,
+          "depth": 118,
+          "curviness": 0.12,
+          "snaking": 0.02,
+          "hilliness": 0.3,
+          "roughness": 0.45,
+          "obstacles": 0.9,
+          "kinds": [
+            "slot",
+            "boostgate"
+          ],
+          "turrets": 0.22,
+          "gatlings": 0.26,
+          "batteries": 0.2,
+          "wallguns": 0.2,
+          "drones": 0.15,
+          "seals": 0,
+          "panels": 2,
+          "slotgap": 4,
+          "ringrate": 0.2,
+          "hue": 0.08
         },
         {
           "name": "run to the port",
-          "length": 3000,
-          "width": 70,
+          "length": 2200,
+          "width": 120,
           "depth": 118,
-          "curviness": 0.9,
-          "snaking": 0.85,
+          "curviness": 0.5,
+          "snaking": 0.3,
           "hilliness": 0.3,
-          "roughness": 0.42,
-          "obstacles": 0.36,
+          "roughness": 0.45,
+          "obstacles": 0.42,
           "kinds": [
-            "boostgate",
-            "gate"
+            "ring"
           ],
-          "turrets": 0.28,
-          "gatlings": 0.3,
-          "batteries": 0.22,
-          "wallguns": 0.3,
+          "turrets": 0.22,
+          "gatlings": 0.26,
+          "batteries": 0.2,
+          "wallguns": 0.2,
           "drones": 0.24,
           "seals": 0,
           "panels": 2,
           "slotgap": 4,
-          "hue": 0.05
+          "ringrate": 0.2,
+          "hue": 0.02
         }
       ]
     },

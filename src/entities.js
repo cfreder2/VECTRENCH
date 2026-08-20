@@ -6,7 +6,7 @@
 // Collision with the canyon converts back to canyon-local via Track.worldToLocal.
 
 import { hash2, clamp, hsv, TAU } from './math.js';
-import { obstacleToLocal, PORT_BEAM, RING_BEAM } from './collide.js';
+import { obstacleToLocal, PORT_BEAM, RING_BEAM, ringBeamLife } from './collide.js';
 
 // --- ship ---------------------------------------------------------------
 
@@ -252,7 +252,7 @@ export function drawObstacles(rd, track, obstacles, cursor, camT, far, time) {
       // glass. Bright orange as it leaves, yellow as it goes.
       if (ob.beams) {
         for (const b of ob.beams) {
-          const age = Math.min(1, (time - b.born) / RING_BEAM.life);
+          const age = Math.min(1, (time - b.born) / ringBeamLife(ob));
           const ca = Math.cos(b.ang), sa = Math.sin(b.ang);
           const nx = -sa, ny = ca;
           const w0 = RING_BEAM.wide;

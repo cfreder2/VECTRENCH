@@ -40,8 +40,8 @@ export const PORT_BEAM = {
 export const RING_BEAM = {
   arms: 8,
   gap: 22,        // how far past the hoop the tentacle tip sits
-  life: 0.4,
-  interval: 0.1,  // pew pew pew
+  rate: 0.2,      // seconds between tentacles, unless the section says otherwise
+  lit: 4,         // how many stand at once -- which is what sets a beam's life
   spread: 0.055,  // how much the wedge fans out over its length, in radians
   wide: 3,        // half width where it leaves the tentacle
   // How far in front of the hoop the light stands. Without this the beams are
@@ -51,6 +51,16 @@ export const RING_BEAM = {
   // the way in cost something, while the hole stays clean.
   lead: 90,
 };
+
+/**
+ * How long one of a ring's beams hangs there.
+ *
+ * Derived from that ring's own fire rate rather than fixed, so slowing a ring
+ * down slows the sweep without thinning the wall: the same four beams stand,
+ * they just take twice as long to go round. The renderer fades on this and the
+ * game expires on it, so it lives here where both can reach it.
+ */
+export const ringBeamLife = (ob) => (ob.beamRate || RING_BEAM.rate) * RING_BEAM.lit;
 
 export function segSphere(ax, ay, az, bx, by, bz, cx, cy, cz, r) {
   const dx = bx - ax, dy = by - ay, dz = bz - az;

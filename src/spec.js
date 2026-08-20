@@ -37,6 +37,7 @@ export const FIELDS = {
   seals:     { min: 0,    max: 6,    def: 0 },
   panels:    { min: 0,    max: 4,    def: 2, unit: 'shootable panels per bulkhead' },
   slotgap:   { min: 2,    max: 14,   def: 4, unit: 'clearance each side of the ship in a slot' },
+  ringrate:  { min: 0.06, max: 1,    def: 0.2, unit: "seconds between a ring's beams" },
   hue:       { min: 0,    max: 1,    def: 0.5 },
 };
 
@@ -65,6 +66,7 @@ export function normalizeSection(raw = {}) {
     seals: Math.round(num(raw.seals, FIELDS.seals)),
     panels: Math.round(num(raw.panels, FIELDS.panels)),
     slotgap: num(raw.slotgap, FIELDS.slotgap),
+    ringrate: num(raw.ringrate, FIELDS.ringrate),
     hue: num(raw.hue, FIELDS.hue),
   };
 }

@@ -126,6 +126,42 @@ has no server behind it, so it has the pre-built levels and nothing else, and
 the design button says as much. That is the intended shape: the game is a static
 page, and authoring is a thing you run at home.
 
+## What is in the canyon
+
+**[docs/BESTIARY.md](docs/BESTIARY.md) is the reference** — every enemy, every
+obstacle and the ship, each with a picture, what it does, and every number that
+decides how it behaves. The pictures in it are rendered from the game's own draw
+code by `tools/portraits.mjs`, so they cannot go stale.
+
+The name in `code` is what a level actually places. There are eight things that
+shoot at you, or are shot:
+
+| | Name | `kind` | What it does |
+| --- | --- | --- | --- |
+| <img src="docs/assets/turret.png" width="120"> | **Turret** | `turret` | A hexagonal drum on the surface. Fires **only at a ship that has broken the rim**. 3 hp |
+| <img src="docs/assets/gatling.png" width="120"> | **Gatling** | `gatling` | Six barrels near the lip. Spins up for 0.55s in plain sight — the only warning — then 25 rounds a second. 5 hp |
+| <img src="docs/assets/battery.png" width="120"> | **Battery** | `battery` | A missile deck with 2 to 12 launch cells, emptied one tube at a time. The missiles out-run you, but they can be shot down. 6–16 hp |
+| <img src="docs/assets/wallgun.png" width="120"> | **Wall gun** | `wallgun` | A dome on the trench wall. The mirror of the surface guns: it fires **only at a ship that stayed low**. 2 hp |
+| <img src="docs/assets/drone.png" width="120"> | **Drone** | `drone` | The only enemy that moves. Comes in waves of one to three, weaving, closing at 58% of your speed. 2 hp |
+| <img src="docs/assets/emplacement.png" width="120"> | **Emplacement** | `emplacement` | The turret's big brother, standing *inside* the trench. Two per level, before the port, and altitude does not save you. 14 hp |
+| <img src="docs/assets/panel.png" width="120"> | **Panel** | `panel` | Not a gun — a switch on a bulkhead's face. Shoot every one and the bulkhead sinks instead of making you climb. 2 hp |
+| <img src="docs/assets/port.png" width="120"> | **Port** | `port` | The finale. Guns will not breach it; it has to be painted and hit with a missile |
+
+All of them are the same red-orange, which is the whole colour language: warm
+means it shoots or it is rock, cool blue means machinery that only crushes you,
+green means the one thing out there that helps.
+
+And the ship:
+
+| | Name | |
+| --- | --- | --- |
+| <img src="docs/assets/ship.png" width="150"> | **Interceptor** | 100 shields, regenerating only below the rim. A cannon that overheats in 2.6 seconds of held fire, and eight missile locks that are free to fire and bought by flying |
+
+The obstacles — `pylon`, `fang`, `gate`, `slot`, `ring`, `boostgate`, `stack`,
+`press`, `slider`, `cross`, `pinwheel` and the `seal` bulkheads — have no hit
+points and cannot be shot. They are pictured and described in
+[the bestiary](docs/BESTIARY.md#obstacles) too.
+
 ## How it fits together
 
 ```
@@ -160,7 +196,10 @@ an agent, or a typo can be strange but never unplayable.
 
 Outside `src/`: `tools/serve.mjs` is the local server — it serves the game and
 runs the design agent. `tools/levels.mjs` compiles and checks levels; run it
-with a path to check one file.
+with a path to check one file. `tools/portraits.mjs` re-renders
+[the bestiary's](docs/BESTIARY.md) pictures — it reimplements the vector display
+in software, so it can call the real `entities.js` draw code with no browser and
+write PNGs.
 
 Outside `src/`: [`levels/`](levels) holds the pre-built levels as plain spec
 JSON — the source of truth for them — and `tools/levels.mjs` compiles that

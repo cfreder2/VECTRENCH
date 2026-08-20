@@ -124,6 +124,10 @@
 
   /* --- flight --- */
   #flight { display: none; pointer-events: none; }
+  #flight button, #stage {
+    -webkit-user-select: none; user-select: none;
+    -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent;
+  }
   #pause {
     position: absolute; left: 50%; transform: translateX(-50%);
     top: max(10px, env(safe-area-inset-top));
@@ -142,7 +146,12 @@
     width: min(46vw, 260px);
   }
   #pad > button {
-    pointer-events: auto; touch-action: none; user-select: none;
+    pointer-events: auto; touch-action: none;
+    /* Held buttons on iOS: without the webkit spellings, a long press starts
+       selecting the label and puts the magnifier and the selection handles over
+       the game. The unprefixed user-select does not stop it on Safari. */
+    user-select: none; -webkit-user-select: none;
+    -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent;
     font: inherit; letter-spacing: .14em; border-radius: 10px;
   }
   #roll, #burn { padding: 15px 0; font-size: 13px; }

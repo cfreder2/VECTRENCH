@@ -230,7 +230,7 @@ export function buildLevel(spec, track) {
           [cx + r, hw + 30, -30, rim + 14],
           [cx - r, cx + r, cy + r, rim + 14],
           [cx - r, cx + r, -30, cy - r],
-        ], { ring: { cx, cy, r } }));
+        ], { ring: { cx, cy, r }, beamRate: sec.ringrate }));
       } else if (kind === 'pinwheel' || kind === 'cross') {
         // Arms radiating from the trench centre, turning. Collision keeps the
         // arms as plain boxes and turns the frame instead, so a pinwheel costs

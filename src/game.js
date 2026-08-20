@@ -16,7 +16,7 @@ import {
 } from './entities.js';
 import { drawHud, drawReticle, drawTargetBox } from './hud.js';
 import {
-  segSphere, hitsObstacle, frameOf, PORT_BEAM, RING_BEAM,
+  segSphere, hitsObstacle, frameOf, PORT_BEAM, RING_BEAM, ringBeamLife,
   SHIP_HX, SHIP_HY, KNIFE_HX, KNIFE_HY,
 } from './collide.js';
 import { drawText } from './font.js';
@@ -99,6 +99,8 @@ const KNIFE_RATE = 4.2;       // how fast it goes over, and comes back
 const BOOST_MUL = 1.5;
 const BOOST_TANK = 2.4;       // seconds of burn in a full tank
 const BOOST_REFILL = 8;       // seconds to fill it from empty
+const BURN_SPOOL_UP = 4;      // 1/rate is the lag in seconds, so about a third of one
+const BURN_SPOOL_DOWN = 6;
 const SUPER_MUL = 2.1;        // a gate taken while already burning
 
 const SEAL_DROP_SPEED = 190;  // how fast a bulkhead sinks once its panels go
@@ -166,6 +168,8 @@ export class Game {
     this.knife = 0;             // 0 level, 1 fully on edge
     this.boost = BOOST_TANK;    // seconds of burn left in the tank
     this.burning = false;
+    this.burnSpent = false;
+    this.burnRamp = 0;
     this.boostMul = BOOST_MUL;
     this.pitch = 0;
     this.yaw = 0;
@@ -228,6 +232,8 @@ export class Game {
     this.knife = 0;
     this.boost = BOOST_TANK;
     this.burning = false;
+    this.burnSpent = false;
+    this.burnRamp = 0;
     this.boostMul = BOOST_MUL;
     this.phase = 'flying';
   }
@@ -294,19 +300,30 @@ export class Game {
     const inp = this.input;
 
     // The burn, and the ship going over onto its edge.
-    const wantBurn = inp.boosting && this.boost > 0;
+    // Running the tank dry latches the burn off until the button is released.
+    // Without that it refills a hair the moment it stops burning, re-lights on
+    // the next frame, empties again -- and the whole thing stutters on and off
+    // several times a second, re-triggering the ignition each time. That is
+    // the jarring noise. Hold it dry now and it simply stops.
+    if (!inp.boosting) this.burnSpent = false;
+    const wantBurn = inp.boosting && !this.burnSpent && this.boost > 0;
     if (wantBurn) {
       if (!this.burning) { this.say('BURN', 0.7); this.audio.boost(); }
       this.boost = Math.max(0, this.boost - dt);
-      if (this.boost <= 0) this.say('BURN SPENT', 0.8);
+      if (this.boost <= 0) { this.burnSpent = true; this.say('BURN SPENT', 0.8); }
     } else {
       this.boost = Math.min(BOOST_TANK, this.boost + dt * (BOOST_TANK / BOOST_REFILL));
       this.boostMul = BOOST_MUL;
     }
-    this.burning = wantBurn && this.boost > 0;
+    this.burning = wantBurn;
+    // Spooling, not switching. The multiplier used to step straight from 1 to
+    // 1.5 and back, which is a jolt in the speed, the camera and the engine
+    // note all at once. Up is slower than down, the way a jet actually is.
+    this.burnRamp = approach(this.burnRamp, wantBurn ? 1 : 0,
+      wantBurn ? BURN_SPOOL_UP : BURN_SPOOL_DOWN, dt);
     this.knife = approach(this.knife, inp.rolling ? 1 : 0, KNIFE_RATE, dt);
 
-    this.speed = tr.speedAt(this.t) * (this.burning ? this.boostMul : 1);
+    this.speed = tr.speedAt(this.t) * (1 + (this.boostMul - 1) * this.burnRamp);
     this.t += this.speed * dt;
 
     const hw = tr.halfWidth(this.t);
@@ -849,14 +866,14 @@ export class Game {
       if (!ob.beams) {
         ob.beams = [];
         ob.beamArm = (RING_TOP_ARM + 1) % RING_BEAM.arms;
-        ob.beamTimer = hash2(ob.t | 0, 11) * RING_BEAM.interval;
+        ob.beamTimer = hash2(ob.t | 0, 11) * (ob.beamRate || RING_BEAM.rate);
       }
       for (let i = ob.beams.length - 1; i >= 0; i--) {
-        if (now - ob.beams[i].born > RING_BEAM.life) ob.beams.splice(i, 1);
+        if (now - ob.beams[i].born > ringBeamLife(ob)) ob.beams.splice(i, 1);
       }
       ob.beamTimer -= dt;
       if (ob.beamTimer > 0) continue;
-      ob.beamTimer += RING_BEAM.interval;
+      ob.beamTimer += ob.beamRate || RING_BEAM.rate;
       ob.beamArm = (ob.beamArm - 1 + RING_BEAM.arms) % RING_BEAM.arms;
       const hw = this.track.halfWidth(ob.t);
       const rim = this.track.rim(ob.t);
