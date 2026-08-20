@@ -4,3 +4,6 @@ dist/artifact.html
 
 # Reference scores; not ours to redistribute.
 *.pdf
+
+# Levels designed on this machine. Yours, and local.
+levels/custom/

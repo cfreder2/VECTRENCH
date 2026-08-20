@@ -170,31 +170,35 @@
   <div id="design" class="layer">
     <div id="topbar">
       <span class="title">VECTRENCH</span>
-      <span class="hint" id="statusline">describe a level, then build it</span>
+      <span class="hint" id="statusline">pick a level</span>
     </div>
     <div id="spacer"></div>
     <div id="sheet">
       <div class="foldable">
-        <label>PRE-BUILT LEVELS</label>
+        <label>SELECT YOUR LEVEL</label>
         <div class="row" id="prebuilt"></div>
-      </div>
-      <div class="foldable">
-        <label for="prose">OR DESCRIBE YOUR OWN</label>
-        <textarea id="prose" spellcheck="false"
-          placeholder="e.g. start wide and open, then tighten into a deep twisting trench packed with hanging fangs and irises, seal it twice with heavy turret cover on the surface, finish with a narrow choke and an exhaust port"></textarea>
-      </div>
-      <div class="foldable">
-        <label>EXAMPLE DESCRIPTIONS</label>
-        <div class="row" id="examples"></div>
+        <div class="row" id="customrow" hidden>
+          <span class="note">YOUR LEVELS</span>
+        </div>
+        <div class="row" id="custom"></div>
       </div>
       <div class="row">
-        <button id="build" class="primary">BUILD</button>
-        <button id="fly" class="primary" disabled>FLY IT</button>
-        <button id="reroll" class="chip" disabled>RESEED</button>
-        <button id="fold" class="chip">SCHEMATIC</button>
-        <button id="share" class="chip" disabled>COPY LINK</button>
+        <button id="fly" class="primary" disabled>FLY</button>
+        <button id="full" class="chip">FULL SCREEN</button>
       </div>
-      <div id="report" class="foldable">no level built yet</div>
+      <div class="foldable">
+        <label for="prose">DESIGN A NEW LEVEL</label>
+        <textarea id="prose" spellcheck="false"
+          placeholder="describe the canyon you want -- how it opens, how it narrows, what is in it, what is shooting at you, what colour it is, how it ends"></textarea>
+        <div class="row">
+          <button id="designbtn" class="primary">DESIGN A NEW LEVEL</button>
+        </div>
+        <div class="note" id="designnote">
+          Runs on your own machine. Start the local server and Claude writes the
+          level for you; it does not work on the published page.
+        </div>
+      </div>
+      <div id="report" class="foldable">pick a level and fly it</div>
       <details class="foldable">
         <summary>CONTROLS &amp; SETUP</summary>
         <div class="body">
@@ -206,41 +210,14 @@
           <div class="row"><input type="range" id="sens" min="0.5" max="2.2" step="0.1" value="1"><span class="note" id="sensval">1.0</span></div>
           <div class="row">
             <span class="toggle"><input type="checkbox" id="invx"> INVERT LEFT/RIGHT</span>
-            <span class="toggle"><input type="checkbox" id="invy"> INVERT UP/DOWN</span>
+            <span class="toggle"><input type="checkbox" id="invy" checked> INVERT UP/DOWN</span>
           </div>
           <div class="row">
             <span class="toggle"><input type="checkbox" id="mute"> MUTE</span>
             <span class="toggle"><input type="checkbox" id="music" checked> MUSIC</span>
             <span class="toggle"><input type="checkbox" id="crt" checked> CRT GLOW</span>
           </div>
-          <div class="note">
-            You do not aim. The marker rides the ship's nose, so steering swings it
-            across the frame, and flying it across a target paints it; painted targets
-            stay locked until you press MISSILES, and every lock is struck at once.
-            Touching anywhere fires the gun, which overheats if you hold it.<br><br>
-            Tilt neutral is however you are holding the phone when a run starts, taken
-            as soon as you hold still. Use CALIBRATE TILT to re-take it.<br><br>
-            No tilt sensor? Drag one finger to steer, and touch with a second to
-            fire. On a desktop, arrow keys or WASD steer, click or SPACE fires, and
-            SHIFT or M launches.
-          </div>
-        </div>
-      </details>
-      <details class="foldable">
-        <summary>USE CLAUDE TO DESIGN THE LEVEL (OPTIONAL)</summary>
-        <div class="body">
-          <div class="note">
-            The offline parser above understands a fixed vocabulary and always works.
-            Turn this on to have Claude read freeform prose instead and fill in the same
-            level spec. Your key is stored only in this browser and is sent only to
-            Anthropic's API from your own device.
-          </div>
-          <span class="toggle"><input type="checkbox" id="usellm"> USE CLAUDE</span>
-          <div>
-            <label for="apikey">ANTHROPIC API KEY</label>
-            <input type="password" id="apikey" spellcheck="false" autocomplete="off" placeholder="sk-ant-...">
-          </div>
-          <div id="err"></div>
+          <div class="note" id="padstate">gamepad: none</div>
         </div>
       </details>
     </div>

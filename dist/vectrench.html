@@ -170,31 +170,35 @@
   <div id="design" class="layer">
     <div id="topbar">
       <span class="title">VECTRENCH</span>
-      <span class="hint" id="statusline">describe a level, then build it</span>
+      <span class="hint" id="statusline">pick a level</span>
     </div>
     <div id="spacer"></div>
     <div id="sheet">
       <div class="foldable">
-        <label>PRE-BUILT LEVELS</label>
+        <label>SELECT YOUR LEVEL</label>
         <div class="row" id="prebuilt"></div>
-      </div>
-      <div class="foldable">
-        <label for="prose">OR DESCRIBE YOUR OWN</label>
-        <textarea id="prose" spellcheck="false"
-          placeholder="e.g. start wide and open, then tighten into a deep twisting trench packed with hanging fangs and irises, seal it twice with heavy turret cover on the surface, finish with a narrow choke and an exhaust port"></textarea>
-      </div>
-      <div class="foldable">
-        <label>EXAMPLE DESCRIPTIONS</label>
-        <div class="row" id="examples"></div>
+        <div class="row" id="customrow" hidden>
+          <span class="note">YOUR LEVELS</span>
+        </div>
+        <div class="row" id="custom"></div>
       </div>
       <div class="row">
-        <button id="build" class="primary">BUILD</button>
-        <button id="fly" class="primary" disabled>FLY IT</button>
-        <button id="reroll" class="chip" disabled>RESEED</button>
-        <button id="fold" class="chip">SCHEMATIC</button>
-        <button id="share" class="chip" disabled>COPY LINK</button>
+        <button id="fly" class="primary" disabled>FLY</button>
+        <button id="full" class="chip">FULL SCREEN</button>
       </div>
-      <div id="report" class="foldable">no level built yet</div>
+      <div class="foldable">
+        <label for="prose">DESIGN A NEW LEVEL</label>
+        <textarea id="prose" spellcheck="false"
+          placeholder="describe the canyon you want -- how it opens, how it narrows, what is in it, what is shooting at you, what colour it is, how it ends"></textarea>
+        <div class="row">
+          <button id="designbtn" class="primary">DESIGN A NEW LEVEL</button>
+        </div>
+        <div class="note" id="designnote">
+          Runs on your own machine. Start the local server and Claude writes the
+          level for you; it does not work on the published page.
+        </div>
+      </div>
+      <div id="report" class="foldable">pick a level and fly it</div>
       <details class="foldable">
         <summary>CONTROLS &amp; SETUP</summary>
         <div class="body">
@@ -206,41 +210,14 @@
           <div class="row"><input type="range" id="sens" min="0.5" max="2.2" step="0.1" value="1"><span class="note" id="sensval">1.0</span></div>
           <div class="row">
             <span class="toggle"><input type="checkbox" id="invx"> INVERT LEFT/RIGHT</span>
-            <span class="toggle"><input type="checkbox" id="invy"> INVERT UP/DOWN</span>
+            <span class="toggle"><input type="checkbox" id="invy" checked> INVERT UP/DOWN</span>
           </div>
           <div class="row">
             <span class="toggle"><input type="checkbox" id="mute"> MUTE</span>
             <span class="toggle"><input type="checkbox" id="music" checked> MUSIC</span>
             <span class="toggle"><input type="checkbox" id="crt" checked> CRT GLOW</span>
           </div>
-          <div class="note">
-            You do not aim. The marker rides the ship's nose, so steering swings it
-            across the frame, and flying it across a target paints it; painted targets
-            stay locked until you press MISSILES, and every lock is struck at once.
-            Touching anywhere fires the gun, which overheats if you hold it.<br><br>
-            Tilt neutral is however you are holding the phone when a run starts, taken
-            as soon as you hold still. Use CALIBRATE TILT to re-take it.<br><br>
-            No tilt sensor? Drag one finger to steer, and touch with a second to
-            fire. On a desktop, arrow keys or WASD steer, click or SPACE fires, and
-            SHIFT or M launches.
-          </div>
-        </div>
-      </details>
-      <details class="foldable">
-        <summary>USE CLAUDE TO DESIGN THE LEVEL (OPTIONAL)</summary>
-        <div class="body">
-          <div class="note">
-            The offline parser above understands a fixed vocabulary and always works.
-            Turn this on to have Claude read freeform prose instead and fill in the same
-            level spec. Your key is stored only in this browser and is sent only to
-            Anthropic's API from your own device.
-          </div>
-          <span class="toggle"><input type="checkbox" id="usellm"> USE CLAUDE</span>
-          <div>
-            <label for="apikey">ANTHROPIC API KEY</label>
-            <input type="password" id="apikey" spellcheck="false" autocomplete="off" placeholder="sk-ant-...">
-          </div>
-          <div id="err"></div>
+          <div class="note" id="padstate">gamepad: none</div>
         </div>
       </details>
     </div>
@@ -965,7 +942,7 @@ const OBSTACLE_KINDS = [
   'pinwheel', 'cross', 'press', 'slider',
 ];
 
-/** Field ranges. Also the documentation the NL layer and the model are given. */
+/** Field ranges. Also the documentation the design agent is given. */
 const FIELDS = {
   length:    { min: 400,  max: 6000, def: 2000, unit: 'units of track' },
   width:     { min: 26,   max: 150,  def: 62,   unit: 'trench half-width' },
@@ -1056,578 +1033,6 @@ function decodeSpec(str) {
  * Built-in levels. The first is the brief this game was built to: a long,
  * tightening trench run with sealed bulkheads and a port at the end.
  */
-const EXAMPLES = [
-  {
-    label: 'TRENCH RUN',
-    prose:
-      'Start wide and open for a bit to get your bearings, then tighten into a ' +
-      'deep trench with columns and hanging fangs. Seal the trench once and put ' +
-      'heavy turret cover on the surface. Then a long, very tight, twisting ' +
-      'section with gates and irises and wall guns. Seal it twice more. ' +
-      'Finish with a fast narrow choke and an exhaust port.',
-  },
-  {
-    label: 'CATHEDRAL',
-    prose:
-      'A huge cavernous shallow canyon, almost straight, with enormous spires ' +
-      'and lots of drones. Then a short claustrophobic tunnel section, ' +
-      'extremely tight and very twisty, packed with irises. End with a port.',
-  },
-  {
-    label: 'GAUNTLET',
-    prose:
-      'Very fast. Narrow and hilly the whole way, heavy staggered slabs and ' +
-      'gates, wall guns everywhere, sealed four times. Glowing red. ' +
-      'Ends with a reactor port.',
-  },
-  {
-    label: 'FIRST LIGHT',
-    prose:
-      'A gentle wide winding canyon, shallow, a few scattered columns and ' +
-      'almost no guns. Icy blue. No port, just fly it.',
-  },
-];
-
-// ---- llm.js --------------------------------------------------------
-// Optional: compile prose into a level spec with Claude.
-//
-// The offline interpreter in nl.js handles the vocabulary it knows and always
-// works. This path handles arbitrary prose -- metaphors, references, pacing
-// described in prose rather than adjectives -- by asking a model to fill in the
-// same spec the rest of the game already consumes. Nothing downstream can tell
-// which front-end produced a spec.
-//
-// The SDK is imported lazily from an ESM CDN so the game stays a self-contained
-// offline page unless the player actually turns this on. The key lives only in
-// this browser's localStorage.
-
-
-
-const SDK_URL = 'https://esm.sh/@anthropic-ai/sdk@0.119.0';
-const MODEL = 'claude-opus-5';
-const KEY_STORE = 'vectrench.apikey';
-
-const getKey = () => {
-  try { return localStorage.getItem(KEY_STORE) || ''; } catch { return ''; }
-};
-
-const setKey = (k) => {
-  try {
-    if (k) localStorage.setItem(KEY_STORE, k);
-    else localStorage.removeItem(KEY_STORE);
-  } catch { /* private browsing; the key just will not persist */ }
-};
-
-// Structured outputs reject numeric bounds, so ranges are stated in the prompt
-// and enforced by normalizeSpec on the way back in.
-const SECTION_SCHEMA = {
-  type: 'object',
-  additionalProperties: false,
-  required: ['name', 'length', 'width', 'depth', 'curviness', 'hilliness',
-    'roughness', 'obstacles', 'kinds', 'turrets', 'wallguns', 'drones', 'seals', 'hue'],
-  properties: {
-    name: { type: 'string' },
-    length: { type: 'number' },
-    width: { type: 'number' },
-    depth: { type: 'number' },
-    curviness: { type: 'number' },
-    hilliness: { type: 'number' },
-    roughness: { type: 'number' },
-    obstacles: { type: 'number' },
-    kinds: { type: 'array', items: { type: 'string', enum: OBSTACLE_KINDS } },
-    turrets: { type: 'number' },
-    wallguns: { type: 'number' },
-    drones: { type: 'number' },
-    seals: { type: 'integer' },
-    hue: { type: 'number' },
-  },
-};
-
-const SPEC_SCHEMA = {
-  type: 'object',
-  additionalProperties: false,
-  required: ['name', 'seed', 'speed', 'finale', 'sections', 'notes'],
-  properties: {
-    name: { type: 'string' },
-    seed: { type: 'integer' },
-    speed: {
-      type: 'object',
-      additionalProperties: false,
-      required: ['start', 'end'],
-      properties: { start: { type: 'number' }, end: { type: 'number' } },
-    },
-    finale: { type: 'string', enum: ['port', 'none'] },
-    sections: { type: 'array', items: SECTION_SCHEMA },
-    notes: { type: 'string' },
-  },
-};
-
-const SYSTEM = `You design levels for a vector-graphics rails shooter. The player flies a fixed
-path at 300-500 units per second down a canyon trench. They tilt to move within the
-cross-section, tap to shoot, and hold on a target to lock a missile.
-
-The core tension: inside the trench you must dodge geometry; above the rim you are safe
-from geometry but exposed to surface turrets. A "seal" is a bulkhead across the whole
-trench that forces the player up over the rim, so seals and turrets are a pair -- a seal
-with no turrets near it is free, and that is boring.
-
-Translate the player's description into a sequence of sections, flown in order.
-
-Field meanings and ranges (values outside these are clamped):
-- length ${FIELDS.length.min}-${FIELDS.length.max}: track units. At ~380 u/s, 1800 units is roughly 5 seconds.
-- width ${FIELDS.width.min}-${FIELDS.width.max}: trench half-width. 30 is a knife-edge slot, 62 normal, 125 cavernous.
-- depth ${FIELDS.depth.min}-${FIELDS.depth.max}: rim height above the floor. Deeper means climbing out takes longer and costs more.
-- curviness 0-1: lateral turning. 0 is dead straight, 1 is continuous hard turns.
-- hilliness 0-1: vertical rise and fall of the whole canyon.
-- roughness 0-1: surface panel detail and spires on the deck. Visual only.
-- obstacles 0-1: density of blocking geometry in the trench.
-- kinds: which obstacles appear. pylon = column from the floor. fang = spike from the
-  ceiling down. gate = bulkhead with one window to thread. ring = circular aperture.
-  stack = staggered half-height slabs, alternating sides.
-- turrets 0-1: density of surface batteries, which only fire when the player is above the rim.
-- wallguns 0-1: density of guns mounted on the trench walls, which fire when the player is below the rim.
-- drones 0-1: density of flying enemy waves inside the trench.
-- seals 0-6: full bulkheads in this section, spaced evenly. Each forces a climb over the rim.
-- hue 0-1: colour wheel. 0 red, 0.08 orange, 0.33 green, 0.5 cyan, 0.62 blue, 0.79 violet.
-
-Design guidance:
-- Use 3 to 7 sections for a described run. One section is flat and dull.
-- Build an arc: open and legible first so the player learns the controls, then escalate.
-- Vary the axis of difficulty between sections. Two sections that are both "tighter and
-  denser" feel like one long section.
-- Put turrets near every seal.
-- Honour what the player asked for, including when it is extreme. If they ask for
-  claustrophobic, go to 30, not 45.
-- Set finale to "port" unless they say they do not want an end target.
-- notes: one short sentence on the intended arc. Keep it under 140 characters.`;
-
-/**
- * Compiles prose into a spec with Claude.
- * Throws an Error with a human-readable message on any failure.
- */
-async function parseProseLLM(prose, { key, onStatus } = {}) {
-  const apiKey = key || getKey();
-  if (!apiKey) throw new Error('No API key set.');
-
-  onStatus?.('loading sdk');
-  let Anthropic;
-  try {
-    const mod = await import(/* @vite-ignore */ SDK_URL);
-    Anthropic = mod.default ?? mod.Anthropic;
-  } catch {
-    throw new Error('Could not load the Claude SDK (offline or blocked). Use the offline parser.');
-  }
-  if (!Anthropic) throw new Error('Claude SDK loaded but exported nothing usable.');
-
-  const client = new Anthropic({ apiKey, dangerouslyAllowBrowser: true });
-
-  onStatus?.('designing');
-  let response;
-  try {
-    response = await client.messages.create({
-      model: MODEL,
-      max_tokens: 16000,
-      system: SYSTEM,
-      output_config: {
-        effort: 'medium',
-        format: { type: 'json_schema', schema: SPEC_SCHEMA },
-      },
-      messages: [{ role: 'user', content: `Design this level:\n\n${prose}` }],
-    });
-  } catch (err) {
-    const status = err?.status;
-    if (status === 401) throw new Error('API key rejected (401).');
-    if (status === 429) throw new Error('Rate limited (429). Try again shortly.');
-    if (status === 400) throw new Error(`Request rejected: ${err?.message ?? '400'}`);
-    throw new Error(err?.message || 'Network error talking to the API.');
-  }
-
-  if (response.stop_reason === 'refusal') {
-    throw new Error('The model declined this request.');
-  }
-  if (response.stop_reason === 'max_tokens') {
-    throw new Error('Response was cut off. Try a shorter description.');
-  }
-
-  const text = response.content.find((b) => b.type === 'text')?.text;
-  if (!text) throw new Error('No level came back.');
-
-  let raw;
-  try {
-    raw = JSON.parse(text);
-  } catch {
-    throw new Error('The level came back malformed.');
-  }
-
-  const spec = normalizeSpec(raw);
-  const report = [
-    `${spec.sections.length} sections, ${spec.sections.reduce((a, s) => a + s.length, 0) | 0} units`,
-    `designed by ${MODEL}`,
-  ];
-  if (raw.notes) report.push(String(raw.notes).slice(0, 160));
-  for (const s of spec.sections) {
-    report.push(`${s.name}: w${Math.round(s.width)} d${Math.round(s.depth)} ` +
-      `cur${s.curviness.toFixed(1)} obs${s.obstacles.toFixed(1)} ` +
-      `${s.kinds.join('/')}${s.seals ? ` seal x${s.seals}` : ''}`);
-  }
-  return { spec, report };
-}
-
-// ---- nl.js ---------------------------------------------------------
-// Natural language -> level spec, entirely in the browser.
-//
-// This is a deliberate grammar rather than a guess-the-meaning machine: prose is
-// split into ordered segments on sequence markers ("then", "after that",
-// "finally"), and each segment votes on the parameters of one section. Because
-// the spec clamps everything, a misread produces a different level, never a
-// broken one.
-//
-// Every recognized phrase is reported back to the player, so the interface can
-// show what it actually understood instead of silently inventing a level.
-
-
-
-
-const NUMBER_WORDS = {
-  zero: 0, one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7,
-  eight: 8, nine: 9, ten: 10, eleven: 11, twelve: 12, a: 1, an: 1, once: 1,
-  twice: 2, thrice: 3, single: 1, double: 2, triple: 3, couple: 2, few: 3,
-};
-
-const AMPLIFY = /\b(?:very|extremely|insanely|super|really|absurdly|utterly|brutally|incredibly|impossibly|ridiculously|totally|completely|hugely|massively)\b/;
-const DIMINISH = /\b(?:slightly|somewhat|mildly|fairly|barely|a bit|a little|kind of|sort of|moderately|gently|reasonably)\b/;
-
-// param, phrase pattern, target value. Order matters only in that every match
-// is applied; later matches on the same param win.
-const RULES = [
-  // --- trench half-width ---
-  ['width', /\b(?:claustrophobic|needle|hairline|suffocating|coffin)\b/, 30],
-  ['width', /\b(?:tight|narrow|cramped|tunnel|slot|close|confined|choked?)\b/, 40],
-  ['width', /\b(?:snug|moderate width)\b/, 48],
-  ['width', /\b(?:tighten(?:s|ing)?|narrow(?:s|ing)|closes? in|chokes? (?:down|in))\b/, 44],
-  ['width', /\b(?:wide|open|broad|roomy|spacious)\b/, 88],
-  ['width', /\b(?:cavernous|enormous|vast|colossal|immense|gigantic|huge|massive)\b/, 125],
-
-  // --- rim height (how deep the trench is) ---
-  ['depth', /\b(?:shallow|ditch|gully|gutter|scratch)\b/, 66],
-  ['depth', /\b(?:deep)\b/, 152],
-  ['depth', /\b(?:bottomless|abyss(?:al)?|chasm|fathomless|cavern deep)\b/, 210],
-
-  // --- lateral curvature ---
-  ['curviness', /\b(?:dead straight|straight|arrow[- ]?straight|linear|ruler)\b/, 0.02],
-  ['curviness', /\b(?:lazy|sweeping|gentle curve|meandering)\b/, 0.28],
-  ['curviness', /\b(?:winding|curving|curvy|bending|bendy|curved)\b/, 0.55],
-  ['curviness', /\b(?:twisty|twisting|serpentine|snaking|writhing|corkscrew)\b/, 0.82],
-  ['curviness', /\b(?:hairpin|switchback|violent turns?)\b/, 1],
-
-  // --- vertical relief ---
-  ['hilliness', /\b(?:flat|level|even)\b/, 0.05],
-  ['hilliness', /\b(?:rolling|undulating|wavy|swelling|billowing)\b/, 0.5],
-  ['hilliness', /\b(?:hilly|steep|plunging|diving|climbing|rollercoaster)\b/, 0.82],
-
-  // --- surface detail ---
-  ['roughness', /\b(?:smooth|clean|polished|bare|blank|featureless)\b/, 0.12],
-  ['roughness', /\b(?:detailed|greebled?|industrial|mechanical|technical|cluttered|busy)\b/, 0.8],
-  ['roughness', /\b(?:rough|jagged|broken|shattered|ragged|craggy)\b/, 0.92],
-
-  // --- obstacle density ---
-  ['obstacles', /\b(?:no obstacles|empty|clear|nothing in the way|unobstructed|obstacle[- ]free)\b/, 0],
-  ['obstacles', /\b(?:sparse|scattered|a few|few|light|occasional|the odd|handful)\b/, 0.18],
-  ['obstacles', /\b(?:some|moderate|a fair (?:few|amount))\b/, 0.4],
-  ['obstacles', /\b(?:dense|lots of|plenty of|packed|heavy|thick|full of|loads of|littered|studded|forest of)\b/, 0.75],
-  ['obstacles', /\b(?:wall[- ]to[- ]wall|relentless|brutal|nonstop|non[- ]stop|unbroken|solid)\b/, 1],
-
-  // --- enemy density ---
-  ['turrets', /\b(?:no turrets|undefended|no guns|unguarded|no defen[cs]es)\b/, 0],
-  ['turrets', /\b(?:turret|batter(?:y|ies)|emplacement|surface gun|anti[- ]air|flak|ack[- ]ack|triple[- ]?a|defen[cs]es|cannon)\b/, 0.45],
-  ['wallguns', /\b(?:wall ?gun|gun ?port|wall turret|side gun|embrasure|pill ?box|wall[- ]mounted)\b/, 0.5],
-  ['gatlings', /\b(?:gatling|chain ?gun|mini ?gun|vulcan|auto ?cannon|rotary cannon|hot lead)\b/, 0.55],
-  ['batteries', /\b(?:missile batter(?:y|ies)|missile rack|launcher|silo|sam site|missile site|rocket batter(?:y|ies)|seeker|heat[- ]seek(?:er|ing))\b/, 0.5],
-  ['gatlings', /\b(?:no gatlings?|no chain ?guns?)\b/, 0],
-  ['batteries', /\b(?:no missiles?|no launchers?|no batteries)\b/, 0],
-  ['drones', /\b(?:no drones|no fighters)\b/, 0],
-  ['drones', /\b(?:drone|fighter|interceptor|tie|enemy ship|bogey|swarm|squadron|wing of)\b/, 0.5],
-
-  // --- length ---
-  ['length', /\b(?:brief|short|quick|snap|momentary)\b/, 900],
-  ['length', /\b(?:long|extended|drawn[- ]out|lengthy|sustained)\b/, 3000],
-  ['length', /\b(?:the whole way|throughout|all the way)\b/, 3200],
-  ['length', /\b(?:endless|interminable|marathon|forever)\b/, 5000],
-];
-
-// Obstacle kinds. A mention implies presence, so matching one also lifts density.
-const KIND_RULES = [
-  ['pylon', /\b(?:pylon|column|pillar|spire|tower|stalagmite|obelisk|monolith|post|mast|girder)(?:e?s)?\b/],
-  ['fang', /\b(?:fang|stalactite|icicle|tooth|teeth|hanging|dangling|overhead spike|dropper|pendant)(?:e?s)?\b/],
-  ['gate', /\b(?:gate|bulkhead|door|hatch|window|blast ?door|panel|shutter|barricade)(?:e?s)?\b/],
-  ['ring', /\b(?:ring|iris|hoop|torus|aperture|portal|donut|doughnut|eye)(?:e?s)?\b/],
-  ['stack', /\b(?:slab|stagger(?:ed)?|zigzag|zig[- ]zag|chicane|alternating|stepped|step|block)(?:e?s)?\b/],
-  // The moving ones. Naming any of them is how a description asks for
-  // machinery rather than rock.
-  ['pinwheel', /\b(?:pinwheel|windmill|rotor|turnstile|fan blade|whirl(?:igig)?|propeller)(?:e?s)?\b/],
-  ['cross', /\b(?:spinning cross|giant x|big x|saltire|spinner|rotating cross|crossbar)(?:e?s)?\b/],
-  ['press', /\b(?:crusher|press|vice|vise|jaws|clamp|closing walls?|crushing walls?|masher|squeeze)(?:e?s)?\b/],
-  ['slider', /\b(?:slider|piston|shuttle|sweeper|tracking block|sliding block|hammer)(?:e?s)?\b/],
-];
-
-const SEAL_RE = /\b(?:seal(?:ed|s|ing)?|walled off|blocked off|closed off|bulkhead across|barrier across|dead ?end|no way through|forced (?:up|over)|must (?:go|fly) (?:up|over)|completely blocks?)\b/;
-
-const HUES = [
-  [/\b(?:red|crimson|molten|lava|blood|scarlet|ember|hellish|infernal)\b/, 0.01],
-  [/\b(?:orange|amber|rust|copper|bronze|sodium)\b/, 0.07],
-  [/\b(?:yellow|gold(?:en)?|sulphur|sulfur|brass)\b/, 0.14],
-  [/\b(?:green|toxic|acid|emerald|jade|radioactive|viridian)\b/, 0.33],
-  [/\b(?:cyan|teal|aqua|ice|icy|frozen|glacial|turquoise)\b/, 0.5],
-  [/\b(?:blue|cobalt|azure|sapphire)\b/, 0.62],
-  [/\b(?:indigo|violet|purple|magenta|pink|neon|ultraviolet)\b/, 0.79],
-  [/\b(?:white|silver|chrome|steel|monochrome|grey|gray|bone)\b/, 0.46],
-];
-
-const SPLIT_RE = /\b(?:and then|then|after that|after which|followed by|finally|next up|next|later on|later)\b|[;\n]|(?:\s|^)\d+[.)]\s|(?:^|\s)[-*•]\s/i;
-
-const numberBefore = (text, re) => {
-  const m = text.match(new RegExp(
-    `(\\d+|${Object.keys(NUMBER_WORDS).join('|')})\\s+(?:\\w+\\s+){0,2}?${re.source}`, 'i'));
-  if (!m) return null;
-  return Number.isFinite(+m[1]) ? +m[1] : NUMBER_WORDS[m[1].toLowerCase()] ?? null;
-};
-
-const numberAfter = (text, re) => {
-  const m = text.match(new RegExp(
-    `${re.source}\\s+(?:\\w+\\s+){0,2}?(\\d+|${Object.keys(NUMBER_WORDS).join('|')})`, 'i'));
-  if (!m) return null;
-  return Number.isFinite(+m[1]) ? +m[1] : NUMBER_WORDS[m[1].toLowerCase()] ?? null;
-};
-
-/** Nudge a matched value further out or back toward the default. */
-function applyIntensity(text, idx, param, value) {
-  const f = FIELDS[param];
-  if (!f) return value;
-  const before = text.slice(Math.max(0, idx - 26), idx);
-  // Adjacent only: in "very tight twisty", "very" modifies "tight".
-  const adjacent = (re) => new RegExp(`(?:${re.source})\\s*$`).test(before);
-  if (adjacent(AMPLIFY)) {
-    const target = value >= f.def ? f.max : f.min;
-    return lerp(value, target, 0.6);
-  }
-  if (adjacent(DIMINISH)) return lerp(value, f.def, 0.5);
-  return value;
-}
-
-function parseSegment(text) {
-  const found = {};
-  const notes = [];
-  const kinds = [];
-
-  for (const [param, re, value] of RULES) {
-    const m = text.match(re);
-    if (!m) continue;
-    found[param] = applyIntensity(text, m.index, param, value);
-    notes.push(m[0].trim());
-  }
-
-  for (const [kind, re] of KIND_RULES) {
-    const m = text.match(re);
-    if (!m) continue;
-    kinds.push(kind);
-    notes.push(m[0].trim());
-  }
-  if (kinds.length) {
-    found.kinds = kinds;
-    // Naming an obstacle implies you want to meet some.
-    if (found.obstacles === undefined || found.obstacles < 0.3) {
-      found.obstacles = Math.max(found.obstacles ?? 0, 0.5);
-    }
-  }
-
-  // Seals, with a count if one is given ("sealed three times", "two bulkheads").
-  const sealM = text.match(SEAL_RE);
-  if (sealM) {
-    const n = numberAfter(text, SEAL_RE)
-      ?? numberBefore(text, /times?/)
-      ?? numberBefore(text, SEAL_RE)
-      ?? 1;
-    found.seals = clamp(Math.round(n), 1, FIELDS.seals.max);
-    notes.push(`${found.seals}x sealed`);
-  }
-
-  // Colour.
-  for (const [re, hue] of HUES) {
-    const m = text.match(re);
-    if (!m) continue;
-    found.hue = hue;
-    notes.push(m[0].trim());
-    break;
-  }
-
-  // Explicit magnitudes override the qualitative reads.
-  const units = text.match(/(\d{3,5})\s*(?:units?|long|metres?|meters?|m\b)/i);
-  if (units) { found.length = +units[1]; notes.push(`${units[1]} long`); }
-  const secs = text.match(/(\d{1,3})\s*(?:seconds?|secs?|s)\b/i);
-  if (secs && !units) { found.length = +secs[1] * 360; notes.push(`${secs[1]}s`); }
-  const wideN = text.match(/(\d{2,3})\s*(?:wide|across)/i);
-  if (wideN) { found.width = +wideN[1]; notes.push(`width ${wideN[1]}`); }
-  const deepN = text.match(/(\d{2,3})\s*deep/i);
-  if (deepN) { found.depth = +deepN[1]; notes.push(`depth ${deepN[1]}`); }
-
-  // Bulkhead control panels: an explicit count, or none at all.
-  if (/\b(?:no panels?|sealed shut|no way to open|welded)\b/.test(text)) {
-    found.panels = 0;
-    notes.push('no panels');
-  } else {
-    // Adjacent only. The general "number before a word" search scans from the
-    // left and would happily read "sealed twice with three panels" as two,
-    // because "twice" is also a number and comes first.
-    const pm = text.match(new RegExp(
-      `(\\d+|${Object.keys(NUMBER_WORDS).join('|')})\\s+(?:control\\s+)?panels?`, 'i'));
-    if (pm) {
-      const n = Number.isFinite(+pm[1]) ? +pm[1] : NUMBER_WORDS[pm[1].toLowerCase()];
-      if (n !== undefined) {
-        found.panels = clamp(Math.round(n), 0, 4);
-        notes.push(`${found.panels} panels`);
-      }
-    }
-  }
-
-  for (const [param, re] of [['turrets', /turrets?|emplacements?/],
-    ['drones', /drones?|fighters?|interceptors?/],
-    ['wallguns', /wall ?guns?|gun ?ports?/],
-    ['gatlings', /gatlings?|chain ?guns?|mini ?guns?/],
-    ['batteries', /missile batter(?:y|ies)|launchers?|silos?/]]) {
-    const n = numberBefore(text, new RegExp(re.source));
-    if (n !== null && n > 0) {
-      // A count is a rate hint: more named guns means a denser section.
-      found[param] = clamp(n / 8, 0.08, 1);
-      notes.push(`${n} ${param}`);
-    }
-  }
-
-  return { found, notes, recognized: notes.length };
-}
-
-/** Global directives that are not per-section. */
-function parseGlobals(text) {
-  const g = { notes: [] };
-
-  if (/\b(?:ludicrous|insane|blistering|breakneck|hypersonic|absurdly fast)\b/.test(text)) {
-    g.speed = { start: 400, end: 600 }; g.notes.push('ludicrous speed');
-  } else if (/\b(?:very fast|extremely fast|flat out|balls out|screaming)\b/.test(text)) {
-    g.speed = { start: 370, end: 540 }; g.notes.push('very fast');
-  } else if (/\bfast\b/.test(text)) {
-    g.speed = { start: 330, end: 470 }; g.notes.push('fast');
-  } else if (/\b(?:slow|gentle pace|relaxed|leisurely|sedate)\b/.test(text)) {
-    g.speed = { start: 200, end: 270 }; g.notes.push('slow');
-  }
-
-  if (/\b(?:no port|no boss|no target|no finale|just fly|free ?flight|endless)\b/.test(text)) {
-    g.finale = 'none'; g.notes.push('no finale');
-  } else if (/\b(?:exhaust port|reactor|thermal exhaust|vent|core|port|boss|target at the end|final target)\b/.test(text)) {
-    g.finale = 'port'; g.notes.push('port finale');
-  }
-
-  const named = text.match(/\b(?:called|named|titled)\s+["']?([\w '-]{2,32})["']?/i)
-    || text.match(/^["']([^"']{2,32})["']/);
-  if (named) { g.name = named[1].trim(); g.notes.push(`name "${g.name}"`); }
-
-  const seed = text.match(/\bseed\s*[:=]?\s*(\d{1,9})\b/i);
-  if (seed) { g.seed = +seed[1]; g.notes.push(`seed ${seed[1]}`); }
-
-  return g;
-}
-
-/**
- * Compiles prose into a spec.
- * Returns { spec, report } where report explains what was understood.
- */
-function parseProse(prose) {
-  const text = String(prose || '').toLowerCase().replace(/\s+/g, ' ').trim();
-  const report = [];
-  if (!text) {
-    return { spec: normalizeSpec({ name: 'EMPTY RUN' }), report: ['nothing to read'] };
-  }
-
-  const globals = parseGlobals(text);
-
-  const rawSegments = text.split(SPLIT_RE).map((s) => (s || '').trim()).filter(Boolean);
-  const parsed = [];
-  for (const seg of rawSegments) {
-    const r = parseSegment(seg);
-    // A fragment that says nothing about shape is not a section. But keep it if
-    // it is the only thing we have.
-    if (r.recognized === 0 && seg.length < 24) continue;
-    parsed.push({ seg, ...r });
-  }
-  if (parsed.length === 0) parsed.push({ seg: text, ...parseSegment(text) });
-
-  // Carry values forward: "then tighter, then twisty" should keep the earlier
-  // depth and colour rather than snapping back to defaults.
-  const sections = [];
-  let carry = {};
-  parsed.forEach((p, i) => {
-    const merged = { ...carry, ...p.found };
-    // Seals and explicit lengths are per-section, never inherited.
-    delete carry.seals;
-    merged.name = `S${i + 1}`;
-    if (p.found.seals === undefined) delete merged.seals;
-    sections.push(merged);
-    carry = { ...merged };
-    delete carry.length;
-    delete carry.seals;
-    report.push(`${i + 1}. ${p.notes.length ? p.notes.join(', ') : 'default shape'}`);
-  });
-
-  // A stated progression with only one segment becomes a real arc.
-  const progresses = /\b(?:tighten(?:s|ing)?|narrow(?:s|ing)?|closes? in|gets? (?:tighter|narrower|worse|harder)|escalat|ramps? up|builds? up|deteriorat)\b/.test(text);
-  if (progresses && sections.length < 3) {
-    const base = sections[0];
-    const w0 = base.width ?? FIELDS.width.def;
-    // Spread the requested seals over the later sections; piling them all into
-    // the last one just loses the overflow to the compiler's spacing floor.
-    const totalSeals = base.seals ?? 0;
-    const share = [0, Math.floor(totalSeals / 3), totalSeals - Math.floor(totalSeals / 3)];
-    const out = [];
-    for (let i = 0; i < 3; i++) {
-      const k = i / 2;
-      out.push({
-        ...base,
-        name: `S${i + 1}`,
-        width: lerp(Math.max(w0, 78), 34, k),
-        obstacles: clamp((base.obstacles ?? 0.4) * (0.55 + k), 0, 1),
-        curviness: clamp((base.curviness ?? 0.4) * (0.7 + 0.6 * k), 0, 1),
-        seals: share[i],
-        length: (base.length ?? FIELDS.length.def),
-      });
-    }
-    sections.length = 0;
-    sections.push(...out);
-    report.push('progression detected: expanded into three tightening sections');
-  }
-
-  const spec = normalizeSpec({
-    name: globals.name || deriveName(text),
-    seed: globals.seed,
-    speed: globals.speed,
-    finale: globals.finale ?? 'port',
-    sections,
-  });
-
-  if (globals.notes.length) report.unshift(globals.notes.join(', '));
-  report.unshift(`${spec.sections.length} section${spec.sections.length === 1 ? '' : 's'}, ${Math.round(specTotal(spec))} units`);
-  return { spec, report };
-}
-
-const specTotal = (spec) => spec.sections.reduce((a, s) => a + s.length, 0);
-
-function deriveName(text) {
-  const words = text.replace(/[^a-z0-9 ]/g, ' ').split(/\s+/)
-    .filter((w) => w.length > 3 && !STOP.has(w));
-  return (words.slice(0, 3).join(' ') || 'untitled run').toUpperCase();
-}
-
-const STOP = new Set(['then', 'with', 'that', 'this', 'into', 'over', 'from', 'they',
-  'have', 'been', 'were', 'will', 'your', 'start', 'starts', 'after', 'some', 'very',
-  'lots', 'just', 'like', 'make', 'want', 'good', 'more', 'also', 'much', 'along',
-  'while', 'about', 'their', 'there', 'where', 'which', 'what', 'when']);
 
 // ---- levels.js -----------------------------------------------------
 // GENERATED FILE -- do not edit.
@@ -2390,6 +1795,152 @@ const PREBUILT = [
           "batteries": 0.8,
           "wallguns": 0.5,
           "drones": 0.22,
+          "seals": 0,
+          "panels": 2,
+          "hue": 0
+        }
+      ]
+    },
+  },
+  {
+    label: "GAUNTLET",
+    blurb: "Very fast, narrow and hilly the whole way, staggered slabs and gates, wall guns everywhere, sealed four times, glowing red. The description that built it is in the README; this is what it compiled to.",
+    spec: {
+      "name": "GAUNTLET",
+      "seed": 1337,
+      "speed": {
+        "start": 370,
+        "end": 540
+      },
+      "finale": "port",
+      "sections": [
+        {
+          "name": "the drop",
+          "length": 6000,
+          "width": 82,
+          "depth": 120,
+          "curviness": 0.3,
+          "hilliness": 0.6,
+          "roughness": 0.55,
+          "obstacles": 0.34,
+          "kinds": [
+            "stack",
+            "gate"
+          ],
+          "turrets": 0.42,
+          "gatlings": 0.42,
+          "batteries": 0.34,
+          "wallguns": 0.55,
+          "drones": 0.28,
+          "seals": 0,
+          "panels": 2,
+          "hue": 0.01
+        },
+        {
+          "name": "first seal",
+          "length": 6000,
+          "width": 72,
+          "depth": 132,
+          "curviness": 0.4,
+          "hilliness": 0.78,
+          "roughness": 0.55,
+          "obstacles": 0.38,
+          "kinds": [
+            "stack",
+            "gate"
+          ],
+          "turrets": 0.42,
+          "gatlings": 0.42,
+          "batteries": 0.34,
+          "wallguns": 0.55,
+          "drones": 0.28,
+          "seals": 1,
+          "panels": 3,
+          "hue": 0.01
+        },
+        {
+          "name": "slab run",
+          "length": 6000,
+          "width": 64,
+          "depth": 144,
+          "curviness": 0.4,
+          "hilliness": 0.78,
+          "roughness": 0.55,
+          "obstacles": 0.5,
+          "kinds": [
+            "stack"
+          ],
+          "turrets": 0.42,
+          "gatlings": 0.42,
+          "batteries": 0.34,
+          "wallguns": 0.55,
+          "drones": 0.28,
+          "seals": 1,
+          "panels": 2,
+          "hue": 0.01
+        },
+        {
+          "name": "the squeeze",
+          "length": 6000,
+          "width": 56,
+          "depth": 152,
+          "curviness": 0.4,
+          "hilliness": 0.78,
+          "roughness": 0.55,
+          "obstacles": 0.5,
+          "kinds": [
+            "stack",
+            "gate"
+          ],
+          "turrets": 0.42,
+          "gatlings": 0.42,
+          "batteries": 0.34,
+          "wallguns": 0.55,
+          "drones": 0.28,
+          "seals": 1,
+          "panels": 3,
+          "hue": 0.02
+        },
+        {
+          "name": "last seal",
+          "length": 6000,
+          "width": 52,
+          "depth": 150,
+          "curviness": 0.4,
+          "hilliness": 0.78,
+          "roughness": 0.55,
+          "obstacles": 0.46,
+          "kinds": [
+            "stack",
+            "gate"
+          ],
+          "turrets": 0.42,
+          "gatlings": 0.42,
+          "batteries": 0.34,
+          "wallguns": 0.65,
+          "drones": 0.28,
+          "seals": 1,
+          "panels": 2,
+          "hue": 0.01
+        },
+        {
+          "name": "run to the core",
+          "length": 6000,
+          "width": 50,
+          "depth": 140,
+          "curviness": 0.4,
+          "hilliness": 0.78,
+          "roughness": 0.55,
+          "obstacles": 0.44,
+          "kinds": [
+            "gate",
+            "stack"
+          ],
+          "turrets": 0.42,
+          "gatlings": 0.42,
+          "batteries": 0.34,
+          "wallguns": 0.55,
+          "drones": 0.28,
           "seals": 0,
           "panels": 2,
           "hue": 0
@@ -4954,7 +4505,7 @@ class Audio {
 }
 
 // ---- input.js ------------------------------------------------------
-// Input: tilt to fly, touch to shoot.
+// Input: tilt to fly, touch to shoot -- or a controller, or a keyboard.
 //
 // Steering reads the gravity vector rather than gyroscope rate, because an
 // on-rails ship wants an *absolute* control: where you hold the phone is where
@@ -4982,6 +4533,7 @@ class Audio {
 const FULL_TILT_X = 21.5 * (Math.PI / 180);
 const FULL_TILT_Y = 16.6 * (Math.PI / 180);
 const DEADZONE = 0.05;
+const PAD_DEADZONE = 0.14;   // sticks rest a little off centre, and they wear
 
 // Calibration waits for stillness: this many consecutive readings within this
 // tolerance, or this many readings total before it settles for what it has.
@@ -5011,8 +4563,14 @@ class Input {
     this.missilePressed = false;
     this.holdTime = 0;
     this.motion = 'unavailable';   // unavailable | granted | denied
+    this.padName = '';             // the controller in use, if there is one
+    this._padFiring = false;
+    this._padMissile = false;
     this.invertX = false;
-    this.invertY = false;
+    // Tilting the top of the phone away from you climbs. It is the default
+    // because it is how people hold a thing they are flying, and it is the
+    // one everybody reaches for the toggle to get.
+    this.invertY = true;
     this.sensitivity = 1;
 
     this.gx = 0; this.gy = 0; this.gz = 0;   // filtered gravity, screen space
@@ -5022,6 +4580,7 @@ class Input {
     this._steady = 0;              // consecutive still readings, while calibrating
     this._waited = 0;              // readings since calibration was asked for
     this._lastRaw = [0, 0, 0];
+    this._angle = 0;            // screen rotation the neutral is expressed in
 
     this.keys = new Set();
     this.pointers = new Map();
@@ -5094,16 +4653,51 @@ class Input {
     return this.motion;
   }
 
+  /**
+   * The screen's rotation away from the device's natural one, in degrees.
+   *
+   * `window.orientation` is the old spelling of this and it counts the other
+   * way round, so it has to be negated rather than used as a spare. Reading
+   * the angle with `||` also quietly fell through to it whenever the angle was
+   * zero, which is the one value that is falsy and also completely normal.
+   */
+  _screenAngle() {
+    const o = typeof screen !== 'undefined' && screen.orientation;
+    if (o && Number.isFinite(o.angle)) return o.angle;
+    return Number.isFinite(window.orientation) ? -window.orientation : 0;
+  }
+
+  /**
+   * The screen turned under us: the phone was rolled far enough for the OS to
+   * re-lay the page out.
+   *
+   * Getting there means physically rolling the phone through forty-five
+   * degrees, which is the bank gesture, so the controls swing hard and then
+   * invert the instant the layout flips. Nothing can tell those two intentions
+   * apart while it is happening -- so stop steering and take the new posture
+   * as neutral, which is what the player means by turning the phone anyway.
+   * Carrying the old neutral across instead reads correctly for exactly one
+   * frame and then leaves it ninety degrees wrong for the rest of the run.
+   */
+  _reframe(deg) {
+    this._angle = deg;
+    this.recalibrate();
+  }
+
   _onMotion(e) {
     const a = e.accelerationIncludingGravity;
     if (!a || (a.x === null && a.y === null)) return;
-    // Rotate device axes into screen axes.
-    const deg = (screen.orientation && screen.orientation.angle) || window.orientation || 0;
+    // Rotate device axes into screen axes. Turning the vector the same way the
+    // screen turned, not the opposite way: at zero the two are identical, which
+    // is why this read correctly in portrait and inverted both axes in
+    // landscape -- and flipped the controls the moment the phone rotated.
+    const deg = this._screenAngle();
+    if (deg !== this._angle) this._reframe(deg);
     const r = (deg * Math.PI) / 180;
     const cs = Math.cos(r), sn = Math.sin(r);
     const dx = a.x || 0, dy = a.y || 0;
-    const sx = dx * cs + dy * sn;
-    const sy = -dx * sn + dy * cs;
+    const sx = dx * cs - dy * sn;
+    const sy = dx * sn + dy * cs;
     // The screen rotates about z, so z comes through untouched -- and it has to
     // come through: two components describe the tilt only while the phone is
     // near flat, and the whole point is that it is not.
@@ -5125,7 +4719,7 @@ class Input {
    * Adopts neutral once the phone has stopped moving.
    *
    * Calibration is asked for at the moment a run starts -- which is also the
-   * moment the game asks for landscape, so the player is very often part way
+   * moment the game goes fullscreen, so the player is very often part way
    * through turning the phone. Taking the next reading as neutral froze a
    * posture nobody was holding, and every run after that fought it. Wait for
    * the pose to be still instead, and give up waiting rather than never
@@ -5248,6 +4842,12 @@ class Input {
       const wrap = (a) => (a > Math.PI ? a - TAU : a < -Math.PI ? a + TAU : a);
       sx = shape(clamp((wrap(bank) / FULL_TILT_X) * this.sensitivity, -1.4, 1.4));
       sy = shape(clamp((-wrap(pitch) / FULL_TILT_Y) * this.sensitivity, -1.4, 1.4));
+      // Inverting is a tilt setting -- it sits under TILT SENSITIVITY on the
+      // panel and it is a statement about how you hold the phone. Applied at
+      // the end instead, as it used to be, it also turned the arrow keys
+      // upside down, which nobody ever wanted.
+      if (this.invertX) sx = -sx;
+      if (this.invertY) sy = -sy;
     }
 
     if (this.stick !== null && this.pointers.has(this.stick)) {
@@ -5255,6 +4855,31 @@ class Input {
       const range = Math.min(viewW, viewH) * 0.22;
       sx = clamp((p[0] - this.stickOrigin[0]) / range, -1, 1);
       sy = clamp((this.stickOrigin[1] - p[1]) / range, -1, 1);
+    }
+
+    // A controller, if one is plugged in. The standard mapping is what both an
+    // Xbox and a PlayStation pad report through a browser, so one set of
+    // indices covers both. It takes over from the tilt only while it is being
+    // used, so a pad sitting idle on the desk does not pin the ship.
+    const pad = this._pad();
+    this.padName = pad ? pad.id.replace(/\s*\([^)]*\)\s*/g, '').trim() : '';
+    if (pad) {
+      const stick = (v) => (Math.abs(v) < PAD_DEADZONE ? 0
+        : (v - Math.sign(v) * PAD_DEADZONE) / (1 - PAD_DEADZONE));
+      const px = stick(pad.axes[0] || 0);
+      const py = stick(-(pad.axes[1] || 0));
+      if (px || py) { sx = px; sy = py; }
+      const held = (...i) => i.some((n) => pad.buttons[n] && pad.buttons[n].pressed);
+      // Either trigger or the bottom face button fires; either shoulder or the
+      // right face button launches, on the press rather than the hold.
+      const fire = held(7, 6, 0);
+      if (fire && !this.firing) this.justPressed = true;
+      if (fire) this.firing = true;
+      else if (this._padFiring) this.firing = false;
+      this._padFiring = fire;
+      const launch = held(5, 4, 1);
+      if (launch && !this._padMissile) this.launchMissiles();
+      this._padMissile = launch;
     }
 
     const k = this.keys;
@@ -5266,8 +4891,8 @@ class Input {
     if (kx || ky) { sx = kx; sy = ky; }
     if (k.has(' ')) { if (!this.firing) this.justPressed = true; this.firing = true; }
 
-    this.steerX = this.invertX ? -sx : sx;
-    this.steerY = this.invertY ? -sy : sy;
+    this.steerX = sx;
+    this.steerY = sy;
   }
 
   /** True once per missile request, from the button, a key, or a call. */
@@ -5280,6 +4905,14 @@ class Input {
   /** Requests a salvo. The on-screen button and the keyboard both land here. */
   launchMissiles() {
     this.missilePressed = true;
+  }
+
+  /** The first connected pad, or null. Polled rather than evented: the API
+   *  only refreshes button state when you ask for it. */
+  _pad() {
+    if (typeof navigator === 'undefined' || !navigator.getGamepads) return null;
+    for (const p of navigator.getGamepads()) if (p && p.connected) return p;
+    return null;
   }
 
   /** True once per press. */
@@ -6589,13 +6222,16 @@ class Game {
 }
 
 // ---- ui.js ---------------------------------------------------------
-// The authoring interface: prose in, level out, schematic on screen, then fly.
+// The front of the game: pick a level, fly it, or describe a new one.
 //
 // Screens are DOM overlays over the same canvas the game renders into, so the
-// design screen can show the compiled level as a live vector schematic behind
-// the panel rather than as a separate widget.
-
-
+// menu can show the chosen level as a live vector schematic behind the panel
+// rather than as a separate widget.
+//
+// Designing a level happens on the local server, not here -- the page posts the
+// description and gets back a finished level. Served from GitHub Pages there is
+// no server to post to, the button says so, and the pre-built levels are all
+// there is.
 
 
 
@@ -6644,45 +6280,18 @@ class UI {
   // --- wiring ------------------------------------------------------------
 
   bindAll() {
-    // Pre-built levels load their authored spec directly. Going through the
-    // parser would re-derive numbers someone already tuned and audited, so the
-    // prose box is cleared instead: what you fly is the file, not a reading of
-    // a description of the file.
-    const pre = $('prebuilt');
-    PREBUILT.forEach((lv) => {
-      const b = document.createElement('button');
-      b.className = 'chip built';
-      b.textContent = lv.label;
-      if (lv.blurb) b.title = lv.blurb;
-      b.addEventListener('click', () => {
-        $('prose').value = '';
-        this.setSpec(lv.spec, [`pre-built: ${lv.label}`, lv.blurb].filter(Boolean));
-      });
-      pre.appendChild(b);
-    });
+    this.buttons = [];
+    for (const lv of PREBUILT) this.addLevel(lv, $('prebuilt'));
 
-    const ex = $('examples');
-    EXAMPLES.forEach((e) => {
-      const b = document.createElement('button');
-      b.className = 'chip';
-      b.textContent = e.label;
-      b.addEventListener('click', () => {
-        $('prose').value = e.prose;
-        this.build();
-      });
-      ex.appendChild(b);
-    });
+    $('fly').addEventListener('click', () => this.fly());
+    $('full').addEventListener('click', () => this.goFullscreen());
+    $('designbtn').addEventListener('click', () => this.design());
+
+    for (const ev of ['gamepadconnected', 'gamepaddisconnected']) {
+      window.addEventListener(ev, () => setTimeout(() => this.padState(), 60));
+    }
 
     $('begin').addEventListener('click', () => this.begin());
-    $('build').addEventListener('click', () => this.build());
-    $('fly').addEventListener('click', () => this.fly());
-    $('reroll').addEventListener('click', () => this.reroll());
-    $('fold').addEventListener('click', () => {
-      $('sheet').classList.toggle('collapsed');
-      $('fold').textContent = $('sheet').classList.contains('collapsed') ? 'EDIT' : 'SCHEMATIC';
-      this.dirty = true;
-    });
-    $('share').addEventListener('click', () => this.share());
     $('pause').addEventListener('click', () => this.toMenu());
 
     // The launcher. pointerdown rather than click so it fires on touch-down
@@ -6710,10 +6319,6 @@ class UI {
       this.rd.trail = e.target.checked ? 0.34 : 0.9;
     });
 
-    $('apikey').value = getKey();
-    $('apikey').addEventListener('change', (e) => setKey(e.target.value.trim()));
-    $('usellm').addEventListener('change', () => this.build());
-
     // A tap anywhere on the canvas after a run returns to the menu.
     this.rd.canvas.addEventListener('pointerdown', () => {
       if (this.screen === 'flight' && this.game.phase !== 'flying') {
@@ -6726,6 +6331,13 @@ class UI {
       if (e.key === 'Escape' && this.screen === 'flight') this.toMenu();
       if (e.key === 'Enter' && (e.metaKey || e.ctrlKey) && this.screen === 'design') this.fly();
     });
+  }
+
+  padState() {
+    const name = this.input.padName;
+    $('padstate').textContent = name
+      ? `gamepad: ${name} -- left stick flies, triggers fire, shoulders launch`
+      : 'gamepad: none';
   }
 
   motionState(msg) {
@@ -6769,11 +6381,36 @@ class UI {
       this.controlHint = 'no tilt: drag one finger to steer, touch with a second to fire';
     }
     this.show('design');
+    this.loadCustom();
     if (!this.spec) {
-      // Open on a finished level so the first tap after this one can be FLY IT.
-      this.setSpec(PREBUILT[0].spec, [`pre-built: ${PREBUILT[0].label}`, PREBUILT[0].blurb]);
+      // Open on a finished level, so the next tap can be FLY.
+      this.buttons[0].click();
     } else {
       this.status(`${this.spec.name} -- ready`);
+    }
+  }
+
+  /**
+   * Fullscreen, and stay the way up the player is already holding the phone.
+   *
+   * Locking is deliberately whichever orientation they are in when they ask,
+   * rather than one the game prefers: it reads fine both ways, and the one
+   * thing that does not read fine is the layout turning over mid-flight.
+   */
+  async goFullscreen() {
+    const el = document.getElementById('stage');
+    try {
+      if (!document.fullscreenElement && el.requestFullscreen) {
+        await el.requestFullscreen({ navigationUI: 'hide' });
+      }
+    } catch { /* refused; the lock below may still work */ }
+    const type = (screen.orientation && screen.orientation.type)
+      || (innerWidth > innerHeight ? 'landscape-primary' : 'portrait-primary');
+    try {
+      await screen.orientation?.lock?.(type.startsWith('landscape') ? 'landscape' : 'portrait');
+      this.status(`full screen, locked ${type.startsWith('landscape') ? 'landscape' : 'portrait'}`);
+    } catch {
+      this.status('full screen (this browser will not lock the orientation)');
     }
   }
 
@@ -6792,8 +6429,6 @@ class UI {
     this.spec = normalizeSpec(spec);
     this.game.load(this.spec);
     $('fly').disabled = false;
-    $('reroll').disabled = false;
-    $('share').disabled = false;
     const lv = this.game.level;
     const counts = [
       `${lv.obstacles.length} obstacles`,
@@ -6808,74 +6443,111 @@ class UI {
     this.status(`${this.spec.name} -- ${Math.round(this.game.track.total)} units`);
   }
 
-  async build() {
+  /** One button on the shelf. The chosen one stays lit, so the shelf is the state. */
+  addLevel(lv, into) {
+    const b = document.createElement('button');
+    b.className = 'chip built';
+    b.textContent = lv.label;
+    if (lv.blurb) b.title = lv.blurb;
+    b.addEventListener('click', () => {
+      for (const o of this.buttons) o.classList.toggle('on', o === b);
+      this.setSpec(lv.spec, [lv.label, lv.blurb].filter(Boolean));
+    });
+    into.appendChild(b);
+    this.buttons.push(b);
+    return b;
+  }
+
+  /**
+   * Levels designed on this machine, if there is a machine to ask.
+   *
+   * The published page has no server behind it, so this 404s there and the
+   * shelf is simply the pre-built levels -- which is the intended shape of the
+   * thing, not a degraded one.
+   */
+  async loadCustom(selectNewest = false) {
+    let levels = [];
+    try {
+      const r = await fetch('/api/levels');
+      if (!r.ok) throw new Error('no server');
+      ({ levels } = await r.json());
+      this.local = true;
+    } catch {
+      this.local = false;
+      $('designnote').textContent =
+        'Designing a level runs Claude on your own machine. Clone the repo, run '
+        + '`node tools/serve.mjs`, and open it from there -- the published page cannot do it.';
+      $('designbtn').disabled = true;
+      return;
+    }
+    const row = $('custom');
+    row.textContent = '';
+    this.buttons = this.buttons.filter((b) => b.parentElement !== row);
+    $('customrow').hidden = levels.length === 0;
+    let first = null;
+    for (const lv of levels) first = this.addLevel(lv, row) || first;
+    if (selectNewest && row.firstChild) row.firstChild.click();
+  }
+
+  /**
+   * Hand the description to the agent and wait. It reads the authoring guide,
+   * writes the level, and runs the same flyability gate the shipped levels
+   * pass, fixing what it got wrong -- so this takes a minute or two and what
+   * comes back is a level, not a draft.
+   */
+  async design() {
     if (this.busy) return;
     const prose = $('prose').value.trim();
-    if (!prose) {
-      this.report('write a description first, or pick an example', 'warn');
+    if (prose.length < 8) {
+      this.report('describe the level you want first -- a sentence or two is plenty', 'warn');
       return;
     }
-    $('err').textContent = '';
-
-    if ($('usellm').checked) {
-      const key = $('apikey').value.trim();
-      setKey(key);
-      if (!key) {
-        $('err').textContent = 'Add an API key, or untick USE CLAUDE to use the offline parser.';
+    this.busy = true;
+    $('designbtn').disabled = true;
+    const started = Date.now();
+    const tick = setInterval(() => {
+      this.status(`claude is designing it -- ${Math.round((Date.now() - started) / 1000)}s`);
+    }, 1000);
+    this.report('reading the authoring guide, writing the level, then checking it is flyable.\n'
+      + 'this takes a minute or two.', '');
+    try {
+      const r = await fetch('/api/design', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ prose }),
+      });
+      const data = await r.json();
+      if (!r.ok || !data.ok) {
+        this.report([data.error || 'the design failed', ...(data.problems || [])], 'warn');
+        this.status('design failed');
         return;
       }
-      this.busy = true;
-      $('build').disabled = true;
-      this.status('asking claude to design it...');
-      try {
-        const { spec, report } = await parseProseLLM(prose, {
-          key,
-          onStatus: (s) => this.status(`claude: ${s}...`),
-        });
-        this.setSpec(spec, report);
-      } catch (err) {
-        $('err').textContent = err.message;
-        this.status('claude failed -- falling back to the offline parser');
-        const { spec, report } = parseProse(prose);
-        this.setSpec(spec, ['offline parser used instead:', ...report]);
-      } finally {
-        this.busy = false;
-        $('build').disabled = false;
-      }
-      return;
+      await this.loadCustom(true);
+      this.report([data.said || '', '',
+        `${data.check.name}: ${data.check.seconds}s, ${data.check.sections} sections, `
+        + `${data.check.obstacles} obstacles, ${data.check.bulkheads} bulkheads, `
+        + `${data.check.guns} guns. saved to ${data.file}.`].filter(Boolean), 'ok');
+    } catch (err) {
+      this.report(`could not reach the design server: ${err.message}`, 'warn');
+    } finally {
+      clearInterval(tick);
+      this.busy = false;
+      $('designbtn').disabled = !this.local;
     }
-
-    const { spec, report } = parseProse(prose);
-    this.setSpec(spec, report);
-  }
-
-  /** Same shape, different dice: re-rolls placement without touching the spec. */
-  reroll() {
-    if (!this.spec) return;
-    this.spec = normalizeSpec({ ...this.spec, seed: (Math.random() * 1e9) | 0 });
-    this.setSpec(this.spec, [`reseeded (${this.spec.seed})`]);
-  }
-
-  share() {
-    const url = `${location.origin}${location.pathname}#lvl=${encodeSpec(this.spec)}`;
-    history.replaceState(null, '', `#lvl=${encodeSpec(this.spec)}`);
-    navigator.clipboard?.writeText(url).then(
-      () => this.status('link copied -- the level travels in the URL'),
-      () => this.status('link is in the address bar'),
-    );
   }
 
   async fly() {
     if (!this.spec) return;
     this.audio.start();
-    // Fullscreen landscape is worth asking for, and harmless when refused.
+    // Fullscreen is worth asking for and harmless when refused. Orientation is
+    // not asked for at all: the game reads either way up, and pinning it fought
+    // whichever way the player was already holding the phone.
     try {
       const el = document.getElementById('stage');
       if (!document.fullscreenElement && el.requestFullscreen) {
         await el.requestFullscreen({ navigationUI: 'hide' });
       }
-      await screen.orientation?.lock?.('landscape');
-    } catch { /* browsers may refuse either; the game plays fine regardless */ }
+    } catch { /* browsers may refuse; the game plays fine regardless */ }
     if (this.input.motion === 'granted') this.input.recalibrate();
     this.game.reset();
     this.audio.musicStart();
@@ -6886,7 +6558,6 @@ class UI {
     this.audio.musicStop();
     this.show('design');
     this.status(`${this.spec.name} -- ${this.game.phase === 'won' ? 'cleared' : 'ready'}`);
-    try { screen.orientation?.unlock?.(); } catch { /* not supported everywhere */ }
   }
 
   /**

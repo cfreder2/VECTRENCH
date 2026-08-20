@@ -7,8 +7,7 @@
 // is exported and why the sweep below is guarded.
 import { fileURLToPath } from 'node:url';
 import { realpathSync } from 'node:fs';
-import { parseProse } from '../src/nl.js';
-import { EXAMPLES } from '../src/spec.js';
+import { PREBUILT } from '../src/levels.js';
 import { Track } from '../src/track.js';
 import { buildLevel } from '../src/level.js';
 import { hitsObstacle } from '../src/collide.js';
@@ -90,17 +89,16 @@ const isMain = process.argv[1] &&
   fileURLToPath(import.meta.url) === realpathSync(process.argv[1]);
 
 if (isMain) {
-  for (const ex of EXAMPLES) {
-    const { spec } = parseProse(ex.prose);
-    const r = audit(spec);
-    console.log(`${ex.label.padEnd(12)} clearable=${r.ok}` +
+  for (const lv of PREBUILT) {
+    const r = audit(lv.spec);
+    console.log(`${lv.label.padEnd(15)} clearable=${r.ok}` +
       (r.blocked.length ? `  BLOCKED: ${JSON.stringify(r.blocked)}` : '') +
       (r.tight.length ? `  tight(${r.tight.length}): ${JSON.stringify(r.tight.slice(0,4))}` : ''));
   }
 
   // Sweep many seeds: how often does the generator produce an unclearable level?
-  console.log('\n--- seed sweep on TRENCH RUN shape ---');
-  const { spec: base } = parseProse(EXAMPLES[0].prose);
+  const base = PREBUILT[PREBUILT.length - 1].spec;
+  console.log(`\n--- seed sweep on the ${base.name} shape ---`);
   let bad = 0, tightTotal = 0;
   const reasons = {};
   for (let s = 1; s <= 60; s++) {

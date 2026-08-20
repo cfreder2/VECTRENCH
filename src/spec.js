@@ -18,7 +18,7 @@ export const OBSTACLE_KINDS = [
   'pinwheel', 'cross', 'press', 'slider',
 ];
 
-/** Field ranges. Also the documentation the NL layer and the model are given. */
+/** Field ranges. Also the documentation the design agent is given. */
 export const FIELDS = {
   length:    { min: 400,  max: 6000, def: 2000, unit: 'units of track' },
   width:     { min: 26,   max: 150,  def: 62,   unit: 'trench half-width' },
@@ -109,34 +109,3 @@ export function decodeSpec(str) {
  * Built-in levels. The first is the brief this game was built to: a long,
  * tightening trench run with sealed bulkheads and a port at the end.
  */
-export const EXAMPLES = [
-  {
-    label: 'TRENCH RUN',
-    prose:
-      'Start wide and open for a bit to get your bearings, then tighten into a ' +
-      'deep trench with columns and hanging fangs. Seal the trench once and put ' +
-      'heavy turret cover on the surface. Then a long, very tight, twisting ' +
-      'section with gates and irises and wall guns. Seal it twice more. ' +
-      'Finish with a fast narrow choke and an exhaust port.',
-  },
-  {
-    label: 'CATHEDRAL',
-    prose:
-      'A huge cavernous shallow canyon, almost straight, with enormous spires ' +
-      'and lots of drones. Then a short claustrophobic tunnel section, ' +
-      'extremely tight and very twisty, packed with irises. End with a port.',
-  },
-  {
-    label: 'GAUNTLET',
-    prose:
-      'Very fast. Narrow and hilly the whole way, heavy staggered slabs and ' +
-      'gates, wall guns everywhere, sealed four times. Glowing red. ' +
-      'Ends with a reactor port.',
-  },
-  {
-    label: 'FIRST LIGHT',
-    prose:
-      'A gentle wide winding canyon, shallow, a few scattered columns and ' +
-      'almost no guns. Icy blue. No port, just fly it.',
-  },
-];

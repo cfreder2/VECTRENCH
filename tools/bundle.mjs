@@ -18,13 +18,12 @@ const here = dirname(fileURLToPath(import.meta.url));
 const SRC = join(here, '..', 'src');
 const DIST = join(here, '..', 'dist');
 
-// Dependency order. Two entries are load-order-sensitive rather than merely
-// tidy: game.js reads CANYON from terrain.js at definition time, and llm.js
-// builds its system prompt from spec.js's FIELDS at definition time. Top-level
-// const is not hoisted, so those must already be evaluated.
+// Dependency order. One entry is load-order-sensitive rather than merely tidy:
+// game.js reads CANYON from terrain.js at definition time, and top-level const
+// is not hoisted, so terrain.js must already be evaluated.
 const ORDER = [
   'math.js', 'collide.js', 'font.js', 'renderer.js',
-  'spec.js', 'llm.js', 'nl.js', 'levels.js',
+  'spec.js', 'levels.js',
   'track.js', 'level.js', 'terrain.js', 'entities.js',
   'hud.js', 'music.js', 'audio.js', 'input.js',
   'game.js', 'ui.js', 'main.js',

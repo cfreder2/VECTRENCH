@@ -18,136 +18,28 @@ stay exactly as you tuned it.
 
 ## 1. Describe it
 
-Type a description, press **BUILD**. The parser runs entirely in the browser and
-is a fixed grammar rather than a guess-the-meaning machine: it reports every
-phrase it recognized, so when a level is not what you meant you can see which
-word did it.
+Run the game from the local server and type the level you want into **DESIGN A
+NEW LEVEL**. There is no vocabulary to learn and no grammar to satisfy: the
+description goes to `claude`, running on your own machine on your own
+subscription, and the agent reads this guide, writes the spec, and checks it.
 
-**Prose is split into sections.** The split happens on sequence markers — `then`,
-`and then`, `after that`, `followed by`, `next`, `finally`, `later`, plus
-semicolons, newlines, `1.`/`2.` and bullets. Each segment becomes one section of
-the run, flown in the order you wrote it.
+```bash
+node tools/serve.mjs          # then open http://localhost:8000/
+```
 
-> Start wide and open, **then** tighten into a deep twisting trench packed with
-> hanging fangs, **finally** a narrow choke with an exhaust port.
+Describe the shape of the run rather than the numbers: how it opens, how it
+narrows, what stands in it, what shoots at you, what colour it is, and how it
+ends. Pacing, references and metaphors are fine -- "a frozen cathedral", "the
+last two minutes should feel like drowning" -- because a model is reading it,
+not a parser.
 
-That is three sections. Anything a segment does not mention is inherited from the
-segment before it, so you only have to write what changes.
+The agent writes the level to `levels/custom/`, runs the flyability gate over
+it, fixes whatever failed, and the level appears on the shelf when it passes.
+It usually takes a minute or two. Nothing about this works on the published
+page: there is no server there, and the button says so.
 
-### The vocabulary
-
-| What | Words | Result |
-| --- | --- | --- |
-| **Width** | `claustrophobic`, `needle`, `coffin` | 30 |
-| | `tight`, `narrow`, `cramped`, `tunnel`, `slot`, `confined`, `choked` | 40 |
-| | `snug` | 48 |
-| | `tightens`, `narrows`, `closes in`, `chokes down` | 44 |
-| | `wide`, `open`, `broad`, `roomy`, `spacious` | 88 |
-| | `cavernous`, `enormous`, `vast`, `huge`, `massive`, `colossal` | 125 |
-| **Depth** | `shallow`, `ditch`, `gully`, `scratch` | 66 |
-| | `deep` | 152 |
-| | `bottomless`, `abyssal`, `chasm`, `fathomless` | 210 |
-| **Turning** | `straight`, `dead straight`, `linear`, `ruler` | 0.02 |
-| | `lazy`, `sweeping`, `gentle curve`, `meandering` | 0.28 |
-| | `winding`, `curving`, `curvy`, `bending` | 0.55 |
-| | `twisty`, `serpentine`, `snaking`, `corkscrew` | 0.82 |
-| | `hairpin`, `switchback`, `violent turns` | 1.0 |
-| **Relief** | `flat`, `level`, `even` | 0.05 |
-| | `rolling`, `undulating`, `wavy`, `billowing` | 0.5 |
-| | `hilly`, `steep`, `plunging`, `diving`, `rollercoaster` | 0.82 |
-| **Surface** | `smooth`, `clean`, `polished`, `bare`, `featureless` | 0.12 |
-| | `detailed`, `greebled`, `industrial`, `mechanical`, `cluttered` | 0.8 |
-| | `rough`, `jagged`, `broken`, `shattered`, `craggy` | 0.92 |
-| **Obstacles** | `empty`, `clear`, `no obstacles`, `unobstructed` | 0 |
-| | `sparse`, `scattered`, `a few`, `light`, `occasional`, `the odd` | 0.18 |
-| | `some`, `moderate`, `a fair few` | 0.4 |
-| | `dense`, `lots of`, `packed`, `heavy`, `thick`, `full of`, `forest of` | 0.75 |
-| | `wall to wall`, `relentless`, `nonstop`, `unbroken`, `solid` | 1.0 |
-| **Length** | `brief`, `short`, `quick` | 900 |
-| | `long`, `extended`, `sustained` | 3000 |
-| | `the whole way`, `throughout` | 3200 |
-| | `endless`, `marathon`, `interminable` | 5000 |
-
-**Obstacle kinds.** Naming one places it, and also raises obstacle density to at
-least 0.5 — asking for stalactites and getting none would be a strange reading.
-
-| Kind | Words | What it is |
-| --- | --- | --- |
-| `pylon` | `column`, `pillar`, `spire`, `tower`, `stalagmite`, `obelisk`, `girder` | Grows up from the floor |
-| `fang` | `stalactite`, `icicle`, `tooth`, `hanging`, `dropper`, `pendant` | Hangs down from the rim |
-| `gate` | `bulkhead`, `door`, `hatch`, `window`, `blast door`, `shutter` | A wall with one rectangular hole |
-| `ring` | `iris`, `hoop`, `aperture`, `portal`, `eye` | A wall with one circular hole |
-| `stack` | `slab`, `staggered`, `zigzag`, `chicane`, `alternating`, `stepped` | Alternating half-blocks, in pairs |
-| `pinwheel` | `pinwheel`, `windmill`, `rotor`, `turnstile`, `propeller` | Three or five arms, turning |
-| `cross` | `giant x`, `spinning cross`, `saltire`, `spinner` | A heavy four-armed X, turning |
-| `press` | `crusher`, `press`, `vice`, `jaws`, `closing walls` | Two walls that close and open |
-| `slider` | `slider`, `piston`, `shuttle`, `sweeper`, `hammer` | A block tracking side to side, or up and down |
-
-**The last four move**, and that is the only difference: they are the same
-axis-aligned boxes as everything else, in a frame that slides or turns. A
-pinwheel is four still arms on a turning frame, a crusher is two still walls on
-frames sliding toward each other. Collision transforms one query point into that
-frame rather than transforming eight corners out of it, which is why a spinning
-five-arm rotor costs no more to hit-test than a pylon.
-
-Their phase comes from **where they are on the track**, not from when you happen
-to arrive. Speed depends only on position, so arrival time is the same for every
-player: a pinwheel presents one specific face to everyone, the audit knows which
-face that is, and "there is a way through" stays a provable claim. A crusher
-never closes past 26 units, and none of them reach the ceiling — over the top is
-always the other answer.
-
-**Enemies.** `turret`, `emplacement`, `flak`, `anti-air`, `cannon` put plain
-guns on the surface. `gatling`, `chaingun`, `minigun`, `vulcan`, `autocannon`
-put rotary cannon up there, and `missile battery`, `launcher`, `silo`, `rocket
-battery`, `SAM site` put missile racks up there. `wall gun`, `gun port`,
-`embrasure`, `pillbox` put guns inside the trench. `drone`, `fighter`,
-`interceptor`, `swarm`, `squadron` send waves at you. Negations work:
-`undefended`, `no guns`, `no drones`, `no gatlings`, `no missiles`.
-
-All of them can be locked, so enemy density is also missile density: a section
-that puts several guns within sight of each other is a section that hands the
-player a salvo. The clusters the compiler makes on its own — a drone wave, the
-cover fire it places around every bulkhead — are already shaped for that.
-
-**Bulkheads.** `seal`, `sealed`, `walled off`, `blocked off`, `dead end`,
-`forced over`, `no way through` place a full-height barrier. A count comes along
-for the ride: `sealed three times`, `two bulkheads`, `sealed twice`.
-
-Every bulkhead carries **control panels** — shoot them all out and it sinks into
-the floor and you keep your altitude, which is the alternative to climbing into
-the guns. `three control panels`, `1 panel`, or `no panels` to weld it shut so
-that over the top is the only way. The count has to sit directly against the
-word: `sealed twice with three panels` reads as three, because the general
-"number before a word" search would otherwise find `twice` first.
-
-**Colour.** `red`/`molten`/`lava`, `orange`/`amber`/`rust`, `yellow`/`gold`,
-`green`/`toxic`/`acid`, `cyan`/`icy`/`glacial`, `blue`/`cobalt`,
-`purple`/`violet`/`neon`, `white`/`chrome`/`steel`.
-
-**Whole-run directives.** These apply to the level, not a section:
-
-- Speed: `slow`, `fast`, `very fast`, `ludicrous`, `breakneck`
-- Finale: `exhaust port`, `reactor`, `core`, `vent` add the port; `no port`,
-  `just fly`, `free flight` leave the run open-ended
-- Name: `called "SPINE"`, or put the name in quotes at the very start
-- Seed: `seed 4211`
-
-### Intensifiers and numbers
-
-`very`, `extremely`, `brutally`, `insanely`, `absurdly` push a matched value 60%
-further toward its limit. `slightly`, `barely`, `moderately`, `gently` pull it
-halfway back to the default. They only modify the word right after them: in
-`very tight twisty`, `very` applies to `tight`.
-
-Explicit numbers beat adjectives entirely:
-
-- `for 2000 units`, `1500 long`, `40 seconds` — section length
-- `60 wide`, `48 across` — half-width
-- `180 deep` — rim height
-- `six turrets`, `4 drones`, `three wall guns` — read as a density hint
-
----
+Everything below is what the agent is reading while it does that, and what you
+would edit by hand to change a level afterwards.
 
 ## 2. Write the spec
 
@@ -282,8 +174,9 @@ $EDITOR tools/levels.mjs        # the ORDER array; unlisted levels sort to the e
 # 3. compile it into the game
 node tools/levels.mjs --sync
 
-# 4. check it is flyable
+# 4. check it is flyable -- every level, or just one file
 node tools/levels.mjs
+node tools/levels.mjs levels/my-level.json
 
 # 5. rebuild the single-file version
 node tools/bundle.mjs
@@ -322,16 +215,12 @@ cross-section remain reachable. A few are drama. Many mean the run is a lottery.
 
 ---
 
-## 4. Share it
+## 4. Keep it
 
-**COPY LINK** puts the whole spec in the URL as `#lvl=<base64>`. There is no
-server and nothing is uploaded: the level travels inside the link. Anyone opening
-it gets exactly your spec, seed included, and can **RESEED** or edit from there.
-
-`node tools/levels.mjs` prints the same hash for each pre-built level, which is
-where the play links in the README come from.
-
----
+A level is a file. `levels/custom/` is where the agent writes them and it is
+not compiled into the game, so those stay yours and stay local. To promote one
+to a level everybody gets, move it up to `levels/`, add it to `ORDER` in
+`tools/levels.mjs`, and run the sync -- section 3 above.
 
 ## A worked example
 

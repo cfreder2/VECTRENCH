@@ -1,4 +1,4 @@
-// Input: tilt to fly, touch to shoot.
+// Input: tilt to fly, touch to shoot -- or a controller, or a keyboard.
 //
 // Steering reads the gravity vector rather than gyroscope rate, because an
 // on-rails ship wants an *absolute* control: where you hold the phone is where
@@ -26,6 +26,7 @@ import { clamp, TAU } from './math.js';
 const FULL_TILT_X = 21.5 * (Math.PI / 180);
 const FULL_TILT_Y = 16.6 * (Math.PI / 180);
 const DEADZONE = 0.05;
+const PAD_DEADZONE = 0.14;   // sticks rest a little off centre, and they wear
 
 // Calibration waits for stillness: this many consecutive readings within this
 // tolerance, or this many readings total before it settles for what it has.
@@ -55,8 +56,14 @@ export class Input {
     this.missilePressed = false;
     this.holdTime = 0;
     this.motion = 'unavailable';   // unavailable | granted | denied
+    this.padName = '';             // the controller in use, if there is one
+    this._padFiring = false;
+    this._padMissile = false;
     this.invertX = false;
-    this.invertY = false;
+    // Tilting the top of the phone away from you climbs. It is the default
+    // because it is how people hold a thing they are flying, and it is the
+    // one everybody reaches for the toggle to get.
+    this.invertY = true;
     this.sensitivity = 1;
 
     this.gx = 0; this.gy = 0; this.gz = 0;   // filtered gravity, screen space
@@ -66,6 +73,7 @@ export class Input {
     this._steady = 0;              // consecutive still readings, while calibrating
     this._waited = 0;              // readings since calibration was asked for
     this._lastRaw = [0, 0, 0];
+    this._angle = 0;            // screen rotation the neutral is expressed in
 
     this.keys = new Set();
     this.pointers = new Map();
@@ -138,16 +146,51 @@ export class Input {
     return this.motion;
   }
 
+  /**
+   * The screen's rotation away from the device's natural one, in degrees.
+   *
+   * `window.orientation` is the old spelling of this and it counts the other
+   * way round, so it has to be negated rather than used as a spare. Reading
+   * the angle with `||` also quietly fell through to it whenever the angle was
+   * zero, which is the one value that is falsy and also completely normal.
+   */
+  _screenAngle() {
+    const o = typeof screen !== 'undefined' && screen.orientation;
+    if (o && Number.isFinite(o.angle)) return o.angle;
+    return Number.isFinite(window.orientation) ? -window.orientation : 0;
+  }
+
+  /**
+   * The screen turned under us: the phone was rolled far enough for the OS to
+   * re-lay the page out.
+   *
+   * Getting there means physically rolling the phone through forty-five
+   * degrees, which is the bank gesture, so the controls swing hard and then
+   * invert the instant the layout flips. Nothing can tell those two intentions
+   * apart while it is happening -- so stop steering and take the new posture
+   * as neutral, which is what the player means by turning the phone anyway.
+   * Carrying the old neutral across instead reads correctly for exactly one
+   * frame and then leaves it ninety degrees wrong for the rest of the run.
+   */
+  _reframe(deg) {
+    this._angle = deg;
+    this.recalibrate();
+  }
+
   _onMotion(e) {
     const a = e.accelerationIncludingGravity;
     if (!a || (a.x === null && a.y === null)) return;
-    // Rotate device axes into screen axes.
-    const deg = (screen.orientation && screen.orientation.angle) || window.orientation || 0;
+    // Rotate device axes into screen axes. Turning the vector the same way the
+    // screen turned, not the opposite way: at zero the two are identical, which
+    // is why this read correctly in portrait and inverted both axes in
+    // landscape -- and flipped the controls the moment the phone rotated.
+    const deg = this._screenAngle();
+    if (deg !== this._angle) this._reframe(deg);
     const r = (deg * Math.PI) / 180;
     const cs = Math.cos(r), sn = Math.sin(r);
     const dx = a.x || 0, dy = a.y || 0;
-    const sx = dx * cs + dy * sn;
-    const sy = -dx * sn + dy * cs;
+    const sx = dx * cs - dy * sn;
+    const sy = dx * sn + dy * cs;
     // The screen rotates about z, so z comes through untouched -- and it has to
     // come through: two components describe the tilt only while the phone is
     // near flat, and the whole point is that it is not.
@@ -169,7 +212,7 @@ export class Input {
    * Adopts neutral once the phone has stopped moving.
    *
    * Calibration is asked for at the moment a run starts -- which is also the
-   * moment the game asks for landscape, so the player is very often part way
+   * moment the game goes fullscreen, so the player is very often part way
    * through turning the phone. Taking the next reading as neutral froze a
    * posture nobody was holding, and every run after that fought it. Wait for
    * the pose to be still instead, and give up waiting rather than never
@@ -292,6 +335,12 @@ export class Input {
       const wrap = (a) => (a > Math.PI ? a - TAU : a < -Math.PI ? a + TAU : a);
       sx = shape(clamp((wrap(bank) / FULL_TILT_X) * this.sensitivity, -1.4, 1.4));
       sy = shape(clamp((-wrap(pitch) / FULL_TILT_Y) * this.sensitivity, -1.4, 1.4));
+      // Inverting is a tilt setting -- it sits under TILT SENSITIVITY on the
+      // panel and it is a statement about how you hold the phone. Applied at
+      // the end instead, as it used to be, it also turned the arrow keys
+      // upside down, which nobody ever wanted.
+      if (this.invertX) sx = -sx;
+      if (this.invertY) sy = -sy;
     }
 
     if (this.stick !== null && this.pointers.has(this.stick)) {
@@ -299,6 +348,31 @@ export class Input {
       const range = Math.min(viewW, viewH) * 0.22;
       sx = clamp((p[0] - this.stickOrigin[0]) / range, -1, 1);
       sy = clamp((this.stickOrigin[1] - p[1]) / range, -1, 1);
+    }
+
+    // A controller, if one is plugged in. The standard mapping is what both an
+    // Xbox and a PlayStation pad report through a browser, so one set of
+    // indices covers both. It takes over from the tilt only while it is being
+    // used, so a pad sitting idle on the desk does not pin the ship.
+    const pad = this._pad();
+    this.padName = pad ? pad.id.replace(/\s*\([^)]*\)\s*/g, '').trim() : '';
+    if (pad) {
+      const stick = (v) => (Math.abs(v) < PAD_DEADZONE ? 0
+        : (v - Math.sign(v) * PAD_DEADZONE) / (1 - PAD_DEADZONE));
+      const px = stick(pad.axes[0] || 0);
+      const py = stick(-(pad.axes[1] || 0));
+      if (px || py) { sx = px; sy = py; }
+      const held = (...i) => i.some((n) => pad.buttons[n] && pad.buttons[n].pressed);
+      // Either trigger or the bottom face button fires; either shoulder or the
+      // right face button launches, on the press rather than the hold.
+      const fire = held(7, 6, 0);
+      if (fire && !this.firing) this.justPressed = true;
+      if (fire) this.firing = true;
+      else if (this._padFiring) this.firing = false;
+      this._padFiring = fire;
+      const launch = held(5, 4, 1);
+      if (launch && !this._padMissile) this.launchMissiles();
+      this._padMissile = launch;
     }
 
     const k = this.keys;
@@ -310,8 +384,8 @@ export class Input {
     if (kx || ky) { sx = kx; sy = ky; }
     if (k.has(' ')) { if (!this.firing) this.justPressed = true; this.firing = true; }
 
-    this.steerX = this.invertX ? -sx : sx;
-    this.steerY = this.invertY ? -sy : sy;
+    this.steerX = sx;
+    this.steerY = sy;
   }
 
   /** True once per missile request, from the button, a key, or a call. */
@@ -324,6 +398,14 @@ export class Input {
   /** Requests a salvo. The on-screen button and the keyboard both land here. */
   launchMissiles() {
     this.missilePressed = true;
+  }
+
+  /** The first connected pad, or null. Polled rather than evented: the API
+   *  only refreshes button state when you ask for it. */
+  _pad() {
+    if (typeof navigator === 'undefined' || !navigator.getGamepads) return null;
+    for (const p of navigator.getGamepads()) if (p && p.connected) return p;
+    return null;
   }
 
   /** True once per press. */

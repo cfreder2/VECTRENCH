@@ -1,13 +1,16 @@
-// The authoring interface: prose in, level out, schematic on screen, then fly.
+// The front of the game: pick a level, fly it, or describe a new one.
 //
 // Screens are DOM overlays over the same canvas the game renders into, so the
-// design screen can show the compiled level as a live vector schematic behind
-// the panel rather than as a separate widget.
+// menu can show the chosen level as a live vector schematic behind the panel
+// rather than as a separate widget.
+//
+// Designing a level happens on the local server, not here -- the page posts the
+// description and gets back a finished level. Served from GitHub Pages there is
+// no server to post to, the button says so, and the pre-built levels are all
+// there is.
 
-import { parseProse } from './nl.js';
-import { EXAMPLES, encodeSpec, decodeSpec, normalizeSpec } from './spec.js';
+import { decodeSpec, normalizeSpec } from './spec.js';
 import { PREBUILT } from './levels.js';
-import { getKey, setKey, parseProseLLM } from './llm.js';
 import { drawSchematic } from './hud.js';
 import { drawText } from './font.js';
 
@@ -53,45 +56,18 @@ export class UI {
   // --- wiring ------------------------------------------------------------
 
   bindAll() {
-    // Pre-built levels load their authored spec directly. Going through the
-    // parser would re-derive numbers someone already tuned and audited, so the
-    // prose box is cleared instead: what you fly is the file, not a reading of
-    // a description of the file.
-    const pre = $('prebuilt');
-    PREBUILT.forEach((lv) => {
-      const b = document.createElement('button');
-      b.className = 'chip built';
-      b.textContent = lv.label;
-      if (lv.blurb) b.title = lv.blurb;
-      b.addEventListener('click', () => {
-        $('prose').value = '';
-        this.setSpec(lv.spec, [`pre-built: ${lv.label}`, lv.blurb].filter(Boolean));
-      });
-      pre.appendChild(b);
-    });
+    this.buttons = [];
+    for (const lv of PREBUILT) this.addLevel(lv, $('prebuilt'));
 
-    const ex = $('examples');
-    EXAMPLES.forEach((e) => {
-      const b = document.createElement('button');
-      b.className = 'chip';
-      b.textContent = e.label;
-      b.addEventListener('click', () => {
-        $('prose').value = e.prose;
-        this.build();
-      });
-      ex.appendChild(b);
-    });
+    $('fly').addEventListener('click', () => this.fly());
+    $('full').addEventListener('click', () => this.goFullscreen());
+    $('designbtn').addEventListener('click', () => this.design());
+
+    for (const ev of ['gamepadconnected', 'gamepaddisconnected']) {
+      window.addEventListener(ev, () => setTimeout(() => this.padState(), 60));
+    }
 
     $('begin').addEventListener('click', () => this.begin());
-    $('build').addEventListener('click', () => this.build());
-    $('fly').addEventListener('click', () => this.fly());
-    $('reroll').addEventListener('click', () => this.reroll());
-    $('fold').addEventListener('click', () => {
-      $('sheet').classList.toggle('collapsed');
-      $('fold').textContent = $('sheet').classList.contains('collapsed') ? 'EDIT' : 'SCHEMATIC';
-      this.dirty = true;
-    });
-    $('share').addEventListener('click', () => this.share());
     $('pause').addEventListener('click', () => this.toMenu());
 
     // The launcher. pointerdown rather than click so it fires on touch-down
@@ -119,10 +95,6 @@ export class UI {
       this.rd.trail = e.target.checked ? 0.34 : 0.9;
     });
 
-    $('apikey').value = getKey();
-    $('apikey').addEventListener('change', (e) => setKey(e.target.value.trim()));
-    $('usellm').addEventListener('change', () => this.build());
-
     // A tap anywhere on the canvas after a run returns to the menu.
     this.rd.canvas.addEventListener('pointerdown', () => {
       if (this.screen === 'flight' && this.game.phase !== 'flying') {
@@ -135,6 +107,13 @@ export class UI {
       if (e.key === 'Escape' && this.screen === 'flight') this.toMenu();
       if (e.key === 'Enter' && (e.metaKey || e.ctrlKey) && this.screen === 'design') this.fly();
     });
+  }
+
+  padState() {
+    const name = this.input.padName;
+    $('padstate').textContent = name
+      ? `gamepad: ${name} -- left stick flies, triggers fire, shoulders launch`
+      : 'gamepad: none';
   }
 
   motionState(msg) {
@@ -178,11 +157,36 @@ export class UI {
       this.controlHint = 'no tilt: drag one finger to steer, touch with a second to fire';
     }
     this.show('design');
+    this.loadCustom();
     if (!this.spec) {
-      // Open on a finished level so the first tap after this one can be FLY IT.
-      this.setSpec(PREBUILT[0].spec, [`pre-built: ${PREBUILT[0].label}`, PREBUILT[0].blurb]);
+      // Open on a finished level, so the next tap can be FLY.
+      this.buttons[0].click();
     } else {
       this.status(`${this.spec.name} -- ready`);
+    }
+  }
+
+  /**
+   * Fullscreen, and stay the way up the player is already holding the phone.
+   *
+   * Locking is deliberately whichever orientation they are in when they ask,
+   * rather than one the game prefers: it reads fine both ways, and the one
+   * thing that does not read fine is the layout turning over mid-flight.
+   */
+  async goFullscreen() {
+    const el = document.getElementById('stage');
+    try {
+      if (!document.fullscreenElement && el.requestFullscreen) {
+        await el.requestFullscreen({ navigationUI: 'hide' });
+      }
+    } catch { /* refused; the lock below may still work */ }
+    const type = (screen.orientation && screen.orientation.type)
+      || (innerWidth > innerHeight ? 'landscape-primary' : 'portrait-primary');
+    try {
+      await screen.orientation?.lock?.(type.startsWith('landscape') ? 'landscape' : 'portrait');
+      this.status(`full screen, locked ${type.startsWith('landscape') ? 'landscape' : 'portrait'}`);
+    } catch {
+      this.status('full screen (this browser will not lock the orientation)');
     }
   }
 
@@ -201,8 +205,6 @@ export class UI {
     this.spec = normalizeSpec(spec);
     this.game.load(this.spec);
     $('fly').disabled = false;
-    $('reroll').disabled = false;
-    $('share').disabled = false;
     const lv = this.game.level;
     const counts = [
       `${lv.obstacles.length} obstacles`,
@@ -217,74 +219,111 @@ export class UI {
     this.status(`${this.spec.name} -- ${Math.round(this.game.track.total)} units`);
   }
 
-  async build() {
+  /** One button on the shelf. The chosen one stays lit, so the shelf is the state. */
+  addLevel(lv, into) {
+    const b = document.createElement('button');
+    b.className = 'chip built';
+    b.textContent = lv.label;
+    if (lv.blurb) b.title = lv.blurb;
+    b.addEventListener('click', () => {
+      for (const o of this.buttons) o.classList.toggle('on', o === b);
+      this.setSpec(lv.spec, [lv.label, lv.blurb].filter(Boolean));
+    });
+    into.appendChild(b);
+    this.buttons.push(b);
+    return b;
+  }
+
+  /**
+   * Levels designed on this machine, if there is a machine to ask.
+   *
+   * The published page has no server behind it, so this 404s there and the
+   * shelf is simply the pre-built levels -- which is the intended shape of the
+   * thing, not a degraded one.
+   */
+  async loadCustom(selectNewest = false) {
+    let levels = [];
+    try {
+      const r = await fetch('/api/levels');
+      if (!r.ok) throw new Error('no server');
+      ({ levels } = await r.json());
+      this.local = true;
+    } catch {
+      this.local = false;
+      $('designnote').textContent =
+        'Designing a level runs Claude on your own machine. Clone the repo, run '
+        + '`node tools/serve.mjs`, and open it from there -- the published page cannot do it.';
+      $('designbtn').disabled = true;
+      return;
+    }
+    const row = $('custom');
+    row.textContent = '';
+    this.buttons = this.buttons.filter((b) => b.parentElement !== row);
+    $('customrow').hidden = levels.length === 0;
+    let first = null;
+    for (const lv of levels) first = this.addLevel(lv, row) || first;
+    if (selectNewest && row.firstChild) row.firstChild.click();
+  }
+
+  /**
+   * Hand the description to the agent and wait. It reads the authoring guide,
+   * writes the level, and runs the same flyability gate the shipped levels
+   * pass, fixing what it got wrong -- so this takes a minute or two and what
+   * comes back is a level, not a draft.
+   */
+  async design() {
     if (this.busy) return;
     const prose = $('prose').value.trim();
-    if (!prose) {
-      this.report('write a description first, or pick an example', 'warn');
+    if (prose.length < 8) {
+      this.report('describe the level you want first -- a sentence or two is plenty', 'warn');
       return;
     }
-    $('err').textContent = '';
-
-    if ($('usellm').checked) {
-      const key = $('apikey').value.trim();
-      setKey(key);
-      if (!key) {
-        $('err').textContent = 'Add an API key, or untick USE CLAUDE to use the offline parser.';
+    this.busy = true;
+    $('designbtn').disabled = true;
+    const started = Date.now();
+    const tick = setInterval(() => {
+      this.status(`claude is designing it -- ${Math.round((Date.now() - started) / 1000)}s`);
+    }, 1000);
+    this.report('reading the authoring guide, writing the level, then checking it is flyable.\n'
+      + 'this takes a minute or two.', '');
+    try {
+      const r = await fetch('/api/design', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ prose }),
+      });
+      const data = await r.json();
+      if (!r.ok || !data.ok) {
+        this.report([data.error || 'the design failed', ...(data.problems || [])], 'warn');
+        this.status('design failed');
         return;
       }
-      this.busy = true;
-      $('build').disabled = true;
-      this.status('asking claude to design it...');
-      try {
-        const { spec, report } = await parseProseLLM(prose, {
-          key,
-          onStatus: (s) => this.status(`claude: ${s}...`),
-        });
-        this.setSpec(spec, report);
-      } catch (err) {
-        $('err').textContent = err.message;
-        this.status('claude failed -- falling back to the offline parser');
-        const { spec, report } = parseProse(prose);
-        this.setSpec(spec, ['offline parser used instead:', ...report]);
-      } finally {
-        this.busy = false;
-        $('build').disabled = false;
-      }
-      return;
+      await this.loadCustom(true);
+      this.report([data.said || '', '',
+        `${data.check.name}: ${data.check.seconds}s, ${data.check.sections} sections, `
+        + `${data.check.obstacles} obstacles, ${data.check.bulkheads} bulkheads, `
+        + `${data.check.guns} guns. saved to ${data.file}.`].filter(Boolean), 'ok');
+    } catch (err) {
+      this.report(`could not reach the design server: ${err.message}`, 'warn');
+    } finally {
+      clearInterval(tick);
+      this.busy = false;
+      $('designbtn').disabled = !this.local;
     }
-
-    const { spec, report } = parseProse(prose);
-    this.setSpec(spec, report);
-  }
-
-  /** Same shape, different dice: re-rolls placement without touching the spec. */
-  reroll() {
-    if (!this.spec) return;
-    this.spec = normalizeSpec({ ...this.spec, seed: (Math.random() * 1e9) | 0 });
-    this.setSpec(this.spec, [`reseeded (${this.spec.seed})`]);
-  }
-
-  share() {
-    const url = `${location.origin}${location.pathname}#lvl=${encodeSpec(this.spec)}`;
-    history.replaceState(null, '', `#lvl=${encodeSpec(this.spec)}`);
-    navigator.clipboard?.writeText(url).then(
-      () => this.status('link copied -- the level travels in the URL'),
-      () => this.status('link is in the address bar'),
-    );
   }
 
   async fly() {
     if (!this.spec) return;
     this.audio.start();
-    // Fullscreen landscape is worth asking for, and harmless when refused.
+    // Fullscreen is worth asking for and harmless when refused. Orientation is
+    // not asked for at all: the game reads either way up, and pinning it fought
+    // whichever way the player was already holding the phone.
     try {
       const el = document.getElementById('stage');
       if (!document.fullscreenElement && el.requestFullscreen) {
         await el.requestFullscreen({ navigationUI: 'hide' });
       }
-      await screen.orientation?.lock?.('landscape');
-    } catch { /* browsers may refuse either; the game plays fine regardless */ }
+    } catch { /* browsers may refuse; the game plays fine regardless */ }
     if (this.input.motion === 'granted') this.input.recalibrate();
     this.game.reset();
     this.audio.musicStart();
@@ -295,7 +334,6 @@ export class UI {
     this.audio.musicStop();
     this.show('design');
     this.status(`${this.spec.name} -- ${this.game.phase === 'won' ? 'cleared' : 'ready'}`);
-    try { screen.orientation?.unlock?.(); } catch { /* not supported everywhere */ }
   }
 
   /**

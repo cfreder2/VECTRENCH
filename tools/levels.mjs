@@ -9,6 +9,7 @@
 // so `--check` exists and CI-of-one is `node tools/levels.mjs --check`.
 //
 //   node tools/levels.mjs           audit each level and print its share link
+//   node tools/levels.mjs <file>    run the same gate over one spec file
 //   node tools/levels.mjs --sync    regenerate src/levels.js from levels/*.json
 //   node tools/levels.mjs --check   fail if src/levels.js is out of date
 import { readFileSync, writeFileSync, readdirSync, realpathSync } from 'node:fs';
@@ -28,7 +29,8 @@ const OUT = join(ROOT, 'src', 'levels.js');
 // Easiest first. Anything in levels/ that is not listed here still loads, but
 // lands at the end -- the order is the shelf order in the game, so it is
 // authored rather than alphabetical.
-const ORDER = ['proving-ground.json', 'shakedown.json', 'bulkhead-run.json', 'reactor.json'];
+const ORDER = ['proving-ground.json', 'shakedown.json', 'bulkhead-run.json', 'reactor.json',
+  'gauntlet.json'];
 
 const SWEEP = 40;      // seeds tried per level, because RESEED re-rolls in play
 const MIN_SECS = 60;   // a level shorter than this is a demo, not a level
@@ -81,11 +83,41 @@ ${body}
 }
 
 const args = process.argv.slice(2);
+const fileArg = args.find((a) => !a.startsWith('--'));
 const isMain = process.argv[1] &&
   fileURLToPath(import.meta.url) === realpathSync(process.argv[1]);
 
 if (!isMain) {
   // Imported for LEVELS alone; the CLI below is not wanted.
+} else if (fileArg) {
+  // One file, the same checks. Used by the design agent and by the server that
+  // drives it: a level nobody can fly is not a level.
+  const raw = JSON.parse(readFileSync(fileArg, 'utf8'));
+  const spec = normalizeSpec(raw);
+  const track = new Track(spec);
+  const lv = buildLevel(spec, track);
+  const r = audit(spec);
+  const asked = spec.sections.reduce((a, sec) => a + sec.seals, 0);
+  const secs = duration(track);
+  let reseedFail = 0;
+  for (let seed = 1; seed <= SWEEP; seed++) if (!audit({ ...spec, seed }).ok) reseedFail++;
+  const problems = [];
+  if (!r.ok) problems.push(`no flyable line: blocked at ${JSON.stringify(r.blocked)}`);
+  if (lv.seals.length !== asked) problems.push(`${asked - lv.seals.length} of ${asked} bulkheads did not fit -- a section needs ${SEAL_PITCH} units per seal`);
+  if (secs < MIN_SECS) problems.push(`${secs.toFixed(0)}s is under the ${MIN_SECS}s floor -- lengthen the sections or slow it down`);
+  if (secs > MAX_SECS) problems.push(`${secs.toFixed(0)}s is over the ${MAX_SECS}s ceiling -- shorten it`);
+  if (reseedFail) problems.push(`${reseedFail} of ${SWEEP} reseeds are unclearable -- the shape is too tight to survive a re-roll`);
+  console.log(JSON.stringify({
+    ok: problems.length === 0,
+    name: spec.name,
+    seconds: Math.round(secs),
+    sections: spec.sections.length,
+    obstacles: lv.obstacles.length,
+    bulkheads: lv.seals.length,
+    guns: lv.enemies.length,
+    problems,
+  }, null, 2));
+  if (problems.length) process.exit(1);
 } else if (args.includes('--sync')) {
   writeFileSync(OUT, generate());
   console.log(`wrote src/levels.js (${LEVELS.length} levels)`);

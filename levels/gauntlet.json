@@ -1,0 +1,143 @@
+{
+  "name": "GAUNTLET",
+  "blurb": "Very fast, narrow and hilly the whole way, staggered slabs and gates, wall guns everywhere, sealed four times, glowing red. The description that built it is in the README; this is what it compiled to.",
+  "seed": 1337,
+  "speed": {
+    "start": 370,
+    "end": 540
+  },
+  "finale": "port",
+  "sections": [
+    {
+      "curviness": 0.3,
+      "hilliness": 0.6,
+      "roughness": 0.55,
+      "kinds": [
+        "stack",
+        "gate"
+      ],
+      "turrets": 0.42,
+      "gatlings": 0.42,
+      "batteries": 0.34,
+      "wallguns": 0.55,
+      "drones": 0.28,
+      "seals": 0,
+      "panels": 2,
+      "hue": 0.01,
+      "length": 6800,
+      "name": "the drop",
+      "width": 82,
+      "depth": 120,
+      "obstacles": 0.34
+    },
+    {
+      "curviness": 0.4,
+      "hilliness": 0.78,
+      "roughness": 0.55,
+      "kinds": [
+        "stack",
+        "gate"
+      ],
+      "turrets": 0.42,
+      "gatlings": 0.42,
+      "batteries": 0.34,
+      "wallguns": 0.55,
+      "drones": 0.28,
+      "seals": 1,
+      "panels": 3,
+      "hue": 0.01,
+      "length": 6800,
+      "name": "first seal",
+      "width": 72,
+      "depth": 132,
+      "obstacles": 0.38
+    },
+    {
+      "curviness": 0.4,
+      "hilliness": 0.78,
+      "roughness": 0.55,
+      "kinds": [
+        "stack"
+      ],
+      "turrets": 0.42,
+      "gatlings": 0.42,
+      "batteries": 0.34,
+      "wallguns": 0.55,
+      "drones": 0.28,
+      "seals": 1,
+      "panels": 2,
+      "hue": 0.01,
+      "length": 6800,
+      "name": "slab run",
+      "width": 64,
+      "depth": 144,
+      "obstacles": 0.5
+    },
+    {
+      "curviness": 0.4,
+      "hilliness": 0.78,
+      "roughness": 0.55,
+      "kinds": [
+        "stack",
+        "gate"
+      ],
+      "turrets": 0.42,
+      "gatlings": 0.42,
+      "batteries": 0.34,
+      "wallguns": 0.55,
+      "drones": 0.28,
+      "seals": 1,
+      "panels": 3,
+      "hue": 0.02,
+      "length": 6800,
+      "name": "the squeeze",
+      "width": 56,
+      "depth": 152,
+      "obstacles": 0.5
+    },
+    {
+      "curviness": 0.4,
+      "hilliness": 0.78,
+      "roughness": 0.55,
+      "kinds": [
+        "stack",
+        "gate"
+      ],
+      "turrets": 0.42,
+      "gatlings": 0.42,
+      "batteries": 0.34,
+      "wallguns": 0.65,
+      "drones": 0.28,
+      "seals": 1,
+      "panels": 2,
+      "hue": 0.01,
+      "length": 6800,
+      "name": "last seal",
+      "width": 52,
+      "depth": 150,
+      "obstacles": 0.46
+    },
+    {
+      "curviness": 0.4,
+      "hilliness": 0.78,
+      "roughness": 0.55,
+      "kinds": [
+        "gate",
+        "stack"
+      ],
+      "turrets": 0.42,
+      "gatlings": 0.42,
+      "batteries": 0.34,
+      "wallguns": 0.55,
+      "drones": 0.28,
+      "seals": 0,
+      "panels": 2,
+      "hue": 0.0,
+      "length": 6800,
+      "name": "run to the core",
+      "width": 50,
+      "depth": 140,
+      "obstacles": 0.44
+    }
+  ]
+}

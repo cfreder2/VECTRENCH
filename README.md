@@ -93,37 +93,53 @@ node tools/levels.mjs            # prove it is flyable, print its share link
 It then appears as a button in the game alongside the other three.
 [docs/LEVELS.md](docs/LEVELS.md#2-write-the-spec) documents every field.
 
-### Using Claude instead
+### Designing one with Claude
 
-The offline parser understands a fixed vocabulary and always works, including
-with no network. Ticking **USE CLAUDE** sends your prose to Claude instead, which
-fills in the same level spec from arbitrary description. It needs an Anthropic
-API key, which is stored only in your browser's localStorage and sent only to
-Anthropic's API from your own device. If the call fails for any reason the game
-falls back to the offline parser and still gives you a level.
+Levels are described in prose and written by an agent. There is no vocabulary
+to learn, and there is no API key: it runs `claude` on your own machine, on the
+subscription you already have.
 
-This path loads the official SDK from a CDN on demand, so it is the one feature
-that needs network access. The game itself never does.
+```bash
+node tools/serve.mjs            # http://localhost:8000/
+```
+
+Open that (from your phone, use this machine's address on the network), type
+what you want into **DESIGN A NEW LEVEL**, and wait a minute or two. The agent
+reads [docs/LEVELS.md](docs/LEVELS.md), writes the spec, runs the same
+flyability gate the shipped levels pass, and fixes whatever failed. When it
+passes, the level appears on the shelf and the file is in `levels/custom/`.
+
+> A frozen cathedral of ice. Start enormous and wide and shallow, almost
+> straight, with towering spires and swarms of drones. Then it narrows into a
+> long twisting tunnel packed with irises and crushers, sealed twice, wall guns
+> everywhere. Pale blue and cold. Finish with a tight choke and an exhaust port.
+
+That took 84 seconds and came back as a 6-section, 87-second level: a width-125
+shallow nave thick with drones, narrowing to a width-46 crawl of rings and
+crushers, sealed twice, in pale blue.
+
+**This only works locally.** [The published page](https://cfreder2.github.io/VECTRENCH/)
+has no server behind it, so it has the pre-built levels and nothing else, and
+the design button says as much. That is the intended shape: the game is a static
+page, and authoring is a thing you run at home.
 
 ## How it fits together
 
 ```
-prose ──> nl.js  (offline grammar)  ──┐
-                                      ├──> spec (JSON) ──> track.js  ──> geometry
-prose ──> llm.js (Claude, optional) ──┘        │           level.js  ──> obstacles, enemies, port
-                                               └──> URL hash, so a spec is shareable
+prose ──> claude, on your machine ──> levels/custom/*.json ──┐
+                                                            ├──> spec (JSON) ──> track.js ──> geometry
+levels/*.json (hand-tuned, shipped) ────────────────────────┘        │          level.js ──> obstacles, enemies, port
+                                                                     └──> URL hash, so a spec still loads from a link
 ```
 
 The spec is the contract. Everything upstream of it is a front-end, everything
 downstream consumes it, and `spec.js` clamps every field — so a spec from a link,
-a model, or a typo can be strange but never unplayable.
+an agent, or a typo can be strange but never unplayable.
 
 | File | Owns |
 | --- | --- |
-| `spec.js` | The level spec: fields, ranges, clamping, URL encoding, examples |
+| `spec.js` | The level spec: fields, ranges, clamping, URL encoding |
 | `levels.js` | The pre-built levels. Generated from `levels/*.json` — do not edit |
-| `nl.js` | Prose → spec, offline, deterministic |
-| `llm.js` | Prose → spec via Claude (optional) |
 | `track.js` | Spec → canyon geometry; the rail, widths, rim heights |
 | `level.js` | Spec → obstacles, guns, drone waves, the port |
 | `terrain.js` | Drawing the canyon |
@@ -138,6 +154,10 @@ a model, or a typo can be strange but never unplayable.
 | `music.js` | Flight of the Bumblebee, played on square waves |
 | `ui.js` | Screens and the authoring panel |
 | `main.js` | Bootstrap and the frame loop |
+
+Outside `src/`: `tools/serve.mjs` is the local server — it serves the game and
+runs the design agent. `tools/levels.mjs` compiles and checks levels; run it
+with a path to check one file.
 
 Outside `src/`: [`levels/`](levels) holds the pre-built levels as plain spec
 JSON — the source of truth for them — and `tools/levels.mjs` compiles that
@@ -199,7 +219,6 @@ The bundler is a concatenator, not a real bundler: it emits the modules in
 dependency order into one scope with imports and exports stripped. It aborts if
 two modules declare the same top-level name, so the shortcut stays honest.
 
-Two things in it are load-order-sensitive rather than merely tidy, and both would
+One thing in it is load-order-sensitive rather than merely tidy, and it would
 fail silently if reordered: `game.js` reads `CANYON` from `terrain.js` at
-definition time, and `llm.js` builds its system prompt from `spec.js`'s `FIELDS`
-at definition time. Top-level `const` is not hoisted.
+definition time, and top-level `const` is not hoisted.
