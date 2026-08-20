@@ -252,6 +252,12 @@ export class Audio {
     this._tone('triangle', 190, 44, 0.55, 0.75);  // chest
     this._tone('sine', 95, 30, 0.85, 0.5);        // sub, for headphones
   }
+  /** A sunburst arm letting go: short, thin, and low enough to sit under the gun. */
+  beam() {
+    this._tone('sawtooth', 900, 240, 0.13, 0.075);
+    this._noiseBurst(0.1, 0.1, 5200, 1400, 2);
+  }
+
   alarm() { this._tone('square', 520, 380, 0.22, 0.09); }
   win() {
     [523, 659, 784, 1047].forEach((f, i) => {

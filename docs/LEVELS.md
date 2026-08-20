@@ -80,7 +80,7 @@ Each section:
 | `hilliness` | 0–1 | 0.35 | Vertical relief of the floor |
 | `roughness` | 0–1 | 0.5 | Wall detail. Cosmetic; costs no fairness |
 | `obstacles` | 0–1 | 0.4 | Rate, not a count — see below |
-| `kinds` | list | `["pylon","fang"]` | Which of `pylon` `fang` `gate` `ring` `stack` may appear |
+| `kinds` | list | `["pylon","fang"]` | Which obstacles may appear — see the table below |
 | `turrets` | 0–1 | 0.42 | Plain surface guns, above the rim |
 | `gatlings` | 0–1 | 0.32 | Surface rotary cannon: spin up, then a stream of tracer |
 | `batteries` | 0–1 | 0.28 | Surface missile racks. Density decides how many; the section's own value also decides how big, so a heavy section is where the twelve-tube ones appear |
@@ -125,6 +125,23 @@ player experiences. At 400 units a second:
 
 The shipped levels average one obstacle every 5.0s, 3.0s and 2.1s respectively,
 and each of them opens far gentler than its own average.
+
+### The obstacles
+
+Nine kinds. The last four move, which is what makes them read as machinery
+rather than as rock.
+
+| `kinds` entry | What stands there |
+| --- | --- |
+| `pylon` | A column from the floor. The plain one. |
+| `fang` | Hanging from the roof, pointing down. |
+| `gate` | A wall with one window cut in it; the window is the way through. |
+| `ring` | An iris: a hole in a plate, and you fly through the hole. |
+| `stack` | Staggered slabs, alternating high and low. |
+| `press` | A crusher that opens and closes on a cycle. Timing. |
+| `slider` | A wall that slides across the trench and back. |
+| `cross` | Four thick arms from the middle, turning. |
+| `pinwheel` | Three or five thin arms from the middle, turning — **and it fires.** Each arm lets go of an orange beam in turn, going clockwise, and the beam hangs in the canyon fading to yellow while the wheel keeps turning under it. What builds up is a fan of lasers with a gap in it that rotates. Two arms are always dark, so there is always a way through; going round the outside is the dangerous way past. |
 
 ### What the compiler will do to your section
 

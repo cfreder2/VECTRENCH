@@ -15,7 +15,7 @@ import {
   shipBasis, shipLocalToWorld, MUZZLES,
 } from './entities.js';
 import { drawHud, drawReticle, drawTargetBox } from './hud.js';
-import { segSphere, hitsObstacle } from './collide.js';
+import { segSphere, hitsObstacle, frameOf } from './collide.js';
 import { drawText } from './font.js';
 
 // The ship's motion limits. Exported because tools/audit.mjs proves levels are
@@ -86,6 +86,19 @@ const GATLING_CADENCE = 0.04;
 const GATLING_SPREAD = 0.78;  // tighter: the stream is meant to connect
 const SEAL_DROP_SPEED = 190;  // how fast a bulkhead sinks once its panels go
 
+// The sunbursts fire down their own arms, one arm at a time, going round the
+// wheel. A beam is left hanging where it was fired rather than sweeping with
+// the arm, so what builds up is a fan of them that turns -- and the gap that
+// turns with it is the way through. Long enough to reach the wall, because the
+// point is that going round the outside is the dangerous way past.
+const BEAM_INTERVAL = 0.4;    // seconds between arms
+// How long a beam hangs there, in arms rather than in seconds: two of them
+// always have to be dark, or a three-armed wheel is a solid wall with no way
+// through it and the timing the player is being asked for does not exist.
+const beamLife = (arms) => Math.max(0.5, (arms - 2) * BEAM_INTERVAL);
+const BEAM_HALF = 4.5;        // how close is a hit
+const BEAM_DAMAGE = 24;
+
 const RADIUS = { turret: 13, wallgun: 11, emplacement: 21, drone: 11, port: 20 };
 
 export class Game {
@@ -109,6 +122,7 @@ export class Game {
     this.shipPos = [0, 0, 0];
     this._p = [0, 0, 0];
     this._q = [0, 0, 0];
+    this._frame = [0, 0, 1, 0];
     this._l = [0, 0, 0];
 
     this.phase = 'idle';
@@ -165,7 +179,9 @@ export class Game {
 
     this.drones = [];
     for (const w of this.level.drones) w.spawned = false;
-    for (const ob of this.level.obstacles) { ob.dropY = 0; ob.gone = false; ob.dropping = false; }
+    for (const ob of this.level.obstacles) {
+      ob.dropY = 0; ob.gone = false; ob.dropping = false; ob.beams = null;
+    }
     for (const e of this.level.enemies) {
       e.alive = true;
       e.hp = e.maxHp;
@@ -307,7 +323,9 @@ export class Game {
     if (this.grinding && hash2((this.time * 12) | 0, 8) < 0.25) this.audio.scrape();
 
     this.updateSeals(dt);
+    this.updateBeams(dt);
     this.checkObstacles(dt);
+    this.checkBeams();
     this.spawnDrones();
     this.updateDrones(dt);
     this.checkFinish();
@@ -728,6 +746,69 @@ export class Game {
     this.updateGun(dt, cx, cy);
 
     if (inp.takeMissile()) this.launchMissiles();
+  }
+
+  /**
+   * The sunbursts: one arm fires, then the next one round, and each beam hangs
+   * in the air fading out behind it.
+   *
+   * The beam is pinned to the canyon at the angle the arm had when it fired,
+   * not to the arm, so the wheel keeps turning underneath a fan that stays
+   * put. Arms are taken in decreasing order, which is clockwise on screen.
+   */
+  updateBeams(dt) {
+    const now = this.time;
+    for (const ob of this.level.obstacles) {
+      if (ob.kind !== 'pinwheel') continue;
+      const ahead = ob.t - this.t;
+      if (ahead > FAR || ahead < -140) continue;
+      if (!ob.beams) { ob.beams = []; ob.beamArm = 0; ob.beamTimer = hash2(ob.t | 0, 5) * BEAM_INTERVAL; }
+      for (let i = ob.beams.length - 1; i >= 0; i--) {
+        if (now - ob.beams[i].born > ob.beams[i].life) ob.beams.splice(i, 1);
+      }
+      ob.beamTimer -= dt;
+      if (ob.beamTimer > 0) continue;
+      ob.beamTimer += BEAM_INTERVAL;
+      const n = ob.boxes.length;
+      ob.beamArm = (ob.beamArm - 1 + n) % n;
+      frameOf(ob, now, this._frame);
+      const spin = Math.atan2(this._frame[3], this._frame[2]);
+      const hw = this.track.halfWidth(ob.t);
+      ob.beams.push({
+        ang: (ob.boxes[ob.beamArm][4] || 0) + spin,
+        born: now,
+        reach: Math.max(hw, this.track.rim(ob.t)) + 46,
+        life: beamLife(n),
+        hit: false,
+      });
+      if (ahead < 700 && ahead > -60) this.audio.beam();
+    }
+  }
+
+  /**
+   * Flying into one. The beams live in the obstacle's own cross-section, so
+   * this only asks the question while the ship is passing through that slice.
+   */
+  checkBeams() {
+    for (const ob of this.level.obstacles) {
+      if (ob.kind !== 'pinwheel' || !ob.beams || !ob.beams.length) continue;
+      if (Math.abs(ob.t - this.t) > 26) continue;
+      const cx = ob.cx || 0, cy = ob.cy || 0;
+      const dx = this.shipX - cx, dy = this.shipY - cy;
+      for (const b of ob.beams) {
+        if (b.hit) continue;
+        // Distance from the ship to the ray, and only the half that is in front
+        // of the hub -- a beam does not come out of the back of an arm.
+        const along = dx * Math.cos(b.ang) + dy * Math.sin(b.ang);
+        if (along < -6 || along > b.reach) continue;
+        const off = Math.abs(-dx * Math.sin(b.ang) + dy * Math.cos(b.ang));
+        if (off > BEAM_HALF + 7) continue;
+        b.hit = true;
+        this.damage(BEAM_DAMAGE);
+        this.sparkAt(this.shipX, this.shipY, 8, 120, 1, 0.6, 0.15);
+        this.audio.hit();
+      }
+    }
   }
 
   /** Bulkheads sinking into the floor after their last panel was shot out. */

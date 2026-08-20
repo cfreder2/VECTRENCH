@@ -264,6 +264,24 @@ export function drawObstacles(rd, track, obstacles, cursor, camT, far, time) {
     for (const [x0, x1, y0, y1, ang] of ob.boxes) {
       box(rd, track, ob.t, ob.dz, x0, x1, y0, y1, col, 1.2, 1, ob, time, ang || 0);
     }
+
+    // The sunburst's beams, hanging where they were fired and cooling from
+    // orange to yellow as they go. Drawn last so they sit over the arms.
+    if (ob.beams) {
+      const cx = ob.cx || 0, cy = ob.cy || 0;
+      for (const b of ob.beams) {
+        const age = Math.min(1, (time - b.born) / b.life);
+        const ca = Math.cos(b.ang), sa = Math.sin(b.ang);
+        // Held bright for most of its life and then dropped, rather than
+        // faded away evenly: a beam that is dim but still kills is a trap, and
+        // the fan is only readable as a wall while its older arms are still lit.
+        const w = 2.8 - age * 1.5;
+        const A2 = 0.95 * (1 - age) ** 0.55;
+        track.localToWorld(ob.t + ob.dz * 0.5, cx + ca * 5, cy + sa * 5, p);
+        track.localToWorld(ob.t + ob.dz * 0.5, cx + ca * b.reach, cy + sa * b.reach, q);
+        rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], w, 1, 0.42 + age * 0.5, 0.06 + age * 0.22, A2);
+      }
+    }
   }
 }
 
@@ -304,17 +322,46 @@ export function drawEnemies(rd, track, enemies, camT, far, time) {
       rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], 1.6, col[0], col[1], col[2], A);
       rd.dot3(q[0], q[1], q[2], 2, 1, 0.8, 0.4, (0.8 + 0.2 * Math.sin(time * 9)) * A);
     } else if (e.kind === 'wallgun') {
-      const sgn = e.x < 0 ? 1 : -1;
-      track.localToWorld(e.t - 7, e.x, e.y - 6, p);
-      track.localToWorld(e.t + 7, e.x, e.y - 6, q);
-      rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], 1.1, col[0], col[1], col[2], A);
-      track.localToWorld(e.t, e.x, e.y + 8, q);
-      rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], 1.1, col[0], col[1], col[2], A);
-      track.localToWorld(e.t + 7, e.x, e.y - 6, p);
-      rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], 1.1, col[0], col[1], col[2], A);
-      track.localToWorld(e.t, e.x, e.y, p);
-      track.localToWorld(e.t + 4, e.x + sgn * 11, e.y, q);
-      rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], 1.5, col[0], col[1], col[2], A);
+      // A plate on the wall with a dome coming out of it.
+      //
+      // This used to be a flat triangle lying in the plane of the rock, which
+      // is the one plane you never get to look at: from inside the trench you
+      // only ever see the wall at a glancing angle, so the whole gun collapsed
+      // to a sliver. The plate is still flush -- that is where it is bolted --
+      // but the dome bulges into the trench, and a half circle seen edge-on is
+      // still a half circle. That is the part that says "gun" from down here.
+      const sgn = e.x < 0 ? 1 : -1;      // which way is out into the trench
+      const R = 9;
+      const corners = [[-R, -R], [R, -R], [R, R], [-R, R]];
+      for (let k = 0; k < 4; k++) {
+        const a = corners[k], b = corners[(k + 1) & 3];
+        track.localToWorld(e.t + a[0], e.x, e.y + a[1], p);
+        track.localToWorld(e.t + b[0], e.x, e.y + b[1], q);
+        rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], 1.1, col[0], col[1], col[2], A * 0.8);
+      }
+      // Two arcs, one upright and one flat, both bulging out of the plate.
+      const N = 6;
+      for (let k = 0; k < N; k++) {
+        const a0 = Math.PI * (k / N - 0.5), a1 = Math.PI * ((k + 1) / N - 0.5);
+        const dome = (a, out) => {
+          const r = Math.cos(a) * R * 0.92;
+          return out
+            ? [e.t, e.x + sgn * r, e.y + Math.sin(a) * R * 0.92]
+            : [e.t + Math.sin(a) * R * 0.92, e.x + sgn * r, e.y];
+        };
+        for (const upright of [true, false]) {
+          const A0 = dome(a0, upright), A1 = dome(a1, upright);
+          track.localToWorld(A0[0], A0[1], A0[2], p);
+          track.localToWorld(A1[0], A1[1], A1[2], q);
+          rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], 1.2, col[0], col[1], col[2], A);
+        }
+      }
+      // Barrel out of the dome, swung toward where it last aimed.
+      track.localToWorld(e.t, e.x + sgn * R * 0.5, e.y, p);
+      track.localToWorld(e.t + Math.sin(e.aim || 0) * R * 0.8,
+        e.x + sgn * R * 1.9, e.y + (e.aim ? Math.sin(e.aim) * 2 : 0), q);
+      rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], 1.7, col[0], col[1], col[2], A);
+      rd.dot3(q[0], q[1], q[2], 2, 1, 0.8, 0.4, (0.75 + 0.25 * Math.sin(time * 9)) * A);
     } else if (e.kind === 'battery') {
       drawBattery(rd, track, e, col, time, A);
     } else if (e.kind === 'gatling') {

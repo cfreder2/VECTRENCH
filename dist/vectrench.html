@@ -3135,6 +3135,24 @@ function drawObstacles(rd, track, obstacles, cursor, camT, far, time) {
     for (const [x0, x1, y0, y1, ang] of ob.boxes) {
       box(rd, track, ob.t, ob.dz, x0, x1, y0, y1, col, 1.2, 1, ob, time, ang || 0);
     }
+
+    // The sunburst's beams, hanging where they were fired and cooling from
+    // orange to yellow as they go. Drawn last so they sit over the arms.
+    if (ob.beams) {
+      const cx = ob.cx || 0, cy = ob.cy || 0;
+      for (const b of ob.beams) {
+        const age = Math.min(1, (time - b.born) / b.life);
+        const ca = Math.cos(b.ang), sa = Math.sin(b.ang);
+        // Held bright for most of its life and then dropped, rather than
+        // faded away evenly: a beam that is dim but still kills is a trap, and
+        // the fan is only readable as a wall while its older arms are still lit.
+        const w = 2.8 - age * 1.5;
+        const A2 = 0.95 * (1 - age) ** 0.55;
+        track.localToWorld(ob.t + ob.dz * 0.5, cx + ca * 5, cy + sa * 5, p);
+        track.localToWorld(ob.t + ob.dz * 0.5, cx + ca * b.reach, cy + sa * b.reach, q);
+        rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], w, 1, 0.42 + age * 0.5, 0.06 + age * 0.22, A2);
+      }
+    }
   }
 }
 
@@ -3175,17 +3193,46 @@ function drawEnemies(rd, track, enemies, camT, far, time) {
       rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], 1.6, col[0], col[1], col[2], A);
       rd.dot3(q[0], q[1], q[2], 2, 1, 0.8, 0.4, (0.8 + 0.2 * Math.sin(time * 9)) * A);
     } else if (e.kind === 'wallgun') {
-      const sgn = e.x < 0 ? 1 : -1;
-      track.localToWorld(e.t - 7, e.x, e.y - 6, p);
-      track.localToWorld(e.t + 7, e.x, e.y - 6, q);
-      rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], 1.1, col[0], col[1], col[2], A);
-      track.localToWorld(e.t, e.x, e.y + 8, q);
-      rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], 1.1, col[0], col[1], col[2], A);
-      track.localToWorld(e.t + 7, e.x, e.y - 6, p);
-      rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], 1.1, col[0], col[1], col[2], A);
-      track.localToWorld(e.t, e.x, e.y, p);
-      track.localToWorld(e.t + 4, e.x + sgn * 11, e.y, q);
-      rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], 1.5, col[0], col[1], col[2], A);
+      // A plate on the wall with a dome coming out of it.
+      //
+      // This used to be a flat triangle lying in the plane of the rock, which
+      // is the one plane you never get to look at: from inside the trench you
+      // only ever see the wall at a glancing angle, so the whole gun collapsed
+      // to a sliver. The plate is still flush -- that is where it is bolted --
+      // but the dome bulges into the trench, and a half circle seen edge-on is
+      // still a half circle. That is the part that says "gun" from down here.
+      const sgn = e.x < 0 ? 1 : -1;      // which way is out into the trench
+      const R = 9;
+      const corners = [[-R, -R], [R, -R], [R, R], [-R, R]];
+      for (let k = 0; k < 4; k++) {
+        const a = corners[k], b = corners[(k + 1) & 3];
+        track.localToWorld(e.t + a[0], e.x, e.y + a[1], p);
+        track.localToWorld(e.t + b[0], e.x, e.y + b[1], q);
+        rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], 1.1, col[0], col[1], col[2], A * 0.8);
+      }
+      // Two arcs, one upright and one flat, both bulging out of the plate.
+      const N = 6;
+      for (let k = 0; k < N; k++) {
+        const a0 = Math.PI * (k / N - 0.5), a1 = Math.PI * ((k + 1) / N - 0.5);
+        const dome = (a, out) => {
+          const r = Math.cos(a) * R * 0.92;
+          return out
+            ? [e.t, e.x + sgn * r, e.y + Math.sin(a) * R * 0.92]
+            : [e.t + Math.sin(a) * R * 0.92, e.x + sgn * r, e.y];
+        };
+        for (const upright of [true, false]) {
+          const A0 = dome(a0, upright), A1 = dome(a1, upright);
+          track.localToWorld(A0[0], A0[1], A0[2], p);
+          track.localToWorld(A1[0], A1[1], A1[2], q);
+          rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], 1.2, col[0], col[1], col[2], A);
+        }
+      }
+      // Barrel out of the dome, swung toward where it last aimed.
+      track.localToWorld(e.t, e.x + sgn * R * 0.5, e.y, p);
+      track.localToWorld(e.t + Math.sin(e.aim || 0) * R * 0.8,
+        e.x + sgn * R * 1.9, e.y + (e.aim ? Math.sin(e.aim) * 2 : 0), q);
+      rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], 1.7, col[0], col[1], col[2], A);
+      rd.dot3(q[0], q[1], q[2], 2, 1, 0.8, 0.4, (0.75 + 0.25 * Math.sin(time * 9)) * A);
     } else if (e.kind === 'battery') {
       drawBattery(rd, track, e, col, time, A);
     } else if (e.kind === 'gatling') {
@@ -4491,6 +4538,12 @@ class Audio {
     this._tone('triangle', 190, 44, 0.55, 0.75);  // chest
     this._tone('sine', 95, 30, 0.85, 0.5);        // sub, for headphones
   }
+  /** A sunburst arm letting go: short, thin, and low enough to sit under the gun. */
+  beam() {
+    this._tone('sawtooth', 900, 240, 0.13, 0.075);
+    this._noiseBurst(0.1, 0.1, 5200, 1400, 2);
+  }
+
   alarm() { this._tone('square', 520, 380, 0.22, 0.09); }
   win() {
     [523, 659, 784, 1047].forEach((f, i) => {
@@ -5011,6 +5064,19 @@ const GATLING_CADENCE = 0.04;
 const GATLING_SPREAD = 0.78;  // tighter: the stream is meant to connect
 const SEAL_DROP_SPEED = 190;  // how fast a bulkhead sinks once its panels go
 
+// The sunbursts fire down their own arms, one arm at a time, going round the
+// wheel. A beam is left hanging where it was fired rather than sweeping with
+// the arm, so what builds up is a fan of them that turns -- and the gap that
+// turns with it is the way through. Long enough to reach the wall, because the
+// point is that going round the outside is the dangerous way past.
+const BEAM_INTERVAL = 0.4;    // seconds between arms
+// How long a beam hangs there, in arms rather than in seconds: two of them
+// always have to be dark, or a three-armed wheel is a solid wall with no way
+// through it and the timing the player is being asked for does not exist.
+const beamLife = (arms) => Math.max(0.5, (arms - 2) * BEAM_INTERVAL);
+const BEAM_HALF = 4.5;        // how close is a hit
+const BEAM_DAMAGE = 24;
+
 const RADIUS = { turret: 13, wallgun: 11, emplacement: 21, drone: 11, port: 20 };
 
 class Game {
@@ -5034,6 +5100,7 @@ class Game {
     this.shipPos = [0, 0, 0];
     this._p = [0, 0, 0];
     this._q = [0, 0, 0];
+    this._frame = [0, 0, 1, 0];
     this._l = [0, 0, 0];
 
     this.phase = 'idle';
@@ -5090,7 +5157,9 @@ class Game {
 
     this.drones = [];
     for (const w of this.level.drones) w.spawned = false;
-    for (const ob of this.level.obstacles) { ob.dropY = 0; ob.gone = false; ob.dropping = false; }
+    for (const ob of this.level.obstacles) {
+      ob.dropY = 0; ob.gone = false; ob.dropping = false; ob.beams = null;
+    }
     for (const e of this.level.enemies) {
       e.alive = true;
       e.hp = e.maxHp;
@@ -5232,7 +5301,9 @@ class Game {
     if (this.grinding && hash2((this.time * 12) | 0, 8) < 0.25) this.audio.scrape();
 
     this.updateSeals(dt);
+    this.updateBeams(dt);
     this.checkObstacles(dt);
+    this.checkBeams();
     this.spawnDrones();
     this.updateDrones(dt);
     this.checkFinish();
@@ -5653,6 +5724,69 @@ class Game {
     this.updateGun(dt, cx, cy);
 
     if (inp.takeMissile()) this.launchMissiles();
+  }
+
+  /**
+   * The sunbursts: one arm fires, then the next one round, and each beam hangs
+   * in the air fading out behind it.
+   *
+   * The beam is pinned to the canyon at the angle the arm had when it fired,
+   * not to the arm, so the wheel keeps turning underneath a fan that stays
+   * put. Arms are taken in decreasing order, which is clockwise on screen.
+   */
+  updateBeams(dt) {
+    const now = this.time;
+    for (const ob of this.level.obstacles) {
+      if (ob.kind !== 'pinwheel') continue;
+      const ahead = ob.t - this.t;
+      if (ahead > FAR || ahead < -140) continue;
+      if (!ob.beams) { ob.beams = []; ob.beamArm = 0; ob.beamTimer = hash2(ob.t | 0, 5) * BEAM_INTERVAL; }
+      for (let i = ob.beams.length - 1; i >= 0; i--) {
+        if (now - ob.beams[i].born > ob.beams[i].life) ob.beams.splice(i, 1);
+      }
+      ob.beamTimer -= dt;
+      if (ob.beamTimer > 0) continue;
+      ob.beamTimer += BEAM_INTERVAL;
+      const n = ob.boxes.length;
+      ob.beamArm = (ob.beamArm - 1 + n) % n;
+      frameOf(ob, now, this._frame);
+      const spin = Math.atan2(this._frame[3], this._frame[2]);
+      const hw = this.track.halfWidth(ob.t);
+      ob.beams.push({
+        ang: (ob.boxes[ob.beamArm][4] || 0) + spin,
+        born: now,
+        reach: Math.max(hw, this.track.rim(ob.t)) + 46,
+        life: beamLife(n),
+        hit: false,
+      });
+      if (ahead < 700 && ahead > -60) this.audio.beam();
+    }
+  }
+
+  /**
+   * Flying into one. The beams live in the obstacle's own cross-section, so
+   * this only asks the question while the ship is passing through that slice.
+   */
+  checkBeams() {
+    for (const ob of this.level.obstacles) {
+      if (ob.kind !== 'pinwheel' || !ob.beams || !ob.beams.length) continue;
+      if (Math.abs(ob.t - this.t) > 26) continue;
+      const cx = ob.cx || 0, cy = ob.cy || 0;
+      const dx = this.shipX - cx, dy = this.shipY - cy;
+      for (const b of ob.beams) {
+        if (b.hit) continue;
+        // Distance from the ship to the ray, and only the half that is in front
+        // of the hub -- a beam does not come out of the back of an arm.
+        const along = dx * Math.cos(b.ang) + dy * Math.sin(b.ang);
+        if (along < -6 || along > b.reach) continue;
+        const off = Math.abs(-dx * Math.sin(b.ang) + dy * Math.cos(b.ang));
+        if (off > BEAM_HALF + 7) continue;
+        b.hit = true;
+        this.damage(BEAM_DAMAGE);
+        this.sparkAt(this.shipX, this.shipY, 8, 120, 1, 0.6, 0.15);
+        this.audio.hit();
+      }
+    }
   }
 
   /** Bulkheads sinking into the floor after their last panel was shot out. */
