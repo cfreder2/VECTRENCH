@@ -8,15 +8,23 @@
 // everything is rotated into screen space by screen.orientation.angle before
 // use. Neutral is whatever posture the player calibrated in, not "flat".
 
-import { clamp } from './math.js';
+import { clamp, TAU } from './math.js';
 
-// Deviation from neutral, in m/s^2, that counts as full deflection. The two
+// Tilt away from neutral, in degrees, that counts as full deflection. The two
 // axes are not the same number on purpose: rolling a phone left and right is
 // free, but pitching it forward and back tips the screen away from your face,
 // so people simply will not do it as far. Asking for the same tilt on both is
 // what made climbing feel unresponsive when steering left and right did not.
-const FULL_TILT_X = 3.6;
-const FULL_TILT_Y = 2.8;
+//
+// Angles, not gravity components. Reading the components straight off the
+// accelerometer only works near flat: gravity has a fixed length, so the
+// further the phone is tipped up the less each component moves, and held
+// upright the pitch component is at its limit and stops responding at all --
+// tipping the top toward you and away from you both shrink it, so the ship
+// could be flown one way and not the other. The angle between where the phone
+// is now and where it was calibrated has no such dead spot.
+const FULL_TILT_X = 21.5 * (Math.PI / 180);
+const FULL_TILT_Y = 16.6 * (Math.PI / 180);
 const DEADZONE = 0.05;
 
 // Calibration waits for stillness: this many consecutive readings within this
@@ -51,13 +59,13 @@ export class Input {
     this.invertY = false;
     this.sensitivity = 1;
 
-    this.gx = 0; this.gy = 0;      // filtered gravity, screen space
-    this.nx = 0; this.ny = 0;      // calibrated neutral
+    this.gx = 0; this.gy = 0; this.gz = 0;   // filtered gravity, screen space
+    this.nx = 0; this.ny = 0; this.nz = 1;   // calibrated neutral, a unit vector
     this.hasReading = false;
     this.needsCalibration = true;
     this._steady = 0;              // consecutive still readings, while calibrating
     this._waited = 0;              // readings since calibration was asked for
-    this._lastRaw = [0, 0];
+    this._lastRaw = [0, 0, 0];
 
     this.keys = new Set();
     this.pointers = new Map();
@@ -140,12 +148,21 @@ export class Input {
     const dx = a.x || 0, dy = a.y || 0;
     const sx = dx * cs + dy * sn;
     const sy = -dx * sn + dy * cs;
+    // The screen rotates about z, so z comes through untouched -- and it has to
+    // come through: two components describe the tilt only while the phone is
+    // near flat, and the whole point is that it is not.
+    // Some devices have been known to leave z out. Gravity has a known length,
+    // so it can be recovered from the other two rather than losing pitch.
+    const sz = a.z == null
+      ? Math.sqrt(Math.max(0, 9.81 * 9.81 - dx * dx - dy * dy))
+      : a.z;
     // Low-pass: gravity is the slow part of the signal; hand shake is the fast part.
     const k = this.hasReading ? 0.18 : 1;
     this.gx += (sx - this.gx) * k;
     this.gy += (sy - this.gy) * k;
+    this.gz += (sz - this.gz) * k;
     this.hasReading = true;
-    if (this.needsCalibration) this._settle(sx, sy);
+    if (this.needsCalibration) this._settle(sx, sy, sz);
   }
 
   /**
@@ -158,10 +175,11 @@ export class Input {
    * the pose to be still instead, and give up waiting rather than never
    * steering at all.
    */
-  _settle(sx, sy) {
-    const moved = Math.hypot(sx - this._lastRaw[0], sy - this._lastRaw[1]);
+  _settle(sx, sy, sz) {
+    const moved = Math.hypot(sx - this._lastRaw[0], sy - this._lastRaw[1], sz - this._lastRaw[2]);
     this._lastRaw[0] = sx;
     this._lastRaw[1] = sy;
+    this._lastRaw[2] = sz;
     this._waited++;
     this._steady = moved > STEADY_TOL ? 0 : this._steady + 1;
     if (this._steady >= STEADY_READINGS || this._waited >= STEADY_GIVE_UP) {
@@ -172,8 +190,12 @@ export class Input {
   /** Adopts the current posture as neutral. */
   calibrate() {
     if (!this.hasReading) return false;
-    this.nx = this.gx;
-    this.ny = this.gy;
+    // Stored as a direction, because that is all it is: how the phone was
+    // pointed, not how hard gravity was pulling on it.
+    const l = Math.hypot(this.gx, this.gy, this.gz) || 1;
+    this.nx = this.gx / l;
+    this.ny = this.gy / l;
+    this.nz = this.gz / l;
     this.needsCalibration = false;
     this._steady = 0;
     this._waited = 0;
@@ -253,8 +275,23 @@ export class Input {
     let sy = 0;
 
     if (this.motion === 'granted' && this.hasReading && !this.needsCalibration) {
-      sx = shape(clamp(((this.gx - this.nx) / FULL_TILT_X) * this.sensitivity, -1.4, 1.4));
-      sy = shape(clamp((-(this.gy - this.ny) / FULL_TILT_Y) * this.sensitivity, -1.4, 1.4));
+      const l = Math.hypot(this.gx, this.gy, this.gz) || 1;
+      const ux = this.gx / l, uy = this.gy / l, uz = this.gz / l;
+      // Pitch is where the phone points within the plane of the screen's up
+      // and out axes, taken as an angle. Read as gravity's up-the-screen
+      // component instead -- which is what this used to do -- it stops
+      // responding when the phone is held upright, because that component is
+      // then at its limit and tipping either way only shrinks it.
+      const pitch = Math.atan2(uy, uz) - Math.atan2(this.ny, this.nz);
+      // Bank is how far the across-the-screen axis has dipped out of level.
+      // That is the same gesture at every posture: dropping the left edge of a
+      // flat phone and banking an upright one both put gravity along it, which
+      // rotation about a fixed screen axis does not -- held upright, the axis
+      // a player banks around is not the one they roll around when it is flat.
+      const bank = Math.asin(clamp(ux, -1, 1)) - Math.asin(clamp(this.nx, -1, 1));
+      const wrap = (a) => (a > Math.PI ? a - TAU : a < -Math.PI ? a + TAU : a);
+      sx = shape(clamp((wrap(bank) / FULL_TILT_X) * this.sensitivity, -1.4, 1.4));
+      sy = shape(clamp((-wrap(pitch) / FULL_TILT_Y) * this.sensitivity, -1.4, 1.4));
     }
 
     if (this.stick !== null && this.pointers.has(this.stick)) {

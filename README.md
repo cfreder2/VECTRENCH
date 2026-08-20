@@ -36,6 +36,15 @@ it asks for landscape and half the time you are mid-turn; it shows **HOLD THE
 PHONE STEADY** until it has one. **CALIBRATE TILT** on the setup panel re-takes
 it whenever you want.
 
+What is measured is the *angle* the phone has turned from that neutral, not how
+much gravity has shifted along the screen. Those are the same thing near flat
+and nothing like it once the phone is tipped up: gravity has a fixed length, so
+its up-the-screen component runs out, and held upright it stops responding
+entirely -- tipping the top toward you and away from you both shrink it, so the
+climb simply is not there. Reading the angle instead means a posture is a
+posture, and holding the phone near-vertical flies exactly like holding it
+flat.
+
 No tilt sensor, or permission denied? Drag one finger to steer and touch with a
 second to fire. On a desktop, arrow keys or WASD steer, click or SPACE fires, and
 SHIFT or M launches.
