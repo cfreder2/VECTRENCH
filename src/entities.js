@@ -369,18 +369,32 @@ export function drawEnemies(rd, track, enemies, camT, far, time) {
     const A = 0.1 + 0.9 * (e.los === undefined ? 1 : e.los);
 
     if (e.kind === 'turret' || e.kind === 'emplacement') {
+      // A drum standing on the rock, not a plate lying on it.
+      //
+      // This used to be one ring at a single height, which is a horizontal disc
+      // -- and you fight these from the rim, looking along the surface, where a
+      // horizontal disc is a line. They read as a scratch of orange with a
+      // barrel on it. A base ring, a narrower top ring lifted off the rock, and
+      // posts between them give the thing a side to be seen from.
       const R = e.kind === 'emplacement' ? 17 : 9;
       const n = e.kind === 'emplacement' ? 8 : 6;
+      const H = R * 0.9;
+      const rim = (a, r, y, out) =>
+        track.localToWorld(e.t + Math.sin(a) * r * 0.6, e.x + Math.cos(a) * r, y, out);
       for (let k = 0; k < n; k++) {
         const a0 = (k / n) * TAU + e.spin, a1 = ((k + 1) / n) * TAU + e.spin;
-        track.localToWorld(e.t + Math.sin(a0) * R * 0.6, e.x + Math.cos(a0) * R, e.y, p);
-        track.localToWorld(e.t + Math.sin(a1) * R * 0.6, e.x + Math.cos(a1) * R, e.y, q);
-        rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], 1.2, col[0], col[1], col[2], A);
+        rim(a0, R, e.y, p); rim(a1, R, e.y, q);
+        rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], 1.2, col[0], col[1], col[2], A * 0.75);
+        rim(a0, R * 0.74, e.y + H, p); rim(a1, R * 0.74, e.y + H, q);
+        rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], 1.3, col[0], col[1], col[2], A);
+        rim(a0, R, e.y, p); rim(a0, R * 0.74, e.y + H, q);
+        rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], 1.1, col[0], col[1], col[2], A * 0.85);
       }
-      // Barrel, swung toward the aim angle it last computed.
-      track.localToWorld(e.t, e.x, e.y + R * 0.4, p);
-      track.localToWorld(e.t + Math.cos(e.aim) * R * 1.1,
-        e.x + Math.sin(e.aim) * R * 1.1, e.y + R * 1.3, q);
+      // Barrel, swung toward the aim angle it last computed, out of the top of
+      // the drum rather than out of the middle of a disc.
+      track.localToWorld(e.t, e.x, e.y + H, p);
+      track.localToWorld(e.t + Math.cos(e.aim) * R * 1.2,
+        e.x + Math.sin(e.aim) * R * 1.2, e.y + H + R * 0.5, q);
       rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], 1.6, col[0], col[1], col[2], A);
       rd.dot3(q[0], q[1], q[2], 2, 1, 0.8, 0.4, (0.8 + 0.2 * Math.sin(time * 9)) * A);
     } else if (e.kind === 'wallgun') {

@@ -114,6 +114,7 @@ trench is cover, and the moment you climb out of it the skyline answers.
 | --- | --- | --- |
 | `hp` | 3 | Three cannon hits |
 | `points` | 250 | |
+| shape | 6-sided drum, R 9, 8 tall | It has *height*: drawn as one flat ring it was a horizontal disc, and you fight these from the rim looking along the surface, where a horizontal disc is a line |
 | `cool` | `0.6 + rand()` | Initial delay, so a row of them staggers |
 | reload | 0.85 s × 0.75–1.35 | Jittered per shot |
 | bolt speed | 520 u/s | Leads your ship by 0.85 of its velocity |
@@ -273,6 +274,7 @@ still only expensive to get wrong.
 | Argument | Value | Meaning |
 | --- | --- | --- |
 | `hp` | 14 | Fourteen cannon hits. One missile, like everything else |
+| shape | 8-sided drum, R 17, 15 tall | |
 | `points` | 900 | |
 | `cool` | 1.2 | |
 | reload | 1.5 s × 0.75–1.35 | |
@@ -478,3 +480,9 @@ places, and nothing else:
 
 Then add it to `SUBJECTS` in [`tools/portraits.mjs`](../tools/portraits.mjs) and
 re-run it, and it has a portrait in here too.
+
+`node tools/doccheck.mjs` reads the constants out of the source and checks this
+file still quotes them, that every enemy's hit points match, and that every
+obstacle kind and spec field is written down somewhere. It exits non-zero when
+they are not, so a number that moves without its documentation is a failure
+rather than something somebody has to spot.

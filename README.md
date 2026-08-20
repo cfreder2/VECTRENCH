@@ -230,6 +230,7 @@ flyable line exists. Run it over a spread of seeds before changing the generator
 node tools/audit.mjs            # clearability across the prose examples and 60 seeds
 node tools/levels.mjs           # the same proof over each pre-built level, plus 40 reseeds
 node tools/levels.mjs --check   # src/levels.js still matches levels/*.json
+node tools/doccheck.mjs         # the docs still describe the code
 ```
 
 The second one is the gate on a pre-built level. It checks four things and exits

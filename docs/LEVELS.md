@@ -76,7 +76,8 @@ Each section:
 | `length` | 400–6000 | 2000 | Track units this section occupies |
 | `width` | 26–150 | 62 | Trench **half**-width. 40 is tight; 110 is a plaza |
 | `depth` | 50–240 | 118 | Rim height above the floor — how far the climb is |
-| `curviness` | 0–1 | 0.4 | Lateral turning |
+| `curviness` | 0–1 | 0.4 | How far the canyon wanders off its line |
+| `snaking` | 0–1 | 0 | How *often* it turns, as opposed to how far. At 0 the steering is noise and the canyon drifts; turn it up and it bends about its own line instead, tighter and harder as it rises — a river rather than a road. Maxing `curviness` alone gives the same number of bends, only wider; this is the one that makes switchbacks. Sharp bends cost sightline, so a snaking canyon wants to be a wide one |
 | `hilliness` | 0–1 | 0.35 | Vertical relief of the floor |
 | `roughness` | 0–1 | 0.5 | Wall detail. Cosmetic; costs no fairness |
 | `obstacles` | 0–1 | 0.4 | Rate, not a count — see below |
@@ -86,7 +87,7 @@ Each section:
 | `batteries` | 0–1 | 0.28 | Surface missile racks. Density decides how many; the section's own value also decides how big, so a heavy section is where the twelve-tube ones appear |
 | `wallguns` | 0–1 | 0.32 | Guns on the trench walls |
 | `drones` | 0–1 | 0.3 | Fighter wave rate |
-| `seals` | 0–6 | 0 | Bulkheads that force you over the rim |
+| `seals` | 0–6 | 0 | Bulkheads that force you over the rim. Authored by count, not by `kinds` — there is no `seal` you can put in a kinds list |
 | `panels` | 0–4 | 2 | Shootable control panels per bulkhead. 0 welds it shut |
 | `ringrate` | 0.06–1 | 0.2 | Seconds between one tentacle of a `ring` firing and the next. Lower is a faster sweep. The number standing at once does not change with it — four, always — so this slows the wall going round rather than thinning it |
 | `slotgap` | 2–14 | 4 | Room each side of the ship in a `slot`, in units. The slit is built from the ship's own footprint plus this, so it is authored in the thing that matters. **Above about 4.5 an upright slit stops asking for the roll**: the ship is 14 wide flying level and 5 on edge, so a slit wide enough to give more room than that is a slit the level ship fits through. 4 is the widest that keeps a slot a slot |
