@@ -3,6 +3,23 @@
 // point-versus-sphere: a point test lets a laser tunnel clean through a drone.
 
 /** True if segment AB comes within `r` of the sphere at C. */
+/**
+ * The port's wall of beams, in one place.
+ *
+ * The renderer draws it and the game collides against it, and if those two ever
+ * disagree the wall is either an invisible killer or a decoration. It started
+ * out as exactly that: drawn from radius 40 outwards, collided from the middle,
+ * so the safest looking spot in the fight -- dead on the port's axis, with the
+ * wall turning around you -- was the one place every beam hit.
+ */
+export const PORT_BEAM = {
+  shafts: 14,
+  inner: 40,      // where a beam starts, just off the shaft mouths
+  slab: 340,      // how far in front of the port the wall stands. Deep enough
+                  // to fly through for about a second rather than to cross.
+  life: 1.05,     // how long one beam hangs there
+};
+
 export function segSphere(ax, ay, az, bx, by, bz, cx, cy, cz, r) {
   const dx = bx - ax, dy = by - ay, dz = bz - az;
   const len2 = dx * dx + dy * dy + dz * dz;

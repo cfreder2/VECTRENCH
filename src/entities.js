@@ -6,7 +6,7 @@
 // Collision with the canyon converts back to canyon-local via Track.worldToLocal.
 
 import { hash2, clamp, hsv, TAU } from './math.js';
-import { obstacleToLocal } from './collide.js';
+import { obstacleToLocal, PORT_BEAM } from './collide.js';
 
 // --- ship ---------------------------------------------------------------
 
@@ -292,23 +292,6 @@ export function drawObstacles(rd, track, obstacles, cursor, camT, far, time) {
       box(rd, track, ob.t, ob.dz, x0, x1, y0, y1, col, 1.2, 1, ob, time, ang || 0);
     }
 
-    // The sunburst's beams, hanging where they were fired and cooling from
-    // orange to yellow as they go. Drawn last so they sit over the arms.
-    if (ob.beams) {
-      const cx = ob.cx || 0, cy = ob.cy || 0;
-      for (const b of ob.beams) {
-        const age = Math.min(1, (time - b.born) / b.life);
-        const ca = Math.cos(b.ang), sa = Math.sin(b.ang);
-        // Held bright for most of its life and then dropped, rather than
-        // faded away evenly: a beam that is dim but still kills is a trap, and
-        // the fan is only readable as a wall while its older arms are still lit.
-        const w = 2.8 - age * 1.5;
-        const A2 = 0.95 * (1 - age) ** 0.55;
-        track.localToWorld(ob.t + ob.dz * 0.5, cx + ca * 5, cy + sa * 5, p);
-        track.localToWorld(ob.t + ob.dz * 0.5, cx + ca * b.reach, cy + sa * b.reach, q);
-        rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], w, 1, 0.42 + age * 0.5, 0.06 + age * 0.22, A2);
-      }
-    }
   }
 }
 
@@ -556,6 +539,47 @@ function drawPort(rd, track, e, time, A = 1) {
     track.localToWorld(e.t, e.x + Math.cos(a0) * 13, e.y + Math.sin(a0) * 13, p);
     track.localToWorld(e.t - 22, e.x + Math.cos(a0) * 5, e.y + Math.sin(a0) * 5, q);
     rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], 1.2, 1, 0.7, 0.25, 0.85 * A);
+  }
+
+  // The shafts: short tubes stood off the rim all the way round, which is what
+  // the beams come out of. Fixed -- the ring turns, these do not.
+  const N = PORT_BEAM.shafts;
+  for (let k = 0; k < N; k++) {
+    const a = (k / N) * TAU;
+    const ca = Math.cos(a), sa = Math.sin(a);
+    const nx = -sa * 1.7, ny = ca * 1.7;      // across the shaft, for its walls
+    const lit = e.beams && e.beams.some((b) => Math.abs(b.ang - a) < 0.01
+      && time - b.born < 0.12);
+    const g = lit ? [1, 0.85, 0.35] : [1, 0.6, 0.2];
+    for (const off of [-1, 1]) {
+      track.localToWorld(e.t, e.x + ca * 31 + nx * off, e.y + sa * 31 + ny * off, p);
+      track.localToWorld(e.t, e.x + ca * 40 + nx * off, e.y + sa * 40 + ny * off, q);
+      rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], 1.2, g[0], g[1], g[2], (lit ? 1 : 0.8) * A);
+    }
+    track.localToWorld(e.t, e.x + ca * 40 + nx, e.y + sa * 40 + ny, p);
+    track.localToWorld(e.t, e.x + ca * 40 - nx, e.y + sa * 40 - ny, q);
+    rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], 1.4, g[0], g[1], g[2], (lit ? 1 : 0.8) * A);
+  }
+
+  // And the wall they build: each beam stands in a slab in front of the port,
+  // drawn front and back so it has depth to fly into rather than a line to
+  // cross. Orange when it is fired, yellow as it goes.
+  if (e.beams) {
+    for (const b of e.beams) {
+      const age = Math.min(1, (time - b.born) / PORT_BEAM.life);
+      const ca = Math.cos(b.ang), sa = Math.sin(b.ang);
+      const w = 2.8 - age * 1.5;
+      const A2 = 0.95 * (1 - age) ** 0.55 * A;
+      const r0 = PORT_BEAM.inner, r1 = b.reach;
+      for (const tt of [e.t, e.t - PORT_BEAM.slab]) {
+        track.localToWorld(tt, e.x + ca * r0, e.y + sa * r0, p);
+        track.localToWorld(tt, e.x + ca * r1, e.y + sa * r1, q);
+        rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], w, 1, 0.42 + age * 0.5, 0.06 + age * 0.22, A2);
+      }
+      track.localToWorld(e.t, e.x + ca * r1, e.y + sa * r1, p);
+      track.localToWorld(e.t - PORT_BEAM.slab, e.x + ca * r1, e.y + sa * r1, q);
+      rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], w * 0.7, 1, 0.5 + age * 0.4, 0.1, A2 * 0.7);
+    }
   }
   track.localToWorld(e.t - 26, e.x, e.y, p);
   rd.dot3(p[0], p[1], p[2], 6 + pulse * 5, 1, 0.95, 0.6, pulse * A);

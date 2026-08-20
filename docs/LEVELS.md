@@ -143,7 +143,21 @@ rather than as rock, and two of them talk to the ship's own controls.
 | `cross` | Four thick arms from the middle, turning. |
 | `slot` | A wall with a slit in it, and the slits alternate. Upright ones are narrower than the ship is wide and only take it **on edge**; flat ones are shallower than the ship is tall and only take it **level**. Put a run of them in a section and the player is rolling and levelling the whole way down it. |
 | `boostgate` | A green hexagonal hoop. Fly through the hole and the burn lights for free; do it while already burning and it goes to a super burn instead of adding time. Not an obstacle so much as an offer. |
-| `pinwheel` | Three or five thin arms from the middle, turning — **and it fires.** Each arm lets go of an orange beam in turn, going clockwise, and the beam hangs in the canyon fading to yellow while the wheel keeps turning under it. What builds up is a fan of lasers with a gap in it that rotates. Two arms are always dark, so there is always a way through; going round the outside is the dangerous way past. |
+| `pinwheel` | Three or five thin arms from the middle, turning. Geometry, not a gun. |
+
+### The finale fires back
+
+`finale: "port"` puts the exhaust port at the end of the run, and it is not a
+stationary target. Fourteen shafts stand around its rim and it fires out of
+them one after another around the ring -- the port does not turn, the firing
+does -- so a wall of orange beams stands in the last three hundred units in
+front of it, fading to yellow, with a gap running round it.
+
+The beams start at the shaft mouths rather than at the middle, so the ship's
+own axis is the eye of it: come straight up the middle and the wall turns
+around you, drift off and it costs you. Measured, holding the axis takes
+nothing from the wall and sitting thirty units off it takes about half a
+shield on the way in.
 
 ### What the compiler will do to your section
 
