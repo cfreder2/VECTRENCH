@@ -42,6 +42,8 @@
     font-weight: 400; color: var(--cyan); text-shadow: 0 0 24px rgba(111,230,255,0.55);
   }
   #boot .sub { color: var(--dim); font-size: clamp(11px, 3vw, 14px); letter-spacing: 0.16em; max-width: 30em; line-height: 1.7; }
+  #boot .tagline { color: var(--cyan); letter-spacing: 0.3em; opacity: 0.8; }
+  #boot .quote { font-style: italic; letter-spacing: 0.08em; opacity: 0.62; max-width: 26em; }
   .pulse { animation: pulse 1.6s ease-in-out infinite; }
   @keyframes pulse { 0%,100% { opacity: 0.35; } 50% { opacity: 1; } }
   /* The flight itself is motion by definition, but the ambient chrome need not
@@ -99,6 +101,10 @@
   button.chip.built { background: rgba(255,183,77,0.1); color: var(--amber);
     border-color: rgba(255,183,77,0.42); }
   button.chip.built:hover:not(:disabled) { background: rgba(255,183,77,0.24); border-color: var(--amber); }
+  button.chip.built.on {
+    background: var(--amber); border-color: var(--amber); color: #140b00;
+    box-shadow: 0 0 16px rgba(255,183,77,0.45);
+  }
 
   #report {
     font-size: 10.5px; line-height: 1.65; color: var(--dim);
@@ -187,10 +193,10 @@
 
   <div id="boot" class="layer on">
     <h1>VECTRENCH</h1>
-    <div class="sub">
-      Describe a canyon in plain language. Fly it at five hundred units a second.<br>
-      Tilt to steer &middot; touch anywhere to shoot &middot; fly the crosshair over
-      targets to lock them, then launch.
+    <div class="sub tagline">vector canyon simulator</div>
+    <div class="sub quote">
+      It&rsquo;s not impossible. I used to bullseye womp rats in my T-16 back home,
+      they&rsquo;re not much bigger than two meters.
     </div>
     <button id="begin" class="primary">TAP TO BEGIN</button>
     <div class="sub pulse" id="bootnote">enables motion controls and sound</div>
@@ -215,7 +221,7 @@
         <button id="fly" class="primary" disabled>FLY</button>
         <button id="full" class="chip">FULL SCREEN</button>
       </div>
-      <div class="foldable">
+      <div class="foldable" id="designpanel">
         <label for="prose">DESIGN A NEW LEVEL</label>
         <textarea id="prose" spellcheck="false"
           placeholder="describe the canyon you want -- how it opens, how it narrows, what is in it, what is shooting at you, what colour it is, how it ends"></textarea>

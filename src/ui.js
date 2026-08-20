@@ -12,7 +12,6 @@
 import { decodeSpec, normalizeSpec } from './spec.js';
 import { PREBUILT } from './levels.js';
 import { drawSchematic } from './hud.js';
-import { drawText } from './font.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -206,16 +205,28 @@ export class UI {
    */
   async goFullscreen() {
     const el = document.getElementById('stage');
+    // An iPhone has no Fullscreen API for anything that is not a video, so this
+    // used to skip silently and then report success. What actually works there
+    // is the home screen: the page is already marked as app-capable, so opened
+    // from an icon it runs without Safari's chrome, which is the real thing.
+    if (!el.requestFullscreen) {
+      this.status(navigator.standalone
+        ? 'already full screen -- you are running it from the home screen'
+        : 'this browser has no full screen. On iPhone: Share, then ADD TO HOME SCREEN, and open it from there');
+      return;
+    }
     try {
-      if (!document.fullscreenElement && el.requestFullscreen) {
-        await el.requestFullscreen({ navigationUI: 'hide' });
-      }
-    } catch { /* refused; the lock below may still work */ }
+      if (!document.fullscreenElement) await el.requestFullscreen({ navigationUI: 'hide' });
+    } catch {
+      this.status('the browser refused full screen');
+      return;
+    }
     const type = (screen.orientation && screen.orientation.type)
       || (innerWidth > innerHeight ? 'landscape-primary' : 'portrait-primary');
+    const want = type.startsWith('landscape') ? 'landscape' : 'portrait';
     try {
-      await screen.orientation?.lock?.(type.startsWith('landscape') ? 'landscape' : 'portrait');
-      this.status(`full screen, locked ${type.startsWith('landscape') ? 'landscape' : 'portrait'}`);
+      await screen.orientation?.lock?.(want);
+      this.status(`full screen, locked ${want}`);
     } catch {
       this.status('full screen (this browser will not lock the orientation)');
     }
@@ -281,10 +292,9 @@ export class UI {
       this.local = true;
     } catch {
       this.local = false;
-      $('designnote').textContent =
-        'Designing a level runs Claude on your own machine. Clone the repo, run '
-        + '`node tools/serve.mjs`, and open it from there -- the published page cannot do it.';
-      $('designbtn').disabled = true;
+      // Hide it rather than grey it out: on the published page there is no
+      // server to design with, so the whole panel is noise.
+      $('designpanel').hidden = true;
       return;
     }
     const row = $('custom');
@@ -431,7 +441,5 @@ export class UI {
       rd.line2(W * 0.5 + i * 8 * s, horizon, x * 1.6 - W * 0.3, H, 1 * s,
         0.3, 0.7, 0.85, 0.05, 0.3);
     }
-    drawText(rd, 'VECTOR CANYON SIMULATOR', W * 0.5, horizon - 11 * s, 9 * s, 1.1 * s,
-      0.35, 0.6, 0.7, 0.6, 0);
   }
 }
