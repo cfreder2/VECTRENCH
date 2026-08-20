@@ -1,0 +1,186 @@
+{
+  "name": "THE ESSES",
+  "blurb": "A giant S with slits cut through it. The upright ones only take the ship on edge and the flat ones only take it level, so the run is a conversation with the roll -- and the green hexagons are speed you can pick up on the way.",
+  "seed": 8121,
+  "speed": {
+    "start": 250,
+    "end": 430
+  },
+  "finale": "port",
+  "sections": [
+    {
+      "hilliness": 0.3,
+      "roughness": 0.42,
+      "turrets": 0.28,
+      "gatlings": 0.3,
+      "batteries": 0.22,
+      "wallguns": 0.3,
+      "drones": 0.2,
+      "seals": 0,
+      "panels": 2,
+      "length": 3000,
+      "name": "the run in",
+      "width": 104,
+      "depth": 104,
+      "curviness": 0.18,
+      "obstacles": 0.2,
+      "kinds": [
+        "pylon"
+      ],
+      "hue": 0.42
+    },
+    {
+      "hilliness": 0.3,
+      "roughness": 0.42,
+      "turrets": 0.28,
+      "gatlings": 0.3,
+      "batteries": 0.22,
+      "wallguns": 0.3,
+      "drones": 0.24,
+      "seals": 0,
+      "panels": 2,
+      "length": 3000,
+      "name": "first bend",
+      "width": 96,
+      "depth": 112,
+      "curviness": 0.72,
+      "obstacles": 0.34,
+      "kinds": [
+        "slot",
+        "pylon"
+      ],
+      "hue": 0.38
+    },
+    {
+      "hilliness": 0.3,
+      "roughness": 0.42,
+      "turrets": 0.28,
+      "gatlings": 0.3,
+      "batteries": 0.22,
+      "wallguns": 0.3,
+      "drones": 0.24,
+      "seals": 0,
+      "panels": 2,
+      "length": 3000,
+      "name": "the cracks",
+      "width": 88,
+      "depth": 118,
+      "curviness": 0.66,
+      "obstacles": 0.44,
+      "kinds": [
+        "slot"
+      ],
+      "hue": 0.33
+    },
+    {
+      "hilliness": 0.3,
+      "roughness": 0.42,
+      "turrets": 0.28,
+      "gatlings": 0.3,
+      "batteries": 0.22,
+      "wallguns": 0.3,
+      "drones": 0.24,
+      "seals": 0,
+      "panels": 2,
+      "length": 3000,
+      "name": "turn and burn",
+      "width": 84,
+      "depth": 120,
+      "curviness": 0.78,
+      "obstacles": 0.38,
+      "kinds": [
+        "slot",
+        "boostgate"
+      ],
+      "hue": 0.28
+    },
+    {
+      "hilliness": 0.3,
+      "roughness": 0.42,
+      "turrets": 0.4,
+      "gatlings": 0.42,
+      "batteries": 0.22,
+      "wallguns": 0.3,
+      "drones": 0.24,
+      "seals": 0,
+      "panels": 2,
+      "length": 3000,
+      "name": "back the other way",
+      "width": 80,
+      "depth": 124,
+      "curviness": 0.8,
+      "obstacles": 0.42,
+      "kinds": [
+        "slot",
+        "gate"
+      ],
+      "hue": 0.22
+    },
+    {
+      "hilliness": 0.3,
+      "roughness": 0.42,
+      "turrets": 0.28,
+      "gatlings": 0.3,
+      "batteries": 0.22,
+      "wallguns": 0.3,
+      "drones": 0.24,
+      "seals": 0,
+      "panels": 2,
+      "length": 3000,
+      "name": "the letterboxes",
+      "width": 76,
+      "depth": 126,
+      "curviness": 0.6,
+      "obstacles": 0.46,
+      "kinds": [
+        "slot",
+        "boostgate"
+      ],
+      "hue": 0.16
+    },
+    {
+      "hilliness": 0.3,
+      "roughness": 0.42,
+      "turrets": 0.28,
+      "gatlings": 0.3,
+      "batteries": 0.22,
+      "wallguns": 0.4,
+      "drones": 0.24,
+      "seals": 0,
+      "panels": 2,
+      "length": 3000,
+      "name": "last crack",
+      "width": 72,
+      "depth": 124,
+      "curviness": 0.7,
+      "obstacles": 0.44,
+      "kinds": [
+        "slot",
+        "ring"
+      ],
+      "hue": 0.1
+    },
+    {
+      "hilliness": 0.3,
+      "roughness": 0.42,
+      "turrets": 0.28,
+      "gatlings": 0.3,
+      "batteries": 0.22,
+      "wallguns": 0.3,
+      "drones": 0.24,
+      "seals": 0,
+      "panels": 2,
+      "length": 3000,
+      "name": "run to the port",
+      "width": 70,
+      "depth": 118,
+      "curviness": 0.5,
+      "obstacles": 0.36,
+      "kinds": [
+        "boostgate",
+        "gate"
+      ],
+      "hue": 0.05
+    }
+  ]
+}

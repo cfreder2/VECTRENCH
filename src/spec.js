@@ -16,6 +16,7 @@ import { clamp } from './math.js';
 export const OBSTACLE_KINDS = [
   'pylon', 'fang', 'gate', 'ring', 'stack',
   'pinwheel', 'cross', 'press', 'slider',
+  'slot', 'boostgate',
 ];
 
 /** Field ranges. Also the documentation the design agent is given. */

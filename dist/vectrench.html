@@ -132,6 +132,20 @@
   #pause:hover { opacity: 1; }
   /* The launcher. Big, in the corner a right thumb already rests in, and
      readable at a glance because it doubles as the cooldown clock. */
+  #roll {
+    position: absolute; left: 12px; bottom: 20px;
+    padding: 16px 22px; font: inherit; font-size: 14px; letter-spacing: .14em;
+    color: #9fd8ff; background: rgba(10,24,38,.55); border: 1px solid #2f6f9f;
+    border-radius: 10px; touch-action: none; user-select: none;
+  }
+  #roll.on { color: #061018; background: #7dd0ff; border-color: #7dd0ff; }
+  #burn {
+    position: absolute; right: 12px; bottom: 92px;
+    padding: 12px 18px; font: inherit; font-size: 13px; letter-spacing: .14em;
+    color: #7dffb0; background: rgba(10,32,20,.55); border: 1px solid #2f8f5c;
+    border-radius: 8px; touch-action: none; user-select: none;
+  }
+  #burn.cooling { color: #4a6b58; border-color: #23503a; }
   #msl {
     position: absolute;
     right: max(12px, env(safe-area-inset-right));
@@ -225,7 +239,9 @@
 
   <div id="flight" class="layer">
     <button id="pause" class="chip">MENU</button>
+    <button id="roll">ROLL</button>
     <button id="msl">MISSILES</button>
+    <button id="burn">BURN</button>
   </div>
 </div>
 <script type="module">
@@ -940,6 +956,7 @@ const _tmp = [0, 0];
 const OBSTACLE_KINDS = [
   'pylon', 'fang', 'gate', 'ring', 'stack',
   'pinwheel', 'cross', 'press', 'slider',
+  'slot', 'boostgate',
 ];
 
 /** Field ranges. Also the documentation the design agent is given. */
@@ -1948,6 +1965,195 @@ const PREBUILT = [
       ]
     },
   },
+  {
+    label: "THE ESSES",
+    blurb: "A giant S with slits cut through it. The upright ones only take the ship on edge and the flat ones only take it level, so the run is a conversation with the roll -- and the green hexagons are speed you can pick up on the way.",
+    spec: {
+      "name": "THE ESSES",
+      "seed": 8121,
+      "speed": {
+        "start": 250,
+        "end": 430
+      },
+      "finale": "port",
+      "sections": [
+        {
+          "name": "the run in",
+          "length": 3000,
+          "width": 104,
+          "depth": 104,
+          "curviness": 0.18,
+          "hilliness": 0.3,
+          "roughness": 0.42,
+          "obstacles": 0.2,
+          "kinds": [
+            "pylon"
+          ],
+          "turrets": 0.28,
+          "gatlings": 0.3,
+          "batteries": 0.22,
+          "wallguns": 0.3,
+          "drones": 0.2,
+          "seals": 0,
+          "panels": 2,
+          "hue": 0.42
+        },
+        {
+          "name": "first bend",
+          "length": 3000,
+          "width": 96,
+          "depth": 112,
+          "curviness": 0.72,
+          "hilliness": 0.3,
+          "roughness": 0.42,
+          "obstacles": 0.34,
+          "kinds": [
+            "slot",
+            "pylon"
+          ],
+          "turrets": 0.28,
+          "gatlings": 0.3,
+          "batteries": 0.22,
+          "wallguns": 0.3,
+          "drones": 0.24,
+          "seals": 0,
+          "panels": 2,
+          "hue": 0.38
+        },
+        {
+          "name": "the cracks",
+          "length": 3000,
+          "width": 88,
+          "depth": 118,
+          "curviness": 0.66,
+          "hilliness": 0.3,
+          "roughness": 0.42,
+          "obstacles": 0.44,
+          "kinds": [
+            "slot"
+          ],
+          "turrets": 0.28,
+          "gatlings": 0.3,
+          "batteries": 0.22,
+          "wallguns": 0.3,
+          "drones": 0.24,
+          "seals": 0,
+          "panels": 2,
+          "hue": 0.33
+        },
+        {
+          "name": "turn and burn",
+          "length": 3000,
+          "width": 84,
+          "depth": 120,
+          "curviness": 0.78,
+          "hilliness": 0.3,
+          "roughness": 0.42,
+          "obstacles": 0.38,
+          "kinds": [
+            "slot",
+            "boostgate"
+          ],
+          "turrets": 0.28,
+          "gatlings": 0.3,
+          "batteries": 0.22,
+          "wallguns": 0.3,
+          "drones": 0.24,
+          "seals": 0,
+          "panels": 2,
+          "hue": 0.28
+        },
+        {
+          "name": "back the other way",
+          "length": 3000,
+          "width": 80,
+          "depth": 124,
+          "curviness": 0.8,
+          "hilliness": 0.3,
+          "roughness": 0.42,
+          "obstacles": 0.42,
+          "kinds": [
+            "slot",
+            "gate"
+          ],
+          "turrets": 0.4,
+          "gatlings": 0.42,
+          "batteries": 0.22,
+          "wallguns": 0.3,
+          "drones": 0.24,
+          "seals": 0,
+          "panels": 2,
+          "hue": 0.22
+        },
+        {
+          "name": "the letterboxes",
+          "length": 3000,
+          "width": 76,
+          "depth": 126,
+          "curviness": 0.6,
+          "hilliness": 0.3,
+          "roughness": 0.42,
+          "obstacles": 0.46,
+          "kinds": [
+            "slot",
+            "boostgate"
+          ],
+          "turrets": 0.28,
+          "gatlings": 0.3,
+          "batteries": 0.22,
+          "wallguns": 0.3,
+          "drones": 0.24,
+          "seals": 0,
+          "panels": 2,
+          "hue": 0.16
+        },
+        {
+          "name": "last crack",
+          "length": 3000,
+          "width": 72,
+          "depth": 124,
+          "curviness": 0.7,
+          "hilliness": 0.3,
+          "roughness": 0.42,
+          "obstacles": 0.44,
+          "kinds": [
+            "slot",
+            "ring"
+          ],
+          "turrets": 0.28,
+          "gatlings": 0.3,
+          "batteries": 0.22,
+          "wallguns": 0.4,
+          "drones": 0.24,
+          "seals": 0,
+          "panels": 2,
+          "hue": 0.1
+        },
+        {
+          "name": "run to the port",
+          "length": 3000,
+          "width": 70,
+          "depth": 118,
+          "curviness": 0.5,
+          "hilliness": 0.3,
+          "roughness": 0.42,
+          "obstacles": 0.36,
+          "kinds": [
+            "boostgate",
+            "gate"
+          ],
+          "turrets": 0.28,
+          "gatlings": 0.3,
+          "batteries": 0.22,
+          "wallguns": 0.3,
+          "drones": 0.24,
+          "seals": 0,
+          "panels": 2,
+          "hue": 0.05
+        }
+      ]
+    },
+  },
 ];
 
 // ---- track.js ------------------------------------------------------
@@ -2336,6 +2542,7 @@ const spacing = (density, base, gain) =>
 
 function buildLevel(spec, track) {
   const rand = rng(spec.seed);
+  let slotFlip = 0;             // slits alternate upright and flat
   const obstacles = [];
   const enemies = [];
   const drones = [];
@@ -2448,6 +2655,35 @@ function buildLevel(spec, track) {
           [gx - gw, gx + gw, gy + gh, rim + 14],
           [gx - gw, gx + gw, -30, gy],
         ], { window: { gx, gy, gw, gh } }));
+      } else if (kind === 'slot') {
+        // A wall with a slit in it, and the slit alternates: upright ones are
+        // narrower than the ship is wide and only take it on edge, flat ones
+        // are shallower than the ship is tall and only take it level. That is
+        // the whole conversation between this and the roll.
+        slotFlip++;
+        const upright = slotFlip % 2 === 1;
+        const gw = upright ? 5 : clamp(38 + rand() * 10, 20, hw - 12);
+        const gh = upright ? 44 + rand() * 12 : 7;
+        const gx = (rand() * 2 - 1) * Math.max(0, hw - gw - 14);
+        const gy = clamp(26 + rand() * 40, gh + 8, Math.max(gh + 9, rim - gh - 12));
+        obstacles.push(obstacle(t, 16, 'slot', [
+          [-hw - 30, gx - gw, -30, rim + 14],
+          [gx + gw, hw + 30, -30, rim + 14],
+          [gx - gw, gx + gw, gy + gh, rim + 14],
+          [gx - gw, gx + gw, -30, gy - gh],
+        ], { window: { gx, gy: gy - gh, gw, gh: gh * 2 }, upright }));
+      } else if (kind === 'boostgate') {
+        // A hoop to fly through rather than around. The frame is four boxes
+        // like every other aperture; the hexagon is only how it is drawn.
+        const r = clamp(26 + rand() * 10, 20, Math.max(21, hw - 14));
+        const cx = (rand() * 2 - 1) * Math.max(0, hw - r - 16);
+        const cy = clamp(34 + rand() * 40, r + 6, Math.max(r + 7, rim - r - 6));
+        obstacles.push(obstacle(t, 12, 'boostgate', [
+          [-hw - 30, cx - r, -30, rim + 14],
+          [cx + r, hw + 30, -30, rim + 14],
+          [cx - r, cx + r, cy + r, rim + 14],
+          [cx - r, cx + r, -30, cy - r],
+        ], { ring: { cx, cy, r }, taken: false }));
       } else if (kind === 'ring') {
         const r = clamp(28 + rand() * 12, 22, hw - 12);
         const cx = (rand() * 2 - 1) * Math.max(0, hw - r - 12);
@@ -3118,10 +3354,37 @@ function drawObstacles(rd, track, obstacles, cursor, camT, far, time) {
       continue;
     }
 
-    if (ob.kind === 'gate' && ob.window) {
+    if (ob.kind === 'boostgate' && ob.ring) {
+      // Green, and drawn as a hexagon so it never reads as one of the things
+      // that will kill you. Two rings and a few spokes, pulsing.
+      const { cx, cy, r } = ob.ring;
+      const pulse = 0.72 + 0.28 * Math.sin(time * 5 + ob.t * 0.01);
+      const g = ob.taken ? [0.25, 0.5, 0.35] : [0.2, 1, 0.45];
+      for (const [rad, w] of [[r, 2.2], [r * 0.82, 1.2]]) {
+        for (let k = 0; k < 6; k++) {
+          const a0 = (k / 6) * TAU, a1 = ((k + 1) / 6) * TAU;
+          for (const tt of [ob.t, ob.t + ob.dz]) {
+            track.localToWorld(tt, cx + Math.cos(a0) * rad, cy + Math.sin(a0) * rad, p);
+            track.localToWorld(tt, cx + Math.cos(a1) * rad, cy + Math.sin(a1) * rad, q);
+            rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], w, g[0], g[1], g[2], pulse);
+          }
+        }
+      }
+      for (let k = 0; k < 6; k++) {
+        const a = (k / 6) * TAU;
+        track.localToWorld(ob.t, cx + Math.cos(a) * r, cy + Math.sin(a) * r, p);
+        track.localToWorld(ob.t + ob.dz, cx + Math.cos(a) * r, cy + Math.sin(a) * r, q);
+        rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], 1.1, g[0], g[1], g[2], pulse * 0.8);
+      }
+      continue;
+    }
+
+    if ((ob.kind === 'gate' || ob.kind === 'slot') && ob.window) {
       const { gx, gy, gw, gh } = ob.window;
-      // Draw the window, not the blocks: the gap is the information.
-      box(rd, track, ob.t, ob.dz, gx - gw, gx + gw, gy, gy + gh, [0.4, 1, 0.95], 1.6, 1);
+      // Draw the window, not the blocks: the gap is the information. A slot's
+      // window is the whole message, so it gets a brighter frame.
+      const wcol = ob.kind === 'slot' ? [1, 0.75, 0.3] : [0.4, 1, 0.95];
+      box(rd, track, ob.t, ob.dz, gx - gw, gx + gw, gy, gy + gh, wcol, ob.kind === 'slot' ? 2.2 : 1.6, 1);
       const hw = track.halfWidth(ob.t);
       const rim = track.rim(ob.t);
       for (const [ax0, ax1] of [[-hw, gx - gw], [gx + gw, hw]]) {
@@ -4544,6 +4807,13 @@ class Audio {
     this._noiseBurst(0.1, 0.1, 5200, 1400, 2);
   }
 
+  /** The burn lighting: a rising sweep with air behind it. */
+  boost() {
+    this._noiseBurst(0.55, 0.34, 700, 3600, 1.4);
+    this._tone('sawtooth', 180, 620, 0.5, 0.16);
+    this._tone('sine', 90, 300, 0.45, 0.14);
+  }
+
   alarm() { this._tone('square', 520, 380, 0.22, 0.09); }
   win() {
     [523, 659, 784, 1047].forEach((f, i) => {
@@ -4615,6 +4885,9 @@ class Input {
     this.justPressed = false;
     this.missilePressed = false;
     this.holdTime = 0;
+    this.rolling = false;          // the ship is turning onto its side
+    this.rollHeld = false;         // the ROLL button, or a key, is down
+    this.boostPressed = false;
     this.motion = 'unavailable';   // unavailable | granted | denied
     this.padName = '';             // the controller in use, if there is one
     this._padFiring = false;
@@ -4664,6 +4937,7 @@ class Input {
       if ((k === 'shift' || k === 'm' || k === 'enter') && !this.keys.has(k)) {
         this.launchMissiles();
       }
+      if (k === 'b' && !this.keys.has(k)) this.boost();
       this.keys.add(k);
       if ([' ', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright'].includes(e.key.toLowerCase())) {
         e.preventDefault();
@@ -4676,6 +4950,8 @@ class Input {
       this.primary = null;
       this.stick = null;
       this.firing = false;
+      this.rolling = false;
+      this.rollHeld = false;
     });
   }
 
@@ -4819,7 +5095,11 @@ class Input {
 
   _down(e) {
     e.preventDefault();
-    this.canvas.setPointerCapture?.(e.pointerId);
+    // Capture is a nicety -- it keeps a finger that slides off the canvas
+    // attached to the game. It can also throw, and a throw here would happen
+    // before the trigger is armed, which costs the player the shot they were
+    // taking. Never worth that.
+    try { this.canvas.setPointerCapture?.(e.pointerId); } catch { /* not captured */ }
     const p = this._pos(e);
     this.pointers.set(e.pointerId, p);
     // With tilt, a touch anywhere is purely a trigger -- there is nothing to
@@ -4873,6 +5153,11 @@ class Input {
   /** Called once per frame, before the game reads steering. */
   update(dt, viewW, viewH) {
     if (this.firing) this.holdTime += dt;
+    // Going on edge is its own control, never the trigger. Touch-and-hold is
+    // the gun and stays the gun: it is the best thing about flying this, and a
+    // roll that borrowed it would be a roll that cost you the shot you were
+    // taking. So it is a button you hold, a key, or a face button on a pad.
+    this.rolling = this.rollHeld;
 
     let sx = 0;
     let sy = 0;
@@ -4933,6 +5218,10 @@ class Input {
       const launch = held(5, 4, 1);
       if (launch && !this._padMissile) this.launchMissiles();
       this._padMissile = launch;
+      if (held(2)) this.rolling = true;                 // X / Square: on edge
+      const boost = held(3);                            // Y / Triangle: burn
+      if (boost && !this._padBoost) this.boostPressed = true;
+      this._padBoost = boost;
     }
 
     const k = this.keys;
@@ -4943,6 +5232,7 @@ class Input {
     if (k.has('arrowdown') || k.has('s')) ky -= 1;
     if (kx || ky) { sx = kx; sy = ky; }
     if (k.has(' ')) { if (!this.firing) this.justPressed = true; this.firing = true; }
+    if (k.has('q') || k.has('e') || k.has('control')) this.rolling = true;
 
     this.steerX = sx;
     this.steerY = sy;
@@ -4952,6 +5242,18 @@ class Input {
   takeMissile() {
     const v = this.missilePressed;
     this.missilePressed = false;
+    return v;
+  }
+
+  /** Requests the burn. Edge-triggered, like the salvo. */
+  boost() {
+    this.boostPressed = true;
+  }
+
+  /** True once per burn request. */
+  takeBoost() {
+    const v = this.boostPressed;
+    this.boostPressed = false;
     return v;
   }
 
@@ -5062,6 +5364,21 @@ const BATTERY_RELOAD = 3.2;
 const GATLING_SPINUP = 0.55;  // long enough to see it and duck back under
 const GATLING_CADENCE = 0.04;
 const GATLING_SPREAD = 0.78;  // tighter: the stream is meant to connect
+// On edge. The ship is a wide flat thing, so turning it ninety degrees trades
+// the width it needs for height it needs -- which is the whole point: a slot
+// too narrow to fly through level is easy sideways, and vice versa.
+const KNIFE_RATE = 4.2;       // how fast it goes over, and comes back
+const SHIP_HX = 7, SHIP_HY = 5;
+const KNIFE_HX = 2.5, KNIFE_HY = 9;
+
+// The burn. Short, expensive, and it stacks with a turbo gate into something
+// genuinely hard to hold onto.
+const BOOST_MUL = 1.5;
+const BOOST_TIME = 2.4;
+const BOOST_COOL = 9;
+const GATE_BOOST_TIME = 2.2;
+const SUPER_MUL = 2.1;        // gated while already burning
+
 const SEAL_DROP_SPEED = 190;  // how fast a bulkhead sinks once its panels go
 
 // The sunbursts fire down their own arms, one arm at a time, going round the
@@ -5125,6 +5442,10 @@ class Game {
     this.velX = 0;
     this.velY = 0;
     this.bank = 0;
+    this.knife = 0;             // 0 level, 1 fully on edge
+    this.boost = 0;             // seconds of burn left
+    this.boostCool = 0;
+    this.boostMul = BOOST_MUL;
     this.pitch = 0;
     this.yaw = 0;
     this.shield = SHIELD_MAX;
@@ -5159,6 +5480,7 @@ class Game {
     for (const w of this.level.drones) w.spawned = false;
     for (const ob of this.level.obstacles) {
       ob.dropY = 0; ob.gone = false; ob.dropping = false; ob.beams = null;
+      ob.taken = false;
     }
     for (const e of this.level.enemies) {
       e.alive = true;
@@ -5181,6 +5503,10 @@ class Game {
     this.weapons.clear();
     this.particles.clear();
     this.aimDist = AIM_DIST;
+    this.knife = 0;
+    this.boost = 0;
+    this.boostCool = 0;
+    this.boostMul = BOOST_MUL;
     this.phase = 'flying';
   }
 
@@ -5244,7 +5570,23 @@ class Game {
   updateShip(dt) {
     const tr = this.track;
     const inp = this.input;
-    this.speed = tr.speedAt(this.t);
+
+    // The burn, and the ship going over onto its edge.
+    this.boostCool = Math.max(0, this.boostCool - dt);
+    if (inp.takeBoost() && this.boost <= 0 && this.boostCool <= 0) {
+      this.boost = BOOST_TIME;
+      this.boostMul = BOOST_MUL;
+      this.boostCool = BOOST_COOL;
+      this.say('BURN', 0.8);
+      this.audio.boost();
+    }
+    if (this.boost > 0) {
+      this.boost = Math.max(0, this.boost - dt);
+      if (this.boost <= 0) this.boostMul = BOOST_MUL;
+    }
+    this.knife = approach(this.knife, inp.rolling ? 1 : 0, KNIFE_RATE, dt);
+
+    this.speed = tr.speedAt(this.t) * (this.boost > 0 ? this.boostMul : 1);
     this.t += this.speed * dt;
 
     const hw = tr.halfWidth(this.t);
@@ -5257,7 +5599,7 @@ class Game {
     this.shipY += this.velY * dt;
 
     // Walls. Grinding along one is survivable for a moment and fatal if held.
-    const limX = hw - 8;
+    const limX = hw - (8 - 4 * this.knife);
     this.grinding = false;
     if (Math.abs(this.shipX) > limX) {
       this.shipX = Math.sign(this.shipX) * limX;
@@ -5292,6 +5634,10 @@ class Game {
     // Attitude: bank into the steer and into the track's own curvature.
     const curve = tr.curveAt(this.t);
     this.bank = approach(this.bank, -inp.steerX * 0.8 - curve * 26, 6.5, dt);
+    // The ship rolls the whole ninety degrees; the camera leans a fraction of
+    // it. Rolling the camera with it turns the canyon on its side, which reads
+    // as the world being wrong rather than as the ship being clever.
+    this.shipRoll = this.bank + this.knife * Math.PI * 0.5;
     this.pitch = approach(this.pitch, inp.steerY * 0.32, 6.5, dt);
     // Yaw is aim. It follows the steer rather than the velocity so that the
     // crosshair answers the stick directly -- pointing somewhere should not
@@ -5394,13 +5740,45 @@ class Game {
       if (ob.hit) continue;
       // The ship occupies a small box; grow the obstacle instead of shrinking it.
       if (this.t + 8 < ob.t || this.t - 8 > ob.t + ob.dz) continue;
-      if (hitsObstacle(ob, this.time, this.shipX, this.shipY, 7, 5)) {
+      const hx = SHIP_HX + (KNIFE_HX - SHIP_HX) * this.knife;
+      const hy = SHIP_HY + (KNIFE_HY - SHIP_HY) * this.knife;
+      if (ob.kind === 'boostgate') {
+        // Through the hoop rather than into it: the boxes are the frame, so
+        // not hitting them at the moment of crossing is the whole test.
+        if (!ob.taken && !hitsObstacle(ob, this.time, this.shipX, this.shipY, hx, hy)) {
+          ob.taken = true;
+          this.takeGate();
+        }
+        continue;
+      }
+      if (hitsObstacle(ob, this.time, this.shipX, this.shipY, hx, hy)) {
         ob.hit = true;
         this.damage(ob.kind === 'seal' ? 48 : 34);
         this.boomAt(this.shipPos, 34, 170, 1, 0.55, 0.2, 0.7);
         this.audio.smallBoom();
       }
     }
+  }
+
+  /**
+   * A turbo gate, taken cleanly. Hitting one while already burning is the
+   * interesting case: it does not add time, it raises the multiplier, which is
+   * a good deal and briefly more speed than the trench really allows.
+   */
+  takeGate() {
+    if (this.boost > 0) {
+      this.boostMul = SUPER_MUL;
+      this.boost = Math.max(this.boost, GATE_BOOST_TIME);
+      this.say('SUPER BURN', 1);
+      this.shake = Math.min(1.5, this.shake + 0.5);
+    } else {
+      this.boostMul = BOOST_MUL;
+      this.boost = GATE_BOOST_TIME;
+      this.say('BURN', 0.8);
+    }
+    this.score += 150;
+    this.audio.boost();
+    this.sparkAt(this.shipX, this.shipY, 14, 150, 0.3, 1, 0.5);
   }
 
   spawnDrones() {
@@ -5455,7 +5833,7 @@ class Game {
     // Ship sits ahead of the camera, in the lower third of frame.
     tr.frameAt(this.t, this.shipFrame);
     tr.localToWorldF(this.shipFrame, this.shipX, this.shipY, this.shipPos);
-    shipBasis(this.shipFrame, this.bank, this.pitch, this.yaw, this.basis);
+    shipBasis(this.shipFrame, this.shipRoll ?? this.bank, this.pitch, this.yaw, this.basis);
 
     if (this.shake > 0) {
       const s = this.shake * 7;
@@ -5486,7 +5864,7 @@ class Game {
 
     // Roll the camera part-way into the ship's bank: enough to feel the turn,
     // not enough to lose the horizon.
-    const roll = this.bank * 0.42;
+    const roll = this.bank * 0.42 + this.knife * 0.2;
     const cr = Math.cos(roll), sr = Math.sin(roll);
     for (let i = 0; i < 3; i++) {
       const ri = r[i] * cr + u[i] * sr;
@@ -6434,6 +6812,25 @@ class UI {
       e.preventDefault();
       this.input.launchMissiles();
     });
+    $('burn').addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      this.input.boost();
+    });
+
+    // Held, not tapped: the ship is on edge for exactly as long as this is
+    // down. It is a button of its own so that touch-and-hold anywhere else is
+    // still nothing but the gun.
+    const roll = $('roll');
+    const setRoll = (on) => (e) => {
+      e.preventDefault();
+      this.input.rollHeld = on;
+      roll.classList.toggle('on', on);
+      if (on) roll.setPointerCapture?.(e.pointerId);
+    };
+    roll.addEventListener('pointerdown', setRoll(true));
+    for (const ev of ['pointerup', 'pointercancel', 'pointerleave']) {
+      roll.addEventListener(ev, setRoll(false));
+    }
 
     $('calibrate').addEventListener('click', async () => {
       if (this.input.motion !== 'granted') await this.input.requestMotion();
@@ -6490,6 +6887,16 @@ class UI {
    * changed, because a DOM write per frame for a label that changes once a
    * second is a frame cost for nothing.
    */
+  syncBurnButton() {
+    const g = this.game;
+    const ready = g.boostCool <= 0 && g.boost <= 0;
+    const text = g.boost > 0 ? `BURN ${g.boost.toFixed(1)}`
+      : ready ? 'BURN' : `${g.boostCool.toFixed(0)}s`;
+    if (text !== this._burnText) { $('burn').textContent = text; this._burnText = text; }
+    const cls = ready || g.boost > 0 ? '' : 'cooling';
+    if (cls !== this._burnCls) { $('burn').className = cls; this._burnCls = cls; }
+  }
+
   syncMissileButton() {
     const g = this.game;
     if (this.screen !== 'flight' || g.phase !== 'flying') return;
@@ -6831,6 +7238,7 @@ function frame(now) {
     game.update(dt, cssW, cssH);
     game.draw();
     ui.syncMissileButton();
+    ui.syncBurnButton();
   } else {
     ui.drawBackdrop();
   }

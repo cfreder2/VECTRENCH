@@ -30,7 +30,7 @@ const OUT = join(ROOT, 'src', 'levels.js');
 // lands at the end -- the order is the shelf order in the game, so it is
 // authored rather than alphabetical.
 const ORDER = ['proving-ground.json', 'shakedown.json', 'bulkhead-run.json', 'reactor.json',
-  'gauntlet.json'];
+  'gauntlet.json', 'the-esses.json'];
 
 const SWEEP = 40;      // seeds tried per level, because RESEED re-rolls in play
 const MIN_SECS = 60;   // a level shorter than this is a demo, not a level

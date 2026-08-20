@@ -84,6 +84,21 @@ const BATTERY_RELOAD = 3.2;
 const GATLING_SPINUP = 0.55;  // long enough to see it and duck back under
 const GATLING_CADENCE = 0.04;
 const GATLING_SPREAD = 0.78;  // tighter: the stream is meant to connect
+// On edge. The ship is a wide flat thing, so turning it ninety degrees trades
+// the width it needs for height it needs -- which is the whole point: a slot
+// too narrow to fly through level is easy sideways, and vice versa.
+const KNIFE_RATE = 4.2;       // how fast it goes over, and comes back
+export const SHIP_HX = 7, SHIP_HY = 5;
+export const KNIFE_HX = 2.5, KNIFE_HY = 9;
+
+// The burn. Short, expensive, and it stacks with a turbo gate into something
+// genuinely hard to hold onto.
+const BOOST_MUL = 1.5;
+const BOOST_TIME = 2.4;
+const BOOST_COOL = 9;
+const GATE_BOOST_TIME = 2.2;
+const SUPER_MUL = 2.1;        // gated while already burning
+
 const SEAL_DROP_SPEED = 190;  // how fast a bulkhead sinks once its panels go
 
 // The sunbursts fire down their own arms, one arm at a time, going round the
@@ -147,6 +162,10 @@ export class Game {
     this.velX = 0;
     this.velY = 0;
     this.bank = 0;
+    this.knife = 0;             // 0 level, 1 fully on edge
+    this.boost = 0;             // seconds of burn left
+    this.boostCool = 0;
+    this.boostMul = BOOST_MUL;
     this.pitch = 0;
     this.yaw = 0;
     this.shield = SHIELD_MAX;
@@ -181,6 +200,7 @@ export class Game {
     for (const w of this.level.drones) w.spawned = false;
     for (const ob of this.level.obstacles) {
       ob.dropY = 0; ob.gone = false; ob.dropping = false; ob.beams = null;
+      ob.taken = false;
     }
     for (const e of this.level.enemies) {
       e.alive = true;
@@ -203,6 +223,10 @@ export class Game {
     this.weapons.clear();
     this.particles.clear();
     this.aimDist = AIM_DIST;
+    this.knife = 0;
+    this.boost = 0;
+    this.boostCool = 0;
+    this.boostMul = BOOST_MUL;
     this.phase = 'flying';
   }
 
@@ -266,7 +290,23 @@ export class Game {
   updateShip(dt) {
     const tr = this.track;
     const inp = this.input;
-    this.speed = tr.speedAt(this.t);
+
+    // The burn, and the ship going over onto its edge.
+    this.boostCool = Math.max(0, this.boostCool - dt);
+    if (inp.takeBoost() && this.boost <= 0 && this.boostCool <= 0) {
+      this.boost = BOOST_TIME;
+      this.boostMul = BOOST_MUL;
+      this.boostCool = BOOST_COOL;
+      this.say('BURN', 0.8);
+      this.audio.boost();
+    }
+    if (this.boost > 0) {
+      this.boost = Math.max(0, this.boost - dt);
+      if (this.boost <= 0) this.boostMul = BOOST_MUL;
+    }
+    this.knife = approach(this.knife, inp.rolling ? 1 : 0, KNIFE_RATE, dt);
+
+    this.speed = tr.speedAt(this.t) * (this.boost > 0 ? this.boostMul : 1);
     this.t += this.speed * dt;
 
     const hw = tr.halfWidth(this.t);
@@ -279,7 +319,7 @@ export class Game {
     this.shipY += this.velY * dt;
 
     // Walls. Grinding along one is survivable for a moment and fatal if held.
-    const limX = hw - 8;
+    const limX = hw - (8 - 4 * this.knife);
     this.grinding = false;
     if (Math.abs(this.shipX) > limX) {
       this.shipX = Math.sign(this.shipX) * limX;
@@ -314,6 +354,10 @@ export class Game {
     // Attitude: bank into the steer and into the track's own curvature.
     const curve = tr.curveAt(this.t);
     this.bank = approach(this.bank, -inp.steerX * 0.8 - curve * 26, 6.5, dt);
+    // The ship rolls the whole ninety degrees; the camera leans a fraction of
+    // it. Rolling the camera with it turns the canyon on its side, which reads
+    // as the world being wrong rather than as the ship being clever.
+    this.shipRoll = this.bank + this.knife * Math.PI * 0.5;
     this.pitch = approach(this.pitch, inp.steerY * 0.32, 6.5, dt);
     // Yaw is aim. It follows the steer rather than the velocity so that the
     // crosshair answers the stick directly -- pointing somewhere should not
@@ -416,13 +460,45 @@ export class Game {
       if (ob.hit) continue;
       // The ship occupies a small box; grow the obstacle instead of shrinking it.
       if (this.t + 8 < ob.t || this.t - 8 > ob.t + ob.dz) continue;
-      if (hitsObstacle(ob, this.time, this.shipX, this.shipY, 7, 5)) {
+      const hx = SHIP_HX + (KNIFE_HX - SHIP_HX) * this.knife;
+      const hy = SHIP_HY + (KNIFE_HY - SHIP_HY) * this.knife;
+      if (ob.kind === 'boostgate') {
+        // Through the hoop rather than into it: the boxes are the frame, so
+        // not hitting them at the moment of crossing is the whole test.
+        if (!ob.taken && !hitsObstacle(ob, this.time, this.shipX, this.shipY, hx, hy)) {
+          ob.taken = true;
+          this.takeGate();
+        }
+        continue;
+      }
+      if (hitsObstacle(ob, this.time, this.shipX, this.shipY, hx, hy)) {
         ob.hit = true;
         this.damage(ob.kind === 'seal' ? 48 : 34);
         this.boomAt(this.shipPos, 34, 170, 1, 0.55, 0.2, 0.7);
         this.audio.smallBoom();
       }
     }
+  }
+
+  /**
+   * A turbo gate, taken cleanly. Hitting one while already burning is the
+   * interesting case: it does not add time, it raises the multiplier, which is
+   * a good deal and briefly more speed than the trench really allows.
+   */
+  takeGate() {
+    if (this.boost > 0) {
+      this.boostMul = SUPER_MUL;
+      this.boost = Math.max(this.boost, GATE_BOOST_TIME);
+      this.say('SUPER BURN', 1);
+      this.shake = Math.min(1.5, this.shake + 0.5);
+    } else {
+      this.boostMul = BOOST_MUL;
+      this.boost = GATE_BOOST_TIME;
+      this.say('BURN', 0.8);
+    }
+    this.score += 150;
+    this.audio.boost();
+    this.sparkAt(this.shipX, this.shipY, 14, 150, 0.3, 1, 0.5);
   }
 
   spawnDrones() {
@@ -477,7 +553,7 @@ export class Game {
     // Ship sits ahead of the camera, in the lower third of frame.
     tr.frameAt(this.t, this.shipFrame);
     tr.localToWorldF(this.shipFrame, this.shipX, this.shipY, this.shipPos);
-    shipBasis(this.shipFrame, this.bank, this.pitch, this.yaw, this.basis);
+    shipBasis(this.shipFrame, this.shipRoll ?? this.bank, this.pitch, this.yaw, this.basis);
 
     if (this.shake > 0) {
       const s = this.shake * 7;
@@ -508,7 +584,7 @@ export class Game {
 
     // Roll the camera part-way into the ship's bank: enough to feel the turn,
     // not enough to lose the horizon.
-    const roll = this.bank * 0.42;
+    const roll = this.bank * 0.42 + this.knife * 0.2;
     const cr = Math.cos(roll), sr = Math.sin(roll);
     for (let i = 0; i < 3; i++) {
       const ri = r[i] * cr + u[i] * sr;

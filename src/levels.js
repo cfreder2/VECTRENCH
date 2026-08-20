@@ -911,4 +911,193 @@ export const PREBUILT = [
       ]
     },
   },
+  {
+    label: "THE ESSES",
+    blurb: "A giant S with slits cut through it. The upright ones only take the ship on edge and the flat ones only take it level, so the run is a conversation with the roll -- and the green hexagons are speed you can pick up on the way.",
+    spec: {
+      "name": "THE ESSES",
+      "seed": 8121,
+      "speed": {
+        "start": 250,
+        "end": 430
+      },
+      "finale": "port",
+      "sections": [
+        {
+          "name": "the run in",
+          "length": 3000,
+          "width": 104,
+          "depth": 104,
+          "curviness": 0.18,
+          "hilliness": 0.3,
+          "roughness": 0.42,
+          "obstacles": 0.2,
+          "kinds": [
+            "pylon"
+          ],
+          "turrets": 0.28,
+          "gatlings": 0.3,
+          "batteries": 0.22,
+          "wallguns": 0.3,
+          "drones": 0.2,
+          "seals": 0,
+          "panels": 2,
+          "hue": 0.42
+        },
+        {
+          "name": "first bend",
+          "length": 3000,
+          "width": 96,
+          "depth": 112,
+          "curviness": 0.72,
+          "hilliness": 0.3,
+          "roughness": 0.42,
+          "obstacles": 0.34,
+          "kinds": [
+            "slot",
+            "pylon"
+          ],
+          "turrets": 0.28,
+          "gatlings": 0.3,
+          "batteries": 0.22,
+          "wallguns": 0.3,
+          "drones": 0.24,
+          "seals": 0,
+          "panels": 2,
+          "hue": 0.38
+        },
+        {
+          "name": "the cracks",
+          "length": 3000,
+          "width": 88,
+          "depth": 118,
+          "curviness": 0.66,
+          "hilliness": 0.3,
+          "roughness": 0.42,
+          "obstacles": 0.44,
+          "kinds": [
+            "slot"
+          ],
+          "turrets": 0.28,
+          "gatlings": 0.3,
+          "batteries": 0.22,
+          "wallguns": 0.3,
+          "drones": 0.24,
+          "seals": 0,
+          "panels": 2,
+          "hue": 0.33
+        },
+        {
+          "name": "turn and burn",
+          "length": 3000,
+          "width": 84,
+          "depth": 120,
+          "curviness": 0.78,
+          "hilliness": 0.3,
+          "roughness": 0.42,
+          "obstacles": 0.38,
+          "kinds": [
+            "slot",
+            "boostgate"
+          ],
+          "turrets": 0.28,
+          "gatlings": 0.3,
+          "batteries": 0.22,
+          "wallguns": 0.3,
+          "drones": 0.24,
+          "seals": 0,
+          "panels": 2,
+          "hue": 0.28
+        },
+        {
+          "name": "back the other way",
+          "length": 3000,
+          "width": 80,
+          "depth": 124,
+          "curviness": 0.8,
+          "hilliness": 0.3,
+          "roughness": 0.42,
+          "obstacles": 0.42,
+          "kinds": [
+            "slot",
+            "gate"
+          ],
+          "turrets": 0.4,
+          "gatlings": 0.42,
+          "batteries": 0.22,
+          "wallguns": 0.3,
+          "drones": 0.24,
+          "seals": 0,
+          "panels": 2,
+          "hue": 0.22
+        },
+        {
+          "name": "the letterboxes",
+          "length": 3000,
+          "width": 76,
+          "depth": 126,
+          "curviness": 0.6,
+          "hilliness": 0.3,
+          "roughness": 0.42,
+          "obstacles": 0.46,
+          "kinds": [
+            "slot",
+            "boostgate"
+          ],
+          "turrets": 0.28,
+          "gatlings": 0.3,
+          "batteries": 0.22,
+          "wallguns": 0.3,
+          "drones": 0.24,
+          "seals": 0,
+          "panels": 2,
+          "hue": 0.16
+        },
+        {
+          "name": "last crack",
+          "length": 3000,
+          "width": 72,
+          "depth": 124,
+          "curviness": 0.7,
+          "hilliness": 0.3,
+          "roughness": 0.42,
+          "obstacles": 0.44,
+          "kinds": [
+            "slot",
+            "ring"
+          ],
+          "turrets": 0.28,
+          "gatlings": 0.3,
+          "batteries": 0.22,
+          "wallguns": 0.4,
+          "drones": 0.24,
+          "seals": 0,
+          "panels": 2,
+          "hue": 0.1
+        },
+        {
+          "name": "run to the port",
+          "length": 3000,
+          "width": 70,
+          "depth": 118,
+          "curviness": 0.5,
+          "hilliness": 0.3,
+          "roughness": 0.42,
+          "obstacles": 0.36,
+          "kinds": [
+            "boostgate",
+            "gate"
+          ],
+          "turrets": 0.28,
+          "gatlings": 0.3,
+          "batteries": 0.22,
+          "wallguns": 0.3,
+          "drones": 0.24,
+          "seals": 0,
+          "panels": 2,
+          "hue": 0.05
+        }
+      ]
+    },
+  },
 ];

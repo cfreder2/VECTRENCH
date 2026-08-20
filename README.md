@@ -8,6 +8,9 @@ A vector-graphics rails shooter in a canyon.  The goal of this was to experiment
 - Tilt the phone to move within the trench. 
 - Touch anywhere to fire the machine gun.
 - Paint your targets and launch missiles all at once.
+- Hold **ROLL** to turn the ship on its edge, and fit through the upright slits.
+- **BURN** for a second and a half of speed, on a long cooldown. Green hexagons
+  give you one free — take one while already burning and it goes super.
 - Stay below the rim of the canyon, or you'll be womp rat meat
 
 **[Play it](https://cfreder2.github.io/VECTRENCH/)**

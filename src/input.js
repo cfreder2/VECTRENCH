@@ -55,6 +55,9 @@ export class Input {
     this.justPressed = false;
     this.missilePressed = false;
     this.holdTime = 0;
+    this.rolling = false;          // the ship is turning onto its side
+    this.rollHeld = false;         // the ROLL button, or a key, is down
+    this.boostPressed = false;
     this.motion = 'unavailable';   // unavailable | granted | denied
     this.padName = '';             // the controller in use, if there is one
     this._padFiring = false;
@@ -104,6 +107,7 @@ export class Input {
       if ((k === 'shift' || k === 'm' || k === 'enter') && !this.keys.has(k)) {
         this.launchMissiles();
       }
+      if (k === 'b' && !this.keys.has(k)) this.boost();
       this.keys.add(k);
       if ([' ', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright'].includes(e.key.toLowerCase())) {
         e.preventDefault();
@@ -116,6 +120,8 @@ export class Input {
       this.primary = null;
       this.stick = null;
       this.firing = false;
+      this.rolling = false;
+      this.rollHeld = false;
     });
   }
 
@@ -259,7 +265,11 @@ export class Input {
 
   _down(e) {
     e.preventDefault();
-    this.canvas.setPointerCapture?.(e.pointerId);
+    // Capture is a nicety -- it keeps a finger that slides off the canvas
+    // attached to the game. It can also throw, and a throw here would happen
+    // before the trigger is armed, which costs the player the shot they were
+    // taking. Never worth that.
+    try { this.canvas.setPointerCapture?.(e.pointerId); } catch { /* not captured */ }
     const p = this._pos(e);
     this.pointers.set(e.pointerId, p);
     // With tilt, a touch anywhere is purely a trigger -- there is nothing to
@@ -313,6 +323,11 @@ export class Input {
   /** Called once per frame, before the game reads steering. */
   update(dt, viewW, viewH) {
     if (this.firing) this.holdTime += dt;
+    // Going on edge is its own control, never the trigger. Touch-and-hold is
+    // the gun and stays the gun: it is the best thing about flying this, and a
+    // roll that borrowed it would be a roll that cost you the shot you were
+    // taking. So it is a button you hold, a key, or a face button on a pad.
+    this.rolling = this.rollHeld;
 
     let sx = 0;
     let sy = 0;
@@ -373,6 +388,10 @@ export class Input {
       const launch = held(5, 4, 1);
       if (launch && !this._padMissile) this.launchMissiles();
       this._padMissile = launch;
+      if (held(2)) this.rolling = true;                 // X / Square: on edge
+      const boost = held(3);                            // Y / Triangle: burn
+      if (boost && !this._padBoost) this.boostPressed = true;
+      this._padBoost = boost;
     }
 
     const k = this.keys;
@@ -383,6 +402,7 @@ export class Input {
     if (k.has('arrowdown') || k.has('s')) ky -= 1;
     if (kx || ky) { sx = kx; sy = ky; }
     if (k.has(' ')) { if (!this.firing) this.justPressed = true; this.firing = true; }
+    if (k.has('q') || k.has('e') || k.has('control')) this.rolling = true;
 
     this.steerX = sx;
     this.steerY = sy;
@@ -392,6 +412,18 @@ export class Input {
   takeMissile() {
     const v = this.missilePressed;
     this.missilePressed = false;
+    return v;
+  }
+
+  /** Requests the burn. Edge-triggered, like the salvo. */
+  boost() {
+    this.boostPressed = true;
+  }
+
+  /** True once per burn request. */
+  takeBoost() {
+    const v = this.boostPressed;
+    this.boostPressed = false;
     return v;
   }
 

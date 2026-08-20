@@ -76,6 +76,25 @@ export class UI {
       e.preventDefault();
       this.input.launchMissiles();
     });
+    $('burn').addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      this.input.boost();
+    });
+
+    // Held, not tapped: the ship is on edge for exactly as long as this is
+    // down. It is a button of its own so that touch-and-hold anywhere else is
+    // still nothing but the gun.
+    const roll = $('roll');
+    const setRoll = (on) => (e) => {
+      e.preventDefault();
+      this.input.rollHeld = on;
+      roll.classList.toggle('on', on);
+      if (on) roll.setPointerCapture?.(e.pointerId);
+    };
+    roll.addEventListener('pointerdown', setRoll(true));
+    for (const ev of ['pointerup', 'pointercancel', 'pointerleave']) {
+      roll.addEventListener(ev, setRoll(false));
+    }
 
     $('calibrate').addEventListener('click', async () => {
       if (this.input.motion !== 'granted') await this.input.requestMotion();
@@ -132,6 +151,16 @@ export class UI {
    * changed, because a DOM write per frame for a label that changes once a
    * second is a frame cost for nothing.
    */
+  syncBurnButton() {
+    const g = this.game;
+    const ready = g.boostCool <= 0 && g.boost <= 0;
+    const text = g.boost > 0 ? `BURN ${g.boost.toFixed(1)}`
+      : ready ? 'BURN' : `${g.boostCool.toFixed(0)}s`;
+    if (text !== this._burnText) { $('burn').textContent = text; this._burnText = text; }
+    const cls = ready || g.boost > 0 ? '' : 'cooling';
+    if (cls !== this._burnCls) { $('burn').className = cls; this._burnCls = cls; }
+  }
+
   syncMissileButton() {
     const g = this.game;
     if (this.screen !== 'flight' || g.phase !== 'flying') return;

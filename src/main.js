@@ -65,6 +65,7 @@ function frame(now) {
     game.update(dt, cssW, cssH);
     game.draw();
     ui.syncMissileButton();
+    ui.syncBurnButton();
   } else {
     ui.drawBackdrop();
   }

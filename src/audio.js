@@ -258,6 +258,13 @@ export class Audio {
     this._noiseBurst(0.1, 0.1, 5200, 1400, 2);
   }
 
+  /** The burn lighting: a rising sweep with air behind it. */
+  boost() {
+    this._noiseBurst(0.55, 0.34, 700, 3600, 1.4);
+    this._tone('sawtooth', 180, 620, 0.5, 0.16);
+    this._tone('sine', 90, 300, 0.45, 0.14);
+  }
+
   alarm() { this._tone('square', 520, 380, 0.22, 0.09); }
   win() {
     [523, 659, 784, 1047].forEach((f, i) => {

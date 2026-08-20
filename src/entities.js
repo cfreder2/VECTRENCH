@@ -247,10 +247,37 @@ export function drawObstacles(rd, track, obstacles, cursor, camT, far, time) {
       continue;
     }
 
-    if (ob.kind === 'gate' && ob.window) {
+    if (ob.kind === 'boostgate' && ob.ring) {
+      // Green, and drawn as a hexagon so it never reads as one of the things
+      // that will kill you. Two rings and a few spokes, pulsing.
+      const { cx, cy, r } = ob.ring;
+      const pulse = 0.72 + 0.28 * Math.sin(time * 5 + ob.t * 0.01);
+      const g = ob.taken ? [0.25, 0.5, 0.35] : [0.2, 1, 0.45];
+      for (const [rad, w] of [[r, 2.2], [r * 0.82, 1.2]]) {
+        for (let k = 0; k < 6; k++) {
+          const a0 = (k / 6) * TAU, a1 = ((k + 1) / 6) * TAU;
+          for (const tt of [ob.t, ob.t + ob.dz]) {
+            track.localToWorld(tt, cx + Math.cos(a0) * rad, cy + Math.sin(a0) * rad, p);
+            track.localToWorld(tt, cx + Math.cos(a1) * rad, cy + Math.sin(a1) * rad, q);
+            rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], w, g[0], g[1], g[2], pulse);
+          }
+        }
+      }
+      for (let k = 0; k < 6; k++) {
+        const a = (k / 6) * TAU;
+        track.localToWorld(ob.t, cx + Math.cos(a) * r, cy + Math.sin(a) * r, p);
+        track.localToWorld(ob.t + ob.dz, cx + Math.cos(a) * r, cy + Math.sin(a) * r, q);
+        rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], 1.1, g[0], g[1], g[2], pulse * 0.8);
+      }
+      continue;
+    }
+
+    if ((ob.kind === 'gate' || ob.kind === 'slot') && ob.window) {
       const { gx, gy, gw, gh } = ob.window;
-      // Draw the window, not the blocks: the gap is the information.
-      box(rd, track, ob.t, ob.dz, gx - gw, gx + gw, gy, gy + gh, [0.4, 1, 0.95], 1.6, 1);
+      // Draw the window, not the blocks: the gap is the information. A slot's
+      // window is the whole message, so it gets a brighter frame.
+      const wcol = ob.kind === 'slot' ? [1, 0.75, 0.3] : [0.4, 1, 0.95];
+      box(rd, track, ob.t, ob.dz, gx - gw, gx + gw, gy, gy + gh, wcol, ob.kind === 'slot' ? 2.2 : 1.6, 1);
       const hw = track.halfWidth(ob.t);
       const rim = track.rim(ob.t);
       for (const [ax0, ax1] of [[-hw, gx - gw], [gx + gw, hw]]) {

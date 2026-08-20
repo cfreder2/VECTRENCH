@@ -68,6 +68,7 @@ const spacing = (density, base, gain) =>
 
 export function buildLevel(spec, track) {
   const rand = rng(spec.seed);
+  let slotFlip = 0;             // slits alternate upright and flat
   const obstacles = [];
   const enemies = [];
   const drones = [];
@@ -180,6 +181,35 @@ export function buildLevel(spec, track) {
           [gx - gw, gx + gw, gy + gh, rim + 14],
           [gx - gw, gx + gw, -30, gy],
         ], { window: { gx, gy, gw, gh } }));
+      } else if (kind === 'slot') {
+        // A wall with a slit in it, and the slit alternates: upright ones are
+        // narrower than the ship is wide and only take it on edge, flat ones
+        // are shallower than the ship is tall and only take it level. That is
+        // the whole conversation between this and the roll.
+        slotFlip++;
+        const upright = slotFlip % 2 === 1;
+        const gw = upright ? 5 : clamp(38 + rand() * 10, 20, hw - 12);
+        const gh = upright ? 44 + rand() * 12 : 7;
+        const gx = (rand() * 2 - 1) * Math.max(0, hw - gw - 14);
+        const gy = clamp(26 + rand() * 40, gh + 8, Math.max(gh + 9, rim - gh - 12));
+        obstacles.push(obstacle(t, 16, 'slot', [
+          [-hw - 30, gx - gw, -30, rim + 14],
+          [gx + gw, hw + 30, -30, rim + 14],
+          [gx - gw, gx + gw, gy + gh, rim + 14],
+          [gx - gw, gx + gw, -30, gy - gh],
+        ], { window: { gx, gy: gy - gh, gw, gh: gh * 2 }, upright }));
+      } else if (kind === 'boostgate') {
+        // A hoop to fly through rather than around. The frame is four boxes
+        // like every other aperture; the hexagon is only how it is drawn.
+        const r = clamp(26 + rand() * 10, 20, Math.max(21, hw - 14));
+        const cx = (rand() * 2 - 1) * Math.max(0, hw - r - 16);
+        const cy = clamp(34 + rand() * 40, r + 6, Math.max(r + 7, rim - r - 6));
+        obstacles.push(obstacle(t, 12, 'boostgate', [
+          [-hw - 30, cx - r, -30, rim + 14],
+          [cx + r, hw + 30, -30, rim + 14],
+          [cx - r, cx + r, cy + r, rim + 14],
+          [cx - r, cx + r, -30, cy - r],
+        ], { ring: { cx, cy, r }, taken: false }));
       } else if (kind === 'ring') {
         const r = clamp(28 + rand() * 12, 22, hw - 12);
         const cx = (rand() * 2 - 1) * Math.max(0, hw - r - 12);

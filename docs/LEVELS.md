@@ -128,8 +128,8 @@ and each of them opens far gentler than its own average.
 
 ### The obstacles
 
-Nine kinds. The last four move, which is what makes them read as machinery
-rather than as rock.
+Eleven kinds. Four of them move, which is what makes them read as machinery
+rather than as rock, and two of them talk to the ship's own controls.
 
 | `kinds` entry | What stands there |
 | --- | --- |
@@ -141,6 +141,8 @@ rather than as rock.
 | `press` | A crusher that opens and closes on a cycle. Timing. |
 | `slider` | A wall that slides across the trench and back. |
 | `cross` | Four thick arms from the middle, turning. |
+| `slot` | A wall with a slit in it, and the slits alternate. Upright ones are narrower than the ship is wide and only take it **on edge**; flat ones are shallower than the ship is tall and only take it **level**. Put a run of them in a section and the player is rolling and levelling the whole way down it. |
+| `boostgate` | A green hexagonal hoop. Fly through the hole and the burn lights for free; do it while already burning and it goes to a super burn instead of adding time. Not an obstacle so much as an offer. |
 | `pinwheel` | Three or five thin arms from the middle, turning — **and it fires.** Each arm lets go of an orange beam in turn, going clockwise, and the beam hangs in the canyon fading to yellow while the wheel keeps turning under it. What builds up is a fan of lasers with a gap in it that rotates. Two arms are always dark, so there is always a way through; going round the outside is the dangerous way past. |
 
 ### What the compiler will do to your section

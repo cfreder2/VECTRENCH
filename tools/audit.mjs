@@ -13,9 +13,8 @@ import { buildLevel } from '../src/level.js';
 import { hitsObstacle } from '../src/collide.js';
 // The real limits, not a copy of them: if the ship gets faster and this file
 // does not hear about it, the audit keeps proving a harder game than shipped.
-import { MAX_VX, MAX_VY } from '../src/game.js';
+import { MAX_VX, MAX_VY, SHIP_HX, SHIP_HY, KNIFE_HX, KNIFE_HY } from '../src/game.js';
 
-const SHIP_HX = 7, SHIP_HY = 5;
 const NX = 49, NY = 37;
 
 export function audit(spec) {
@@ -47,7 +46,13 @@ export function audit(spec) {
     let freeCount = 0;
     for (let i = 0; i < NX; i++) {
       for (let j = 0; j < NY; j++) {
-        if (hitsObstacle(ob, when, xs[i], ys[j], SHIP_HX, SHIP_HY)) continue;
+        // Either way up. A slot too narrow to fly through level is passable
+        // on edge and a letterbox is the other way round, so a cell counts as
+        // free if the ship fits through it in either attitude -- which is what
+        // the player can actually do, and proving otherwise would fail levels
+        // that are fine.
+        if (hitsObstacle(ob, when, xs[i], ys[j], SHIP_HX, SHIP_HY)
+          && hitsObstacle(ob, when, xs[i], ys[j], KNIFE_HX, KNIFE_HY)) continue;
         free[i * NY + j] = 1; freeCount++;
       }
     }
