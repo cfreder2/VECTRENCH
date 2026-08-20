@@ -1,11 +1,17 @@
 // Chip-tune music: Rimsky-Korsakov's Flight of the Bumblebee, played by three
 // square waves and a noise channel.
 //
-// The piece is one long chromatic run in sixteenth notes, which is exactly what
-// a chip lead is good at, and its restlessness suits a trench at 400 units a
-// second. It is public domain (1900), and the arrangement here is a reduction:
-// the melody as written, a root-fifth bass under it, and two percussion hits a
-// bar to keep the beat when the melody is busy.
+// The notes are transcribed from the engraved score rather than written from
+// memory, which matters more than it sounds like it should: the theme is not a
+// plain chromatic scale. It falls a semitone at a time and keeps stepping back
+// up -- e d# d c# *d c#* c b -- and that hitch is what makes it sound like an
+// insect rather than a run of a scale. Bars 1-22, the whole opening, at the
+// score's Vivace crotchet = 160.
+//
+// The melody is Rimsky-Korsakov's, and public domain. The bass under it is ours:
+// one root per bar taken from the harmony, not the piano arrangement's own
+// left hand. Flats in the score are spelled as sharps here because the table
+// below is sharp-based; the pitches are identical.
 //
 // Notes are scheduled ahead of time against the audio clock rather than played
 // from a timer tick, because a setInterval on a busy frame drifts by tens of
@@ -21,31 +27,46 @@ const midi = (name) => {
 
 const hz = (n) => 440 * 2 ** ((n - 69) / 12);
 
-// Sixteenth notes, sixteen to a bar, in A minor. Bars 1-4 are the theme -- the
-// octave chromatic fall, the turn at the bottom, the climb back -- and 5-8 are
-// the answering phrase that hovers around the top before dropping again.
+// The score: 2/4, sixteen-note runs, eight to a bar, no key signature. Bars 1-4
+// are the fall from the top, 5-10 the low buzzing, 11-14 the climb out, and
+// 15-22 the hovering figure that answers it.
 const BARS = [
-  'a5 g#5 g5 f#5 f5 e5 d#5 d5 c#5 c5 b4 a#4 a4 g#4 g4 f#4',
-  'f4 e4 d#4 e4 f4 e4 d#4 e4 f4 f#4 g4 g#4 a4 a#4 b4 c5',
-  'c#5 d5 d#5 e5 f5 e5 d#5 e5 f5 e5 d#5 d5 c#5 c5 b4 a#4',
-  'a4 g#4 a4 a#4 b4 c5 c#5 d5 d#5 e5 f5 f#5 g5 g#5 a5 g#5',
-  'a5 g#5 g5 f#5 f5 e5 f5 f#5 g5 g#5 a5 g#5 g5 f#5 f5 e5',
-  'd#5 e5 f5 e5 d#5 e5 f5 e5 d#5 d5 c#5 c5 b4 c5 c#5 d5',
-  'd#5 e5 f5 f#5 g5 g#5 a5 g#5 g5 f#5 f5 e5 d#5 d5 c#5 c5',
-  'b4 a#4 a4 g#4 a4 a#4 b4 c5 c#5 d5 d#5 e5 f5 f#5 g5 g#5',
+  'e6 d#6 d6 c#6 d6 c#6 c6 b5',
+  'c6 b5 a#5 a5 g#5 g5 f#5 f5',
+  'e5 d#5 d5 c#5 d5 c#5 c5 b4',
+  'c5 b4 a#4 a4 g#4 g4 f#4 f4',
+  'e4 d#4 d4 c#4 d4 c#4 c4 b3',
+  'e4 d#4 d4 c#4 d4 c#4 c4 b3',
+  'e4 d#4 d4 c#4 c4 f4 e4 d#4',
+  'e4 d#4 d4 c#4 c4 c#4 d4 d#4',
+  'e4 d#4 d4 c#4 c4 f4 e4 d#4',
+  'e4 d#4 d4 c#4 c4 c#4 d4 d#4',
+  'e4 d#4 d4 c#4 d4 c#4 c4 b3',
+  'c4 c#4 d4 d#4 e4 f4 e4 d#4',
+  'e4 d#4 d4 c#4 d4 c#4 c4 b3',
+  'c4 c#4 d4 d#4 e4 f#4 g4 g#4',
+  'a4 g#4 g4 f#4 f4 a#4 a4 g#4',
+  'a4 g#4 g4 f#4 f4 f#4 g4 g#4',
+  'a4 g#4 g4 f#4 f4 a#4 a4 g#4',
+  'a4 g#4 g4 f#4 f4 f#4 g4 g#4',
+  'a4 g#4 g4 f#4 g4 f#4 f4 e4',
+  'f4 f#4 g4 g#4 a4 a#4 a4 g#4',
+  'a4 g#4 g4 f#4 g4 f#4 f4 e4',
+  'f4 f#4 g4 g#4 a4 a#4 a4 g#4',
 ];
 
-const theme = BARS.flatMap((bar) => bar.split(' ').map(midi));
-// Bars 9-12 are the opening four an octave down, so the loop comes back around
-// somewhere other than where it left, the way the orchestral one changes register.
-const MELODY = theme.concat(theme.slice(0, 64).map((n) => n - 12));
+const MELODY = BARS.flatMap((bar) => bar.split(' ').map(midi));
 
-// One chord a bar under the melody, and the eighth-note figure played on it.
-const ROOTS = ['a2', 'a2', 'e2', 'e2', 'a2', 'e2', 'a2', 'e2', 'a2', 'a2', 'e2', 'e2'].map(midi);
-const BASS_STEPS = [0, 2, 4, 6, 8, 10, 12, 14];
-const BASS_OFFSET = [0, 0, 7, 0, 0, 12, 7, 0];
+// One root a bar. Null is a bar the score leaves unaccompanied -- the opening
+// descent is nearly solo, and filling it in would trample the best moment in
+// the piece.
+const ROOTS = ['e3', null, 'e2', null, null, null, 'a2', 'a2', 'a2', 'a2', 'a2',
+  'd3', 'c3', 'e3', 'd3', 'd3', 'f3', 'd3', 'f3', 'e3', 'd3', 'c#3']
+  .map((n) => (n ? midi(n) : null));
 
-const STEP = 60 / 168 / 4;      // a sixteenth at 168bpm: about eleven notes a second
+const BEATS = 8;                // sixteenths to the bar, this being 2/4
+
+const STEP = 60 / 160 / 4;      // a sixteenth at the score's 160: eleven a second
 const LOOKAHEAD = 0.25;         // schedule this far past the clock, every tick
 const TOTAL = MELODY.length;
 
@@ -121,14 +142,17 @@ export class Music {
   _emit(i, t) {
     this._pulse(hz(MELODY[i]), t, STEP * 0.92, 0.2, 'square');
 
-    const beat = i % 16;
-    const b = BASS_STEPS.indexOf(beat);
-    if (b >= 0) {
-      const root = ROOTS[(i / 16) | 0] + BASS_OFFSET[b];
-      this._pulse(hz(root), t, STEP * 1.7, 0.17, 'square', 900);
+    const beat = i % BEATS;
+    const root = ROOTS[(i / BEATS) | 0];
+    // Root on the first beat, fifth on the second: the left hand in the score
+    // is staccato chords on the beat, and two hits a bar is that in one voice.
+    if (root !== null) {
+      if (beat === 0) this._pulse(hz(root), t, STEP * 2.6, 0.17, 'square', 900);
+      else if (beat === 4) this._pulse(hz(root + 7), t, STEP * 2.2, 0.14, 'square', 900);
     }
-    if (beat === 0 || beat === 8) this._kick(t);
-    else if (beat === 4 || beat === 12) this._hat(t);
+    if (beat === 0) this._kick(t);
+    else if (beat === 4) this._hat(t);
+    else if (beat === 2 || beat === 6) this._hat(t, 0.03);
   }
 
   _pulse(f, t, dur, gain, type, cut = 0) {
@@ -174,7 +198,7 @@ export class Music {
   }
 
   /** The offbeats: a tick of noise, quiet enough to sit under the gun. */
-  _hat(t) {
+  _hat(t, gain = 0.06) {
     const ctx = this.ctx;
     const s = ctx.createBufferSource();
     s.buffer = this.noise;
@@ -182,7 +206,7 @@ export class Music {
     f.type = 'highpass';
     f.frequency.value = 6000;
     const g = ctx.createGain();
-    g.gain.setValueAtTime(0.06, t);
+    g.gain.setValueAtTime(gain, t);
     g.gain.exponentialRampToValueAtTime(0.0001, t + 0.045);
     s.connect(f); f.connect(g); g.connect(this.bus);
     s.start(t);

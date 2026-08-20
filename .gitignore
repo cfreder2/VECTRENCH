@@ -1,3 +1,6 @@
 # Host-specific build output; regenerate with `node tools/bundle.mjs`.
 dist/artifact.html
 .DS_Store
+
+# Reference scores; not ours to redistribute.
+*.pdf

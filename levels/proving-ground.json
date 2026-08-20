@@ -1,0 +1,247 @@
+{
+  "name": "PROVING GROUND",
+  "blurb": "One of everything, one per stretch, slow enough to read: sliding walls, crushers, pinwheels, crossbars, rings, two bulkheads you can open by shooting their panels instead of climbing, and a surface that is never safe.",
+  "seed": 1701,
+  "speed": {
+    "start": 230,
+    "end": 290
+  },
+  "finale": "port",
+  "sections": [
+    {
+      "name": "open air",
+      "length": 2200,
+      "width": 112,
+      "depth": 92,
+      "curviness": 0.1,
+      "hilliness": 0.15,
+      "roughness": 0.3,
+      "obstacles": 0.14,
+      "kinds": [
+        "pylon"
+      ],
+      "turrets": 0.08,
+      "gatlings": 0,
+      "batteries": 0,
+      "wallguns": 0,
+      "drones": 0.2,
+      "seals": 0,
+      "panels": 2,
+      "hue": 0.55
+    },
+    {
+      "name": "sliding walls",
+      "length": 2200,
+      "width": 104,
+      "depth": 100,
+      "curviness": 0.16,
+      "hilliness": 0.2,
+      "roughness": 0.34,
+      "obstacles": 0.5,
+      "kinds": [
+        "slider"
+      ],
+      "turrets": 0.12,
+      "gatlings": 0.08,
+      "batteries": 0,
+      "wallguns": 0.1,
+      "drones": 0.2,
+      "seals": 0,
+      "panels": 2,
+      "hue": 0.5
+    },
+    {
+      "name": "the crushers",
+      "length": 2200,
+      "width": 100,
+      "depth": 108,
+      "curviness": 0.2,
+      "hilliness": 0.24,
+      "roughness": 0.38,
+      "obstacles": 0.5,
+      "kinds": [
+        "press"
+      ],
+      "turrets": 0.15,
+      "gatlings": 0.1,
+      "batteries": 0.08,
+      "wallguns": 0.14,
+      "drones": 0.22,
+      "seals": 0,
+      "panels": 2,
+      "hue": 0.44
+    },
+    {
+      "name": "pinwheels",
+      "length": 2200,
+      "width": 98,
+      "depth": 112,
+      "curviness": 0.24,
+      "hilliness": 0.26,
+      "roughness": 0.4,
+      "obstacles": 0.5,
+      "kinds": [
+        "pinwheel"
+      ],
+      "turrets": 0.18,
+      "gatlings": 0.12,
+      "batteries": 0.1,
+      "wallguns": 0.18,
+      "drones": 0.24,
+      "seals": 0,
+      "panels": 2,
+      "hue": 0.36
+    },
+    {
+      "name": "crossbars",
+      "length": 2200,
+      "width": 94,
+      "depth": 114,
+      "curviness": 0.28,
+      "hilliness": 0.28,
+      "roughness": 0.42,
+      "obstacles": 0.5,
+      "kinds": [
+        "cross"
+      ],
+      "turrets": 0.2,
+      "gatlings": 0.15,
+      "batteries": 0.12,
+      "wallguns": 0.2,
+      "drones": 0.24,
+      "seals": 0,
+      "panels": 2,
+      "hue": 0.28
+    },
+    {
+      "name": "the rings",
+      "length": 2200,
+      "width": 90,
+      "depth": 118,
+      "curviness": 0.3,
+      "hilliness": 0.3,
+      "roughness": 0.44,
+      "obstacles": 0.5,
+      "kinds": [
+        "ring"
+      ],
+      "turrets": 0.22,
+      "gatlings": 0.18,
+      "batteries": 0.15,
+      "wallguns": 0.22,
+      "drones": 0.22,
+      "seals": 0,
+      "panels": 2,
+      "hue": 0.2
+    },
+    {
+      "name": "the gates",
+      "length": 2200,
+      "width": 92,
+      "depth": 118,
+      "curviness": 0.3,
+      "hilliness": 0.3,
+      "roughness": 0.44,
+      "obstacles": 0.5,
+      "kinds": [
+        "gate"
+      ],
+      "turrets": 0.22,
+      "gatlings": 0.18,
+      "batteries": 0.15,
+      "wallguns": 0.22,
+      "drones": 0.22,
+      "seals": 0,
+      "panels": 2,
+      "hue": 0.16
+    },
+    {
+      "name": "first bulkhead",
+      "length": 2200,
+      "width": 86,
+      "depth": 122,
+      "curviness": 0.26,
+      "hilliness": 0.26,
+      "roughness": 0.42,
+      "obstacles": 0.2,
+      "kinds": [
+        "pylon",
+        "fang"
+      ],
+      "turrets": 0.35,
+      "gatlings": 0.3,
+      "batteries": 0.25,
+      "wallguns": 0.16,
+      "drones": 0.2,
+      "seals": 1,
+      "panels": 3,
+      "hue": 0.14
+    },
+    {
+      "name": "the defended surface",
+      "length": 2200,
+      "width": 82,
+      "depth": 126,
+      "curviness": 0.3,
+      "hilliness": 0.3,
+      "roughness": 0.45,
+      "obstacles": 0.4,
+      "kinds": [
+        "stack"
+      ],
+      "turrets": 0.55,
+      "gatlings": 0.5,
+      "batteries": 0.45,
+      "wallguns": 0.3,
+      "drones": 0.24,
+      "seals": 0,
+      "panels": 2,
+      "hue": 0.08
+    },
+    {
+      "name": "second bulkhead",
+      "length": 2200,
+      "width": 80,
+      "depth": 128,
+      "curviness": 0.3,
+      "hilliness": 0.3,
+      "roughness": 0.45,
+      "obstacles": 0.2,
+      "kinds": [
+        "pylon",
+        "fang"
+      ],
+      "turrets": 0.5,
+      "gatlings": 0.45,
+      "batteries": 0.4,
+      "wallguns": 0.2,
+      "drones": 0.24,
+      "seals": 1,
+      "panels": 4,
+      "hue": 0.05
+    },
+    {
+      "name": "run to the port",
+      "length": 2200,
+      "width": 80,
+      "depth": 120,
+      "curviness": 0.3,
+      "hilliness": 0.26,
+      "roughness": 0.42,
+      "obstacles": 0.42,
+      "kinds": [
+        "fang",
+        "gate",
+        "pinwheel"
+      ],
+      "turrets": 0.3,
+      "gatlings": 0.25,
+      "batteries": 0.2,
+      "wallguns": 0.28,
+      "drones": 0.2,
+      "seals": 0,
+      "panels": 2,
+      "hue": 0.02
+    }
+  ]
+}
