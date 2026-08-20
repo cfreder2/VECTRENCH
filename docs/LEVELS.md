@@ -88,6 +88,8 @@ Each section:
 | `drones` | 0–1 | 0.3 | Fighter wave rate |
 | `seals` | 0–6 | 0 | Bulkheads that force you over the rim |
 | `panels` | 0–4 | 2 | Shootable control panels per bulkhead. 0 welds it shut |
+| `slotgap` | 2–14 | 4 | Room each side of the ship in a `slot`, in units. The slit is built from the ship's own footprint plus this, so it is authored in the thing that matters. **Above about 4.5 an upright slit stops asking for the roll**: the ship is 14 wide flying level and 5 on edge, so a slit wide enough to give more room than that is a slit the level ship fits through. 4 is the widest that keeps a slot a slot |
+| `armedPort` | top level, not a section: `true` gives the finale the wall of beams described above. Default `false`. |
 | `hue` | 0–1 | 0.5 | 0 red, 0.14 gold, 0.33 green, 0.5 cyan, 0.62 blue, 0.79 violet |
 
 **Everything is clamped on the way in.** A field out of range, of the wrong type,
@@ -136,28 +138,28 @@ rather than as rock, and two of them talk to the ship's own controls.
 | `pylon` | A column from the floor. The plain one. |
 | `fang` | Hanging from the roof, pointing down. |
 | `gate` | A wall with one window cut in it; the window is the way through. |
-| `ring` | An iris: a hole in a plate, and you fly through the hole. |
+| `ring` | An octagonal hoop with eight orange tentacles round it. The hoop is the way through, and the tentacles throw walls of light outward at the rock -- one after another clockwise from twelve, fading orange to yellow. They are a hazard to fly into rather than a gun that aims: fly the hole and they cost nothing, cut the corner on the way in and they cost about a fifth of a shield. |
 | `stack` | Staggered slabs, alternating high and low. |
 | `press` | A crusher that opens and closes on a cycle. Timing. |
 | `slider` | A wall that slides across the trench and back. |
 | `cross` | Four thick arms from the middle, turning. |
-| `slot` | A wall with a slit in it, and the slits alternate. Upright ones are narrower than the ship is wide and only take it **on edge**; flat ones are shallower than the ship is tall and only take it **level**. Put a run of them in a section and the player is rolling and levelling the whole way down it. |
+| `slot` | A wall with a slit in it, and the slits alternate. Upright ones only take the ship **on edge**; flat ones only take it **level**. See `slotgap` for how much room they leave |
 | `boostgate` | A green hexagonal hoop. Fly through the hole and the burn lights for free; do it while already burning and it goes to a super burn instead of adding time. Not an obstacle so much as an offer. |
 | `pinwheel` | Three or five thin arms from the middle, turning. Geometry, not a gun. |
 
-### The finale fires back
+### An armed port, if you want one
 
-`finale: "port"` puts the exhaust port at the end of the run, and it is not a
-stationary target. Fourteen shafts stand around its rim and it fires out of
-them one after another around the ring -- the port does not turn, the firing
-does -- so a wall of orange beams stands in the last three hundred units in
-front of it, fading to yellow, with a gap running round it.
+`finale: "port"` puts the exhaust port at the end of the run, and by default it
+is what it looks like: a target. Set `"armedPort": true` at the top level of the
+spec and it defends itself -- fourteen shafts around its rim firing one after
+another around the ring, building a wall of beams in the three hundred units in
+front of it that fades orange to yellow with a gap running round it.
 
-The beams start at the shaft mouths rather than at the middle, so the ship's
-own axis is the eye of it: come straight up the middle and the wall turns
-around you, drift off and it costs you. Measured, holding the axis takes
-nothing from the wall and sitting thirty units off it takes about half a
-shield on the way in.
+The beams start at the shaft mouths rather than at the middle, so the ship's own
+axis is the eye of it: come straight up the middle and the wall turns around
+you, drift off and it costs you. Holding the axis takes nothing; thirty units
+off it takes about half a shield on the way in. It is off unless a level asks,
+because an exhaust port is a thing you shoot, not a thing that shoots.
 
 ### What the compiler will do to your section
 

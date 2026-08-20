@@ -6,7 +6,7 @@
 // Collision with the canyon converts back to canyon-local via Track.worldToLocal.
 
 import { hash2, clamp, hsv, TAU } from './math.js';
-import { obstacleToLocal, PORT_BEAM } from './collide.js';
+import { obstacleToLocal, PORT_BEAM, RING_BEAM } from './collide.js';
 
 // --- ship ---------------------------------------------------------------
 
@@ -240,9 +240,61 @@ export function drawObstacles(rd, track, obstacles, cursor, camT, far, time) {
         track.localToWorld(ob.t + ob.dz, px, py, q);
         rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], 1, col[0], col[1], col[2], 0.7);
         // Radial struts out to the surrounding rock.
-        const ex = cx + Math.cos(a0) * (r + 22), ey = cy + Math.sin(a0) * (r + 22);
+        const ex = cx + Math.cos(a0) * (r + RING_BEAM.gap);
+        const ey = cy + Math.sin(a0) * (r + RING_BEAM.gap);
         track.localToWorld(ob.t, ex, ey, q);
         rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], 0.8, 1, 0.5, 0.2, 0.55);
+      }
+
+      // What comes out of the tentacles. Not a line -- a wedge with a mouth and
+      // a far end, drawn at both faces of the hoop and joined up, so it is a
+      // slab of light standing in the trench rather than a scratch on the
+      // glass. Bright orange as it leaves, yellow as it goes.
+      if (ob.beams) {
+        for (const b of ob.beams) {
+          const age = Math.min(1, (time - b.born) / RING_BEAM.life);
+          const ca = Math.cos(b.ang), sa = Math.sin(b.ang);
+          const nx = -sa, ny = ca;
+          const w0 = RING_BEAM.wide;
+          const w1 = RING_BEAM.wide + (b.reach - b.from) * RING_BEAM.spread;
+          const bright = (1 - age) ** 0.5;
+          const g = 0.35 + age * 0.6;
+          const wgt = 2.6 - age * 1.4;
+          // The four corners of the wedge, at both ends of the hoop's depth.
+          const corner = (rad, w, side) => [
+            cx + ca * rad + nx * w * side,
+            cy + sa * rad + ny * w * side,
+          ];
+          for (const tt of [ob.t - RING_BEAM.lead, ob.t + ob.dz]) {
+            for (const side of [-1, 1]) {
+              const A0 = corner(b.from, w0, side), A1 = corner(b.reach, w1, side);
+              track.localToWorld(tt, A0[0], A0[1], p);
+              track.localToWorld(tt, A1[0], A1[1], q);
+              rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], wgt, 1, g, 0.08, bright);
+            }
+            const M0 = corner(b.from, w0, -1), M1 = corner(b.from, w0, 1);
+            track.localToWorld(tt, M0[0], M0[1], p);
+            track.localToWorld(tt, M1[0], M1[1], q);
+            rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], wgt, 1, g, 0.08, bright);
+            const F0 = corner(b.reach, w1, -1), F1 = corner(b.reach, w1, 1);
+            track.localToWorld(tt, F0[0], F0[1], p);
+            track.localToWorld(tt, F1[0], F1[1], q);
+            rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], wgt * 0.7, 1, g, 0.08, bright * 0.7);
+          }
+          // The four long edges joining the two faces, which is what gives it
+          // its thickness, and a hot core down the middle.
+          for (const side of [-1, 1]) {
+            for (const [rad, w] of [[b.from, w0], [b.reach, w1]]) {
+              const C = corner(rad, w, side);
+              track.localToWorld(ob.t - RING_BEAM.lead, C[0], C[1], p);
+              track.localToWorld(ob.t + ob.dz, C[0], C[1], q);
+              rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], wgt * 0.8, 1, g, 0.08, bright * 0.8);
+            }
+          }
+          track.localToWorld(ob.t + ob.dz * 0.5, cx + ca * b.from, cy + sa * b.from, p);
+          track.localToWorld(ob.t + ob.dz * 0.5, cx + ca * b.reach, cy + sa * b.reach, q);
+          rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], wgt * 1.5, 1, 0.75 + age * 0.2, 0.35, bright);
+        }
       }
       continue;
     }
@@ -256,7 +308,7 @@ export function drawObstacles(rd, track, obstacles, cursor, camT, far, time) {
       for (const [rad, w] of [[r, 2.2], [r * 0.82, 1.2]]) {
         for (let k = 0; k < 6; k++) {
           const a0 = (k / 6) * TAU, a1 = ((k + 1) / 6) * TAU;
-          for (const tt of [ob.t, ob.t + ob.dz]) {
+          for (const tt of [ob.t - RING_BEAM.lead, ob.t + ob.dz]) {
             track.localToWorld(tt, cx + Math.cos(a0) * rad, cy + Math.sin(a0) * rad, p);
             track.localToWorld(tt, cx + Math.cos(a1) * rad, cy + Math.sin(a1) * rad, q);
             rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], w, g[0], g[1], g[2], pulse);

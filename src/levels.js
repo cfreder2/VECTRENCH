@@ -16,6 +16,7 @@ export const PREBUILT = [
         "end": 290
       },
       "finale": "port",
+      "armedPort": false,
       "sections": [
         {
           "name": "open air",
@@ -23,6 +24,7 @@ export const PREBUILT = [
           "width": 112,
           "depth": 92,
           "curviness": 0.1,
+          "snaking": 0,
           "hilliness": 0.15,
           "roughness": 0.3,
           "obstacles": 0.14,
@@ -36,6 +38,7 @@ export const PREBUILT = [
           "drones": 0.2,
           "seals": 0,
           "panels": 2,
+          "slotgap": 4,
           "hue": 0.55
         },
         {
@@ -44,6 +47,7 @@ export const PREBUILT = [
           "width": 104,
           "depth": 100,
           "curviness": 0.16,
+          "snaking": 0,
           "hilliness": 0.2,
           "roughness": 0.34,
           "obstacles": 0.5,
@@ -57,6 +61,7 @@ export const PREBUILT = [
           "drones": 0.2,
           "seals": 0,
           "panels": 2,
+          "slotgap": 4,
           "hue": 0.5
         },
         {
@@ -65,6 +70,7 @@ export const PREBUILT = [
           "width": 100,
           "depth": 108,
           "curviness": 0.2,
+          "snaking": 0,
           "hilliness": 0.24,
           "roughness": 0.38,
           "obstacles": 0.5,
@@ -78,6 +84,7 @@ export const PREBUILT = [
           "drones": 0.22,
           "seals": 0,
           "panels": 2,
+          "slotgap": 4,
           "hue": 0.44
         },
         {
@@ -86,6 +93,7 @@ export const PREBUILT = [
           "width": 98,
           "depth": 112,
           "curviness": 0.24,
+          "snaking": 0,
           "hilliness": 0.26,
           "roughness": 0.4,
           "obstacles": 0.5,
@@ -99,6 +107,7 @@ export const PREBUILT = [
           "drones": 0.24,
           "seals": 0,
           "panels": 2,
+          "slotgap": 4,
           "hue": 0.36
         },
         {
@@ -107,6 +116,7 @@ export const PREBUILT = [
           "width": 94,
           "depth": 114,
           "curviness": 0.28,
+          "snaking": 0,
           "hilliness": 0.28,
           "roughness": 0.42,
           "obstacles": 0.5,
@@ -120,6 +130,7 @@ export const PREBUILT = [
           "drones": 0.24,
           "seals": 0,
           "panels": 2,
+          "slotgap": 4,
           "hue": 0.28
         },
         {
@@ -128,6 +139,7 @@ export const PREBUILT = [
           "width": 90,
           "depth": 118,
           "curviness": 0.3,
+          "snaking": 0,
           "hilliness": 0.3,
           "roughness": 0.44,
           "obstacles": 0.5,
@@ -141,6 +153,7 @@ export const PREBUILT = [
           "drones": 0.22,
           "seals": 0,
           "panels": 2,
+          "slotgap": 4,
           "hue": 0.2
         },
         {
@@ -149,6 +162,7 @@ export const PREBUILT = [
           "width": 92,
           "depth": 118,
           "curviness": 0.3,
+          "snaking": 0,
           "hilliness": 0.3,
           "roughness": 0.44,
           "obstacles": 0.5,
@@ -162,6 +176,7 @@ export const PREBUILT = [
           "drones": 0.22,
           "seals": 0,
           "panels": 2,
+          "slotgap": 4,
           "hue": 0.16
         },
         {
@@ -170,6 +185,7 @@ export const PREBUILT = [
           "width": 86,
           "depth": 122,
           "curviness": 0.26,
+          "snaking": 0,
           "hilliness": 0.26,
           "roughness": 0.42,
           "obstacles": 0.2,
@@ -184,6 +200,7 @@ export const PREBUILT = [
           "drones": 0.2,
           "seals": 1,
           "panels": 3,
+          "slotgap": 4,
           "hue": 0.14
         },
         {
@@ -192,6 +209,7 @@ export const PREBUILT = [
           "width": 82,
           "depth": 126,
           "curviness": 0.3,
+          "snaking": 0,
           "hilliness": 0.3,
           "roughness": 0.45,
           "obstacles": 0.4,
@@ -205,6 +223,7 @@ export const PREBUILT = [
           "drones": 0.24,
           "seals": 0,
           "panels": 2,
+          "slotgap": 4,
           "hue": 0.08
         },
         {
@@ -213,6 +232,7 @@ export const PREBUILT = [
           "width": 80,
           "depth": 128,
           "curviness": 0.3,
+          "snaking": 0,
           "hilliness": 0.3,
           "roughness": 0.45,
           "obstacles": 0.2,
@@ -227,6 +247,7 @@ export const PREBUILT = [
           "drones": 0.24,
           "seals": 1,
           "panels": 4,
+          "slotgap": 4,
           "hue": 0.05
         },
         {
@@ -235,6 +256,7 @@ export const PREBUILT = [
           "width": 80,
           "depth": 120,
           "curviness": 0.3,
+          "snaking": 0,
           "hilliness": 0.26,
           "roughness": 0.42,
           "obstacles": 0.42,
@@ -250,6 +272,7 @@ export const PREBUILT = [
           "drones": 0.2,
           "seals": 0,
           "panels": 2,
+          "slotgap": 4,
           "hue": 0.02
         }
       ]
@@ -266,6 +289,7 @@ export const PREBUILT = [
         "end": 300
       },
       "finale": "port",
+      "armedPort": false,
       "sections": [
         {
           "name": "open approach",
@@ -273,6 +297,7 @@ export const PREBUILT = [
           "width": 112,
           "depth": 88,
           "curviness": 0.08,
+          "snaking": 0,
           "hilliness": 0.15,
           "roughness": 0.3,
           "obstacles": 0.1,
@@ -286,6 +311,7 @@ export const PREBUILT = [
           "drones": 0.15,
           "seals": 0,
           "panels": 2,
+          "slotgap": 4,
           "hue": 0.5
         },
         {
@@ -294,6 +320,7 @@ export const PREBUILT = [
           "width": 100,
           "depth": 96,
           "curviness": 0.18,
+          "snaking": 0,
           "hilliness": 0.22,
           "roughness": 0.36,
           "obstacles": 0.22,
@@ -307,6 +334,7 @@ export const PREBUILT = [
           "drones": 0.25,
           "seals": 0,
           "panels": 2,
+          "slotgap": 4,
           "hue": 0.5
         },
         {
@@ -315,6 +343,7 @@ export const PREBUILT = [
           "width": 88,
           "depth": 108,
           "curviness": 0.38,
+          "snaking": 0,
           "hilliness": 0.3,
           "roughness": 0.42,
           "obstacles": 0.3,
@@ -329,6 +358,7 @@ export const PREBUILT = [
           "drones": 0.28,
           "seals": 0,
           "panels": 2,
+          "slotgap": 4,
           "hue": 0.51
         },
         {
@@ -337,6 +367,7 @@ export const PREBUILT = [
           "width": 80,
           "depth": 116,
           "curviness": 0.42,
+          "snaking": 0,
           "hilliness": 0.35,
           "roughness": 0.46,
           "obstacles": 0.38,
@@ -351,6 +382,7 @@ export const PREBUILT = [
           "drones": 0.3,
           "seals": 0,
           "panels": 2,
+          "slotgap": 4,
           "hue": 0.51
         },
         {
@@ -359,6 +391,7 @@ export const PREBUILT = [
           "width": 74,
           "depth": 124,
           "curviness": 0.36,
+          "snaking": 0,
           "hilliness": 0.32,
           "roughness": 0.45,
           "obstacles": 0.3,
@@ -373,6 +406,7 @@ export const PREBUILT = [
           "drones": 0.25,
           "seals": 1,
           "panels": 3,
+          "slotgap": 4,
           "hue": 0.52
         },
         {
@@ -381,6 +415,7 @@ export const PREBUILT = [
           "width": 68,
           "depth": 120,
           "curviness": 0.4,
+          "snaking": 0,
           "hilliness": 0.3,
           "roughness": 0.45,
           "obstacles": 0.36,
@@ -395,6 +430,7 @@ export const PREBUILT = [
           "drones": 0.2,
           "seals": 0,
           "panels": 2,
+          "slotgap": 4,
           "hue": 0.52
         }
       ]
@@ -411,6 +447,7 @@ export const PREBUILT = [
         "end": 430
       },
       "finale": "port",
+      "armedPort": false,
       "sections": [
         {
           "name": "wide mouth",
@@ -418,6 +455,7 @@ export const PREBUILT = [
           "width": 118,
           "depth": 110,
           "curviness": 0.12,
+          "snaking": 0,
           "hilliness": 0.2,
           "roughness": 0.35,
           "obstacles": 0.12,
@@ -431,6 +469,7 @@ export const PREBUILT = [
           "drones": 0.2,
           "seals": 0,
           "panels": 2,
+          "slotgap": 4,
           "hue": 0.13
         },
         {
@@ -439,6 +478,7 @@ export const PREBUILT = [
           "width": 96,
           "depth": 128,
           "curviness": 0.3,
+          "snaking": 0,
           "hilliness": 0.28,
           "roughness": 0.45,
           "obstacles": 0.26,
@@ -453,6 +493,7 @@ export const PREBUILT = [
           "drones": 0.25,
           "seals": 0,
           "panels": 2,
+          "slotgap": 4,
           "hue": 0.13
         },
         {
@@ -461,6 +502,7 @@ export const PREBUILT = [
           "width": 74,
           "depth": 145,
           "curviness": 0.5,
+          "snaking": 0,
           "hilliness": 0.4,
           "roughness": 0.52,
           "obstacles": 0.4,
@@ -476,6 +518,7 @@ export const PREBUILT = [
           "drones": 0.3,
           "seals": 1,
           "panels": 3,
+          "slotgap": 4,
           "hue": 0.12
         },
         {
@@ -484,6 +527,7 @@ export const PREBUILT = [
           "width": 62,
           "depth": 158,
           "curviness": 0.62,
+          "snaking": 0,
           "hilliness": 0.45,
           "roughness": 0.58,
           "obstacles": 0.48,
@@ -499,6 +543,7 @@ export const PREBUILT = [
           "drones": 0.28,
           "seals": 1,
           "panels": 2,
+          "slotgap": 4,
           "hue": 0.11
         },
         {
@@ -507,6 +552,7 @@ export const PREBUILT = [
           "width": 54,
           "depth": 168,
           "curviness": 0.66,
+          "snaking": 0,
           "hilliness": 0.48,
           "roughness": 0.6,
           "obstacles": 0.44,
@@ -522,6 +568,7 @@ export const PREBUILT = [
           "drones": 0.24,
           "seals": 1,
           "panels": 2,
+          "slotgap": 4,
           "hue": 0.1
         },
         {
@@ -530,6 +577,7 @@ export const PREBUILT = [
           "width": 44,
           "depth": 156,
           "curviness": 0.5,
+          "snaking": 0,
           "hilliness": 0.35,
           "roughness": 0.52,
           "obstacles": 0.5,
@@ -545,6 +593,7 @@ export const PREBUILT = [
           "drones": 0.2,
           "seals": 0,
           "panels": 2,
+          "slotgap": 4,
           "hue": 0.09
         },
         {
@@ -553,6 +602,7 @@ export const PREBUILT = [
           "width": 40,
           "depth": 150,
           "curviness": 0.42,
+          "snaking": 0,
           "hilliness": 0.3,
           "roughness": 0.48,
           "obstacles": 0.45,
@@ -567,6 +617,7 @@ export const PREBUILT = [
           "drones": 0.18,
           "seals": 0,
           "panels": 2,
+          "slotgap": 4,
           "hue": 0.08
         }
       ]
@@ -583,6 +634,7 @@ export const PREBUILT = [
         "end": 500
       },
       "finale": "port",
+      "armedPort": false,
       "sections": [
         {
           "name": "the descent",
@@ -590,6 +642,7 @@ export const PREBUILT = [
           "width": 100,
           "depth": 130,
           "curviness": 0.15,
+          "snaking": 0,
           "hilliness": 0.3,
           "roughness": 0.5,
           "obstacles": 0.14,
@@ -603,6 +656,7 @@ export const PREBUILT = [
           "drones": 0.25,
           "seals": 0,
           "panels": 2,
+          "slotgap": 4,
           "hue": 0.02
         },
         {
@@ -611,6 +665,7 @@ export const PREBUILT = [
           "width": 82,
           "depth": 150,
           "curviness": 0.35,
+          "snaking": 0,
           "hilliness": 0.45,
           "roughness": 0.6,
           "obstacles": 0.3,
@@ -626,6 +681,7 @@ export const PREBUILT = [
           "drones": 0.3,
           "seals": 0,
           "panels": 2,
+          "slotgap": 4,
           "hue": 0.02
         },
         {
@@ -634,6 +690,7 @@ export const PREBUILT = [
           "width": 66,
           "depth": 168,
           "curviness": 0.5,
+          "snaking": 0,
           "hilliness": 0.55,
           "roughness": 0.65,
           "obstacles": 0.45,
@@ -648,6 +705,7 @@ export const PREBUILT = [
           "drones": 0.35,
           "seals": 1,
           "panels": 3,
+          "slotgap": 4,
           "hue": 0.01
         },
         {
@@ -656,6 +714,7 @@ export const PREBUILT = [
           "width": 56,
           "depth": 180,
           "curviness": 0.65,
+          "snaking": 0,
           "hilliness": 0.55,
           "roughness": 0.65,
           "obstacles": 0.55,
@@ -671,6 +730,7 @@ export const PREBUILT = [
           "drones": 0.35,
           "seals": 0,
           "panels": 2,
+          "slotgap": 4,
           "hue": 0.01
         },
         {
@@ -679,6 +739,7 @@ export const PREBUILT = [
           "width": 50,
           "depth": 192,
           "curviness": 0.7,
+          "snaking": 0,
           "hilliness": 0.5,
           "roughness": 0.6,
           "obstacles": 0.5,
@@ -694,6 +755,7 @@ export const PREBUILT = [
           "drones": 0.3,
           "seals": 2,
           "panels": 4,
+          "slotgap": 4,
           "hue": 0.01
         },
         {
@@ -702,6 +764,7 @@ export const PREBUILT = [
           "width": 44,
           "depth": 196,
           "curviness": 0.75,
+          "snaking": 0,
           "hilliness": 0.45,
           "roughness": 0.55,
           "obstacles": 0.55,
@@ -717,6 +780,7 @@ export const PREBUILT = [
           "drones": 0.28,
           "seals": 0,
           "panels": 2,
+          "slotgap": 4,
           "hue": 0.04
         },
         {
@@ -725,6 +789,7 @@ export const PREBUILT = [
           "width": 40,
           "depth": 190,
           "curviness": 0.6,
+          "snaking": 0,
           "hilliness": 0.4,
           "roughness": 0.55,
           "obstacles": 0.5,
@@ -739,6 +804,7 @@ export const PREBUILT = [
           "drones": 0.26,
           "seals": 1,
           "panels": 3,
+          "slotgap": 4,
           "hue": 0.03
         },
         {
@@ -747,6 +813,7 @@ export const PREBUILT = [
           "width": 36,
           "depth": 180,
           "curviness": 0.42,
+          "snaking": 0,
           "hilliness": 0.3,
           "roughness": 0.45,
           "obstacles": 0.42,
@@ -760,6 +827,7 @@ export const PREBUILT = [
           "drones": 0.22,
           "seals": 0,
           "panels": 2,
+          "slotgap": 4,
           "hue": 0
         }
       ]
@@ -776,6 +844,7 @@ export const PREBUILT = [
         "end": 540
       },
       "finale": "port",
+      "armedPort": false,
       "sections": [
         {
           "name": "the drop",
@@ -783,6 +852,7 @@ export const PREBUILT = [
           "width": 82,
           "depth": 120,
           "curviness": 0.3,
+          "snaking": 0,
           "hilliness": 0.6,
           "roughness": 0.55,
           "obstacles": 0.34,
@@ -797,6 +867,7 @@ export const PREBUILT = [
           "drones": 0.28,
           "seals": 0,
           "panels": 2,
+          "slotgap": 4,
           "hue": 0.01
         },
         {
@@ -805,6 +876,7 @@ export const PREBUILT = [
           "width": 72,
           "depth": 132,
           "curviness": 0.4,
+          "snaking": 0,
           "hilliness": 0.78,
           "roughness": 0.55,
           "obstacles": 0.38,
@@ -819,6 +891,7 @@ export const PREBUILT = [
           "drones": 0.28,
           "seals": 1,
           "panels": 3,
+          "slotgap": 4,
           "hue": 0.01
         },
         {
@@ -827,6 +900,7 @@ export const PREBUILT = [
           "width": 64,
           "depth": 144,
           "curviness": 0.4,
+          "snaking": 0,
           "hilliness": 0.78,
           "roughness": 0.55,
           "obstacles": 0.5,
@@ -840,6 +914,7 @@ export const PREBUILT = [
           "drones": 0.28,
           "seals": 1,
           "panels": 2,
+          "slotgap": 4,
           "hue": 0.01
         },
         {
@@ -848,6 +923,7 @@ export const PREBUILT = [
           "width": 56,
           "depth": 152,
           "curviness": 0.4,
+          "snaking": 0,
           "hilliness": 0.78,
           "roughness": 0.55,
           "obstacles": 0.5,
@@ -862,6 +938,7 @@ export const PREBUILT = [
           "drones": 0.28,
           "seals": 1,
           "panels": 3,
+          "slotgap": 4,
           "hue": 0.02
         },
         {
@@ -870,6 +947,7 @@ export const PREBUILT = [
           "width": 52,
           "depth": 150,
           "curviness": 0.4,
+          "snaking": 0,
           "hilliness": 0.78,
           "roughness": 0.55,
           "obstacles": 0.46,
@@ -884,6 +962,7 @@ export const PREBUILT = [
           "drones": 0.28,
           "seals": 1,
           "panels": 2,
+          "slotgap": 4,
           "hue": 0.01
         },
         {
@@ -892,6 +971,7 @@ export const PREBUILT = [
           "width": 50,
           "depth": 140,
           "curviness": 0.4,
+          "snaking": 0,
           "hilliness": 0.78,
           "roughness": 0.55,
           "obstacles": 0.44,
@@ -906,6 +986,7 @@ export const PREBUILT = [
           "drones": 0.28,
           "seals": 0,
           "panels": 2,
+          "slotgap": 4,
           "hue": 0
         }
       ]
@@ -913,7 +994,7 @@ export const PREBUILT = [
   },
   {
     label: "THE ESSES",
-    blurb: "A giant S with slits cut through it. The upright ones only take the ship on edge and the flat ones only take it level, so the run is a conversation with the roll -- and the green hexagons are speed you can pick up on the way.",
+    blurb: "A river, not a road. It snakes hard the whole way and the walls come at you from the side, with nine slits that alternate upright and flat so the ship spends the run rolling onto its edge and back, and turbo gates down the straights.",
     spec: {
       "name": "THE ESSES",
       "seed": 8121,
@@ -922,13 +1003,15 @@ export const PREBUILT = [
         "end": 430
       },
       "finale": "port",
+      "armedPort": false,
       "sections": [
         {
           "name": "the run in",
           "length": 3000,
           "width": 104,
           "depth": 104,
-          "curviness": 0.18,
+          "curviness": 0.9,
+          "snaking": 0.85,
           "hilliness": 0.3,
           "roughness": 0.42,
           "obstacles": 0.2,
@@ -942,6 +1025,7 @@ export const PREBUILT = [
           "drones": 0.2,
           "seals": 0,
           "panels": 2,
+          "slotgap": 4,
           "hue": 0.42
         },
         {
@@ -949,7 +1033,8 @@ export const PREBUILT = [
           "length": 3000,
           "width": 96,
           "depth": 112,
-          "curviness": 0.72,
+          "curviness": 0.9,
+          "snaking": 0.85,
           "hilliness": 0.3,
           "roughness": 0.42,
           "obstacles": 0.34,
@@ -964,6 +1049,7 @@ export const PREBUILT = [
           "drones": 0.24,
           "seals": 0,
           "panels": 2,
+          "slotgap": 4,
           "hue": 0.38
         },
         {
@@ -971,7 +1057,8 @@ export const PREBUILT = [
           "length": 3000,
           "width": 88,
           "depth": 118,
-          "curviness": 0.66,
+          "curviness": 0.9,
+          "snaking": 0.85,
           "hilliness": 0.3,
           "roughness": 0.42,
           "obstacles": 0.44,
@@ -985,6 +1072,7 @@ export const PREBUILT = [
           "drones": 0.24,
           "seals": 0,
           "panels": 2,
+          "slotgap": 4,
           "hue": 0.33
         },
         {
@@ -992,7 +1080,8 @@ export const PREBUILT = [
           "length": 3000,
           "width": 84,
           "depth": 120,
-          "curviness": 0.78,
+          "curviness": 0.9,
+          "snaking": 0.85,
           "hilliness": 0.3,
           "roughness": 0.42,
           "obstacles": 0.38,
@@ -1007,6 +1096,7 @@ export const PREBUILT = [
           "drones": 0.24,
           "seals": 0,
           "panels": 2,
+          "slotgap": 4,
           "hue": 0.28
         },
         {
@@ -1014,7 +1104,8 @@ export const PREBUILT = [
           "length": 3000,
           "width": 80,
           "depth": 124,
-          "curviness": 0.8,
+          "curviness": 0.9,
+          "snaking": 0.85,
           "hilliness": 0.3,
           "roughness": 0.42,
           "obstacles": 0.42,
@@ -1029,6 +1120,7 @@ export const PREBUILT = [
           "drones": 0.24,
           "seals": 0,
           "panels": 2,
+          "slotgap": 4,
           "hue": 0.22
         },
         {
@@ -1036,7 +1128,8 @@ export const PREBUILT = [
           "length": 3000,
           "width": 76,
           "depth": 126,
-          "curviness": 0.6,
+          "curviness": 0.9,
+          "snaking": 0.85,
           "hilliness": 0.3,
           "roughness": 0.42,
           "obstacles": 0.46,
@@ -1051,6 +1144,7 @@ export const PREBUILT = [
           "drones": 0.24,
           "seals": 0,
           "panels": 2,
+          "slotgap": 4,
           "hue": 0.16
         },
         {
@@ -1058,7 +1152,8 @@ export const PREBUILT = [
           "length": 3000,
           "width": 72,
           "depth": 124,
-          "curviness": 0.7,
+          "curviness": 0.9,
+          "snaking": 0.85,
           "hilliness": 0.3,
           "roughness": 0.42,
           "obstacles": 0.44,
@@ -1073,6 +1168,7 @@ export const PREBUILT = [
           "drones": 0.24,
           "seals": 0,
           "panels": 2,
+          "slotgap": 4,
           "hue": 0.1
         },
         {
@@ -1080,7 +1176,8 @@ export const PREBUILT = [
           "length": 3000,
           "width": 70,
           "depth": 118,
-          "curviness": 0.5,
+          "curviness": 0.9,
+          "snaking": 0.85,
           "hilliness": 0.3,
           "roughness": 0.42,
           "obstacles": 0.36,
@@ -1095,6 +1192,7 @@ export const PREBUILT = [
           "drones": 0.24,
           "seals": 0,
           "panels": 2,
+          "slotgap": 4,
           "hue": 0.05
         }
       ]

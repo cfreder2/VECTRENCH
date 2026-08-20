@@ -15,7 +15,10 @@ import {
   shipBasis, shipLocalToWorld, MUZZLES,
 } from './entities.js';
 import { drawHud, drawReticle, drawTargetBox } from './hud.js';
-import { segSphere, hitsObstacle, frameOf, PORT_BEAM } from './collide.js';
+import {
+  segSphere, hitsObstacle, frameOf, PORT_BEAM, RING_BEAM,
+  SHIP_HX, SHIP_HY, KNIFE_HX, KNIFE_HY,
+} from './collide.js';
 import { drawText } from './font.js';
 
 // The ship's motion limits. Exported because tools/audit.mjs proves levels are
@@ -88,16 +91,15 @@ const GATLING_SPREAD = 0.78;  // tighter: the stream is meant to connect
 // the width it needs for height it needs -- which is the whole point: a slot
 // too narrow to fly through level is easy sideways, and vice versa.
 const KNIFE_RATE = 4.2;       // how fast it goes over, and comes back
-export const SHIP_HX = 7, SHIP_HY = 5;
-export const KNIFE_HX = 2.5, KNIFE_HY = 9;
 
-// The burn. Short, expensive, and it stacks with a turbo gate into something
-// genuinely hard to hold onto.
+// The burn: a tank you hold open rather than a shot you fire. It runs for as
+// long as the button is down and there is charge left, and it fills back up
+// when it is not. Letting go early keeps what is left, which makes it a thing
+// you spend in pieces across a run instead of once.
 const BOOST_MUL = 1.5;
-const BOOST_TIME = 2.4;
-const BOOST_COOL = 9;
-const GATE_BOOST_TIME = 2.2;
-const SUPER_MUL = 2.1;        // gated while already burning
+const BOOST_TANK = 2.4;       // seconds of burn in a full tank
+const BOOST_REFILL = 8;       // seconds to fill it from empty
+const SUPER_MUL = 2.1;        // a gate taken while already burning
 
 const SEAL_DROP_SPEED = 190;  // how fast a bulkhead sinks once its panels go
 
@@ -108,6 +110,10 @@ const SEAL_DROP_SPEED = 190;  // how fast a bulkhead sinks once its panels go
 const BEAM_INTERVAL = 0.13;   // one shaft after another: pew pew pew
 const BEAM_HALF = 4.5;        // how close counts as flying into one
 const BEAM_DAMAGE = 16;
+const RING_BEAM_DAMAGE = 20;
+// Twelve o'clock is a quarter turn round from the zero the arms are numbered
+// from, and counting down from it sweeps clockwise: twelve, three, six, nine.
+const RING_TOP_ARM = 2;
 
 const RADIUS = { turret: 13, wallgun: 11, emplacement: 21, drone: 11, port: 20 };
 
@@ -158,8 +164,8 @@ export class Game {
     this.velY = 0;
     this.bank = 0;
     this.knife = 0;             // 0 level, 1 fully on edge
-    this.boost = 0;             // seconds of burn left
-    this.boostCool = 0;
+    this.boost = BOOST_TANK;    // seconds of burn left in the tank
+    this.burning = false;
     this.boostMul = BOOST_MUL;
     this.pitch = 0;
     this.yaw = 0;
@@ -195,6 +201,7 @@ export class Game {
     for (const w of this.level.drones) w.spawned = false;
     for (const ob of this.level.obstacles) {
       ob.dropY = 0; ob.gone = false; ob.dropping = false; ob.taken = false;
+      ob.beams = null;
     }
     for (const e of this.level.enemies) {
       e.alive = true;
@@ -219,8 +226,8 @@ export class Game {
     this.particles.clear();
     this.aimDist = AIM_DIST;
     this.knife = 0;
-    this.boost = 0;
-    this.boostCool = 0;
+    this.boost = BOOST_TANK;
+    this.burning = false;
     this.boostMul = BOOST_MUL;
     this.phase = 'flying';
   }
@@ -287,21 +294,19 @@ export class Game {
     const inp = this.input;
 
     // The burn, and the ship going over onto its edge.
-    this.boostCool = Math.max(0, this.boostCool - dt);
-    if (inp.takeBoost() && this.boost <= 0 && this.boostCool <= 0) {
-      this.boost = BOOST_TIME;
-      this.boostMul = BOOST_MUL;
-      this.boostCool = BOOST_COOL;
-      this.say('BURN', 0.8);
-      this.audio.boost();
-    }
-    if (this.boost > 0) {
+    const wantBurn = inp.boosting && this.boost > 0;
+    if (wantBurn) {
+      if (!this.burning) { this.say('BURN', 0.7); this.audio.boost(); }
       this.boost = Math.max(0, this.boost - dt);
-      if (this.boost <= 0) this.boostMul = BOOST_MUL;
+      if (this.boost <= 0) this.say('BURN SPENT', 0.8);
+    } else {
+      this.boost = Math.min(BOOST_TANK, this.boost + dt * (BOOST_TANK / BOOST_REFILL));
+      this.boostMul = BOOST_MUL;
     }
+    this.burning = wantBurn && this.boost > 0;
     this.knife = approach(this.knife, inp.rolling ? 1 : 0, KNIFE_RATE, dt);
 
-    this.speed = tr.speedAt(this.t) * (this.boost > 0 ? this.boostMul : 1);
+    this.speed = tr.speedAt(this.t) * (this.burning ? this.boostMul : 1);
     this.t += this.speed * dt;
 
     const hw = tr.halfWidth(this.t);
@@ -362,8 +367,10 @@ export class Game {
     if (this.grinding && hash2((this.time * 12) | 0, 8) < 0.25) this.audio.scrape();
 
     this.updateSeals(dt);
+    this.updateRingBeams(dt);
     this.updatePortBeams(dt);
     this.checkObstacles(dt);
+    this.checkRingBeams();
     this.checkPortBeams();
     this.spawnDrones();
     this.updateDrones(dt);
@@ -481,15 +488,14 @@ export class Game {
    * a good deal and briefly more speed than the trench really allows.
    */
   takeGate() {
-    if (this.boost > 0) {
+    if (this.burning) {
       this.boostMul = SUPER_MUL;
-      this.boost = Math.max(this.boost, GATE_BOOST_TIME);
+      this.boost = BOOST_TANK;
       this.say('SUPER BURN', 1);
       this.shake = Math.min(1.5, this.shake + 0.5);
     } else {
-      this.boostMul = BOOST_MUL;
-      this.boost = GATE_BOOST_TIME;
-      this.say('BURN', 0.8);
+      this.boost = BOOST_TANK;
+      this.say('TANK FULL', 0.8);
     }
     this.score += 150;
     this.audio.boost();
@@ -827,9 +833,69 @@ export class Game {
    * the fight is the approach: you are flying into it while you paint it, and
    * a wall you only meet at the instant of arrival is not a fight.
    */
+  /**
+   * The rings firing. Eight tentacles round the hoop, going off one after
+   * another clockwise from twelve, each beam a wedge that hangs for a moment
+   * and fades. The hoop itself is the way through: beams start at the tentacle
+   * tips and go outward at the rock, so the aperture stays open and the space
+   * around it does not.
+   */
+  updateRingBeams(dt) {
+    const now = this.time;
+    for (const ob of this.level.obstacles) {
+      if (ob.kind !== 'ring' || !ob.ring) continue;
+      const ahead = ob.t - this.t;
+      if (ahead > FAR || ahead < -80) continue;
+      if (!ob.beams) {
+        ob.beams = [];
+        ob.beamArm = (RING_TOP_ARM + 1) % RING_BEAM.arms;
+        ob.beamTimer = hash2(ob.t | 0, 11) * RING_BEAM.interval;
+      }
+      for (let i = ob.beams.length - 1; i >= 0; i--) {
+        if (now - ob.beams[i].born > RING_BEAM.life) ob.beams.splice(i, 1);
+      }
+      ob.beamTimer -= dt;
+      if (ob.beamTimer > 0) continue;
+      ob.beamTimer += RING_BEAM.interval;
+      ob.beamArm = (ob.beamArm - 1 + RING_BEAM.arms) % RING_BEAM.arms;
+      const hw = this.track.halfWidth(ob.t);
+      const rim = this.track.rim(ob.t);
+      const ang = (ob.beamArm / RING_BEAM.arms) * TAU;
+      ob.beams.push({
+        ang,
+        born: now,
+        from: ob.ring.r + RING_BEAM.gap,
+        reach: Math.max(hw, rim) * 1.6,
+        hit: false,
+      });
+      if (ahead < 700 && ahead > -40) this.audio.beam();
+    }
+  }
+
+  /** Flying into one. The wedge is thin at the tentacle and fans out. */
+  checkRingBeams() {
+    for (const ob of this.level.obstacles) {
+      if (ob.kind !== 'ring' || !ob.beams || !ob.beams.length) continue;
+      if (this.t + 9 < ob.t - RING_BEAM.lead || this.t - 9 > ob.t + ob.dz) continue;
+      const { cx, cy } = ob.ring;
+      const dx = this.shipX - cx, dy = this.shipY - cy;
+      for (const b of ob.beams) {
+        if (b.hit) continue;
+        const along = dx * Math.cos(b.ang) + dy * Math.sin(b.ang);
+        if (along < b.from - 6 || along > b.reach) continue;
+        const off = Math.abs(-dx * Math.sin(b.ang) + dy * Math.cos(b.ang));
+        // The wedge widens with distance, exactly as it is drawn.
+        if (off > 3 + along * RING_BEAM.spread + 7) continue;
+        b.hit = true;
+        this.damage(RING_BEAM_DAMAGE);
+        this.sparkAt(this.shipX, this.shipY, 8, 130, 1, 0.55, 0.12);
+      }
+    }
+  }
+
   updatePortBeams(dt) {
     const e = this.level.port;
-    if (!e || !e.alive) return;
+    if (!e || !e.alive || !this.spec.armedPort) return;
     const ahead = e.t - this.t;
     if (ahead > 1700 || ahead < -80) return;
     const now = this.time;

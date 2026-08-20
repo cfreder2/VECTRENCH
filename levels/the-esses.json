@@ -1,6 +1,6 @@
 {
   "name": "THE ESSES",
-  "blurb": "A giant S with slits cut through it. The upright ones only take the ship on edge and the flat ones only take it level, so the run is a conversation with the roll -- and the green hexagons are speed you can pick up on the way.",
+  "blurb": "A river, not a road. It snakes hard the whole way and the walls come at you from the side, with nine slits that alternate upright and flat so the ship spends the run rolling onto its edge and back, and turbo gates down the straights.",
   "seed": 8121,
   "speed": {
     "start": 250,
@@ -22,12 +22,13 @@
       "name": "the run in",
       "width": 104,
       "depth": 104,
-      "curviness": 0.18,
+      "curviness": 0.9,
       "obstacles": 0.2,
       "kinds": [
         "pylon"
       ],
-      "hue": 0.42
+      "hue": 0.42,
+      "snaking": 0.85
     },
     {
       "hilliness": 0.3,
@@ -43,13 +44,14 @@
       "name": "first bend",
       "width": 96,
       "depth": 112,
-      "curviness": 0.72,
+      "curviness": 0.9,
       "obstacles": 0.34,
       "kinds": [
         "slot",
         "pylon"
       ],
-      "hue": 0.38
+      "hue": 0.38,
+      "snaking": 0.85
     },
     {
       "hilliness": 0.3,
@@ -65,12 +67,13 @@
       "name": "the cracks",
       "width": 88,
       "depth": 118,
-      "curviness": 0.66,
+      "curviness": 0.9,
       "obstacles": 0.44,
       "kinds": [
         "slot"
       ],
-      "hue": 0.33
+      "hue": 0.33,
+      "snaking": 0.85
     },
     {
       "hilliness": 0.3,
@@ -86,13 +89,14 @@
       "name": "turn and burn",
       "width": 84,
       "depth": 120,
-      "curviness": 0.78,
+      "curviness": 0.9,
       "obstacles": 0.38,
       "kinds": [
         "slot",
         "boostgate"
       ],
-      "hue": 0.28
+      "hue": 0.28,
+      "snaking": 0.85
     },
     {
       "hilliness": 0.3,
@@ -108,13 +112,14 @@
       "name": "back the other way",
       "width": 80,
       "depth": 124,
-      "curviness": 0.8,
+      "curviness": 0.9,
       "obstacles": 0.42,
       "kinds": [
         "slot",
         "gate"
       ],
-      "hue": 0.22
+      "hue": 0.22,
+      "snaking": 0.85
     },
     {
       "hilliness": 0.3,
@@ -130,13 +135,14 @@
       "name": "the letterboxes",
       "width": 76,
       "depth": 126,
-      "curviness": 0.6,
+      "curviness": 0.9,
       "obstacles": 0.46,
       "kinds": [
         "slot",
         "boostgate"
       ],
-      "hue": 0.16
+      "hue": 0.16,
+      "snaking": 0.85
     },
     {
       "hilliness": 0.3,
@@ -152,13 +158,14 @@
       "name": "last crack",
       "width": 72,
       "depth": 124,
-      "curviness": 0.7,
+      "curviness": 0.9,
       "obstacles": 0.44,
       "kinds": [
         "slot",
         "ring"
       ],
-      "hue": 0.1
+      "hue": 0.1,
+      "snaking": 0.85
     },
     {
       "hilliness": 0.3,
@@ -174,13 +181,14 @@
       "name": "run to the port",
       "width": 70,
       "depth": 118,
-      "curviness": 0.5,
+      "curviness": 0.9,
       "obstacles": 0.36,
       "kinds": [
         "boostgate",
         "gate"
       ],
-      "hue": 0.05
+      "hue": 0.05,
+      "snaking": 0.85
     }
   ]
 }

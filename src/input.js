@@ -56,8 +56,10 @@ export class Input {
     this.missilePressed = false;
     this.holdTime = 0;
     this.rolling = false;          // the ship is turning onto its side
-    this.rollHeld = false;         // the ROLL button, or a key, is down
-    this.boostPressed = false;
+    this.rollHeld = false;         // the ROLL button is down
+    this.boosting = false;         // the burn is open
+    this.boostHeld = false;        // the BURN button is down
+    this.boostHeld = false;
     this.motion = 'unavailable';   // unavailable | granted | denied
     this.padName = '';             // the controller in use, if there is one
     this._padFiring = false;
@@ -107,7 +109,7 @@ export class Input {
       if ((k === 'shift' || k === 'm' || k === 'enter') && !this.keys.has(k)) {
         this.launchMissiles();
       }
-      if (k === 'b' && !this.keys.has(k)) this.boost();
+
       this.keys.add(k);
       if ([' ', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright'].includes(e.key.toLowerCase())) {
         e.preventDefault();
@@ -122,6 +124,8 @@ export class Input {
       this.firing = false;
       this.rolling = false;
       this.rollHeld = false;
+      this.boosting = false;
+      this.boostHeld = false;
     });
   }
 
@@ -328,6 +332,7 @@ export class Input {
     // roll that borrowed it would be a roll that cost you the shot you were
     // taking. So it is a button you hold, a key, or a face button on a pad.
     this.rolling = this.rollHeld;
+    this.boosting = this.boostHeld;
 
     let sx = 0;
     let sy = 0;
@@ -389,9 +394,7 @@ export class Input {
       if (launch && !this._padMissile) this.launchMissiles();
       this._padMissile = launch;
       if (held(2)) this.rolling = true;                 // X / Square: on edge
-      const boost = held(3);                            // Y / Triangle: burn
-      if (boost && !this._padBoost) this.boostPressed = true;
-      this._padBoost = boost;
+      if (held(3)) this.boosting = true;                // Y / Triangle: burn
     }
 
     const k = this.keys;
@@ -403,6 +406,7 @@ export class Input {
     if (kx || ky) { sx = kx; sy = ky; }
     if (k.has(' ')) { if (!this.firing) this.justPressed = true; this.firing = true; }
     if (k.has('q') || k.has('e') || k.has('control')) this.rolling = true;
+    if (k.has('b')) this.boosting = true;
 
     this.steerX = sx;
     this.steerY = sy;
@@ -415,16 +419,9 @@ export class Input {
     return v;
   }
 
-  /** Requests the burn. Edge-triggered, like the salvo. */
-  boost() {
-    this.boostPressed = true;
-  }
-
-  /** True once per burn request. */
-  takeBoost() {
-    const v = this.boostPressed;
-    this.boostPressed = false;
-    return v;
+  /** The burn is held, not fired: this is the button being down. */
+  boost(on = true) {
+    this.boostHeld = on;
   }
 
   /** Requests a salvo. The on-screen button and the keyboard both land here. */

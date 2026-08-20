@@ -25,6 +25,7 @@ export const FIELDS = {
   width:     { min: 26,   max: 150,  def: 62,   unit: 'trench half-width' },
   depth:     { min: 50,   max: 240,  def: 118,  unit: 'rim height above floor' },
   curviness: { min: 0,    max: 1,    def: 0.4 },
+  snaking:   { min: 0,    max: 1,    def: 0,    unit: 'how tight the bends are, as opposed to how wide' },
   hilliness: { min: 0,    max: 1,    def: 0.35 },
   roughness: { min: 0,    max: 1,    def: 0.5 },
   obstacles: { min: 0,    max: 1,    def: 0.4 },
@@ -35,6 +36,7 @@ export const FIELDS = {
   drones:    { min: 0,    max: 1,    def: 0.3 },
   seals:     { min: 0,    max: 6,    def: 0 },
   panels:    { min: 0,    max: 4,    def: 2, unit: 'shootable panels per bulkhead' },
+  slotgap:   { min: 2,    max: 14,   def: 4, unit: 'clearance each side of the ship in a slot' },
   hue:       { min: 0,    max: 1,    def: 0.5 },
 };
 
@@ -50,6 +52,7 @@ export function normalizeSection(raw = {}) {
     width: num(raw.width, FIELDS.width),
     depth: num(raw.depth, FIELDS.depth),
     curviness: num(raw.curviness, FIELDS.curviness),
+    snaking: num(raw.snaking, FIELDS.snaking),
     hilliness: num(raw.hilliness, FIELDS.hilliness),
     roughness: num(raw.roughness, FIELDS.roughness),
     obstacles: num(raw.obstacles, FIELDS.obstacles),
@@ -61,6 +64,7 @@ export function normalizeSection(raw = {}) {
     drones: num(raw.drones, FIELDS.drones),
     seals: Math.round(num(raw.seals, FIELDS.seals)),
     panels: Math.round(num(raw.panels, FIELDS.panels)),
+    slotgap: num(raw.slotgap, FIELDS.slotgap),
     hue: num(raw.hue, FIELDS.hue),
   };
 }
@@ -82,6 +86,9 @@ export function normalizeSpec(raw = {}) {
     },
     // A run with no finale just ends; 'port' adds the missile target.
     finale: raw.finale === 'none' ? 'none' : 'port',
+    // An exhaust port is a target, not a gun. It can be given the wall of
+    // beams, but it is off unless a level asks for it.
+    armedPort: raw.armedPort === true,
     sections,
   };
 }

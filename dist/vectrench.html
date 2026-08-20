@@ -130,28 +130,34 @@
     pointer-events: auto; opacity: 0.35; padding: 6px 10px; font-size: 10px;
   }
   #pause:hover { opacity: 1; }
-  /* The launcher. Big, in the corner a right thumb already rests in, and
-     readable at a glance because it doubles as the cooldown clock. */
+  /* Everything a thumb needs, stacked in the corner a right thumb already
+     rests in. The layer itself is click-through so that touching the canvas
+     fires the gun; each control has to opt back in, and ROLL and BURN did not,
+     which is why they did nothing but fire. */
+  #pad {
+    position: absolute;
+    right: max(10px, env(safe-area-inset-right));
+    bottom: max(10px, env(safe-area-inset-bottom));
+    display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+    width: min(46vw, 260px);
+  }
+  #pad > button {
+    pointer-events: auto; touch-action: none; user-select: none;
+    font: inherit; letter-spacing: .14em; border-radius: 10px;
+  }
+  #roll, #burn { padding: 15px 0; font-size: 13px; }
   #roll {
-    position: absolute; left: 12px; bottom: 20px;
-    padding: 16px 22px; font: inherit; font-size: 14px; letter-spacing: .14em;
     color: #9fd8ff; background: rgba(10,24,38,.55); border: 1px solid #2f6f9f;
-    border-radius: 10px; touch-action: none; user-select: none;
   }
   #roll.on { color: #061018; background: #7dd0ff; border-color: #7dd0ff; }
   #burn {
-    position: absolute; right: 12px; bottom: 92px;
-    padding: 12px 18px; font: inherit; font-size: 13px; letter-spacing: .14em;
     color: #7dffb0; background: rgba(10,32,20,.55); border: 1px solid #2f8f5c;
-    border-radius: 8px; touch-action: none; user-select: none;
   }
-  #burn.cooling { color: #4a6b58; border-color: #23503a; }
+  #burn.on { color: #04140b; background: #6dffa8; border-color: #6dffa8; }
+  #burn.cooling { color: #4a6b58; border-color: #23503a; background: rgba(10,32,20,.3); }
   #msl {
-    position: absolute;
-    right: max(12px, env(safe-area-inset-right));
-    bottom: max(12px, env(safe-area-inset-bottom));
-    pointer-events: auto; padding: 16px 20px; min-width: 116px;
-    font-size: 13px; letter-spacing: 0.16em; border-radius: 6px;
+    grid-column: 1 / -1; padding: 20px 0;
+    font-size: 14px; letter-spacing: 0.16em;
     background: rgba(255,183,77,0.13); color: var(--amber);
     border: 1px solid rgba(255,183,77,0.5);
     transition: opacity 0.12s, background 0.12s;
@@ -239,9 +245,11 @@
 
   <div id="flight" class="layer">
     <button id="pause" class="chip">MENU</button>
-    <button id="roll">ROLL</button>
-    <button id="msl">MISSILES</button>
-    <button id="burn">BURN</button>
+    <div id="pad">
+      <button id="roll">ROLL</button>
+      <button id="burn">BURN</button>
+      <button id="msl">MISSILES</button>
+    </div>
   </div>
 </div>
 <script type="module">
@@ -336,12 +344,44 @@ function hsv(h, s, v, out) {
  * so the safest looking spot in the fight -- dead on the port's axis, with the
  * wall turning around you -- was the one place every beam hit.
  */
+/**
+ * The ship, as two rectangles: flying level, and turned onto its edge.
+ *
+ * Anything that decides whether the ship fits through a hole reads these --
+ * the collision, the slot builder, and the fairness audit -- so the shape can
+ * only ever be changed in one place.
+ */
+const SHIP_HX = 7, SHIP_HY = 5;
+const KNIFE_HX = 2.5, KNIFE_HY = 9;
+
 const PORT_BEAM = {
   shafts: 14,
   inner: 40,      // where a beam starts, just off the shaft mouths
   slab: 340,      // how far in front of the port the wall stands. Deep enough
                   // to fly through for about a second rather than to cross.
   life: 1.05,     // how long one beam hangs there
+};
+
+/**
+ * The ring's, which is the same idea on a smaller thing: eight tentacles round
+ * the hoop firing outward at the rock, one after another clockwise from twelve.
+ * A beam starts at the tentacle tip, so the hole in the middle stays the way
+ * through -- the ring is an aperture you fly, and a beam across it would turn
+ * it into a wall.
+ */
+const RING_BEAM = {
+  arms: 8,
+  gap: 22,        // how far past the hoop the tentacle tip sits
+  life: 0.4,
+  interval: 0.1,  // pew pew pew
+  spread: 0.055,  // how much the wedge fans out over its length, in radians
+  wide: 3,        // half width where it leaves the tentacle
+  // How far in front of the hoop the light stands. Without this the beams are
+  // pure decoration: the ring's own boxes already fill the whole cross-section
+  // except the hole, so anywhere a beam could reach is somewhere you have
+  // already crashed. Standing them in the approach makes cutting the corner on
+  // the way in cost something, while the hole stays clean.
+  lead: 90,
 };
 
 function segSphere(ax, ay, az, bx, by, bz, cx, cy, cz, r) {
@@ -982,6 +1022,7 @@ const FIELDS = {
   width:     { min: 26,   max: 150,  def: 62,   unit: 'trench half-width' },
   depth:     { min: 50,   max: 240,  def: 118,  unit: 'rim height above floor' },
   curviness: { min: 0,    max: 1,    def: 0.4 },
+  snaking:   { min: 0,    max: 1,    def: 0,    unit: 'how tight the bends are, as opposed to how wide' },
   hilliness: { min: 0,    max: 1,    def: 0.35 },
   roughness: { min: 0,    max: 1,    def: 0.5 },
   obstacles: { min: 0,    max: 1,    def: 0.4 },
@@ -992,6 +1033,7 @@ const FIELDS = {
   drones:    { min: 0,    max: 1,    def: 0.3 },
   seals:     { min: 0,    max: 6,    def: 0 },
   panels:    { min: 0,    max: 4,    def: 2, unit: 'shootable panels per bulkhead' },
+  slotgap:   { min: 2,    max: 14,   def: 4, unit: 'clearance each side of the ship in a slot' },
   hue:       { min: 0,    max: 1,    def: 0.5 },
 };
 
@@ -1007,6 +1049,7 @@ function normalizeSection(raw = {}) {
     width: num(raw.width, FIELDS.width),
     depth: num(raw.depth, FIELDS.depth),
     curviness: num(raw.curviness, FIELDS.curviness),
+    snaking: num(raw.snaking, FIELDS.snaking),
     hilliness: num(raw.hilliness, FIELDS.hilliness),
     roughness: num(raw.roughness, FIELDS.roughness),
     obstacles: num(raw.obstacles, FIELDS.obstacles),
@@ -1018,6 +1061,7 @@ function normalizeSection(raw = {}) {
     drones: num(raw.drones, FIELDS.drones),
     seals: Math.round(num(raw.seals, FIELDS.seals)),
     panels: Math.round(num(raw.panels, FIELDS.panels)),
+    slotgap: num(raw.slotgap, FIELDS.slotgap),
     hue: num(raw.hue, FIELDS.hue),
   };
 }
@@ -1039,6 +1083,9 @@ function normalizeSpec(raw = {}) {
     },
     // A run with no finale just ends; 'port' adds the missile target.
     finale: raw.finale === 'none' ? 'none' : 'port',
+    // An exhaust port is a target, not a gun. It can be given the wall of
+    // beams, but it is off unless a level asks for it.
+    armedPort: raw.armedPort === true,
     sections,
   };
 }
@@ -1087,6 +1134,7 @@ const PREBUILT = [
         "end": 290
       },
       "finale": "port",
+      "armedPort": false,
       "sections": [
         {
           "name": "open air",
@@ -1094,6 +1142,7 @@ const PREBUILT = [
           "width": 112,
           "depth": 92,
           "curviness": 0.1,
+          "snaking": 0,
           "hilliness": 0.15,
           "roughness": 0.3,
           "obstacles": 0.14,
@@ -1107,6 +1156,7 @@ const PREBUILT = [
           "drones": 0.2,
           "seals": 0,
           "panels": 2,
+          "slotgap": 4,
           "hue": 0.55
         },
         {
@@ -1115,6 +1165,7 @@ const PREBUILT = [
           "width": 104,
           "depth": 100,
           "curviness": 0.16,
+          "snaking": 0,
           "hilliness": 0.2,
           "roughness": 0.34,
           "obstacles": 0.5,
@@ -1128,6 +1179,7 @@ const PREBUILT = [
           "drones": 0.2,
           "seals": 0,
           "panels": 2,
+          "slotgap": 4,
           "hue": 0.5
         },
         {
@@ -1136,6 +1188,7 @@ const PREBUILT = [
           "width": 100,
           "depth": 108,
           "curviness": 0.2,
+          "snaking": 0,
           "hilliness": 0.24,
           "roughness": 0.38,
           "obstacles": 0.5,
@@ -1149,6 +1202,7 @@ const PREBUILT = [
           "drones": 0.22,
           "seals": 0,
           "panels": 2,
+          "slotgap": 4,
           "hue": 0.44
         },
         {
@@ -1157,6 +1211,7 @@ const PREBUILT = [
           "width": 98,
           "depth": 112,
           "curviness": 0.24,
+          "snaking": 0,
           "hilliness": 0.26,
           "roughness": 0.4,
           "obstacles": 0.5,
@@ -1170,6 +1225,7 @@ const PREBUILT = [
           "drones": 0.24,
           "seals": 0,
           "panels": 2,
+          "slotgap": 4,
           "hue": 0.36
         },
         {
@@ -1178,6 +1234,7 @@ const PREBUILT = [
           "width": 94,
           "depth": 114,
           "curviness": 0.28,
+          "snaking": 0,
           "hilliness": 0.28,
           "roughness": 0.42,
           "obstacles": 0.5,
@@ -1191,6 +1248,7 @@ const PREBUILT = [
           "drones": 0.24,
           "seals": 0,
           "panels": 2,
+          "slotgap": 4,
           "hue": 0.28
         },
         {
@@ -1199,6 +1257,7 @@ const PREBUILT = [
           "width": 90,
           "depth": 118,
           "curviness": 0.3,
+          "snaking": 0,
           "hilliness": 0.3,
           "roughness": 0.44,
           "obstacles": 0.5,
@@ -1212,6 +1271,7 @@ const PREBUILT = [
           "drones": 0.22,
           "seals": 0,
           "panels": 2,
+          "slotgap": 4,
           "hue": 0.2
         },
         {
@@ -1220,6 +1280,7 @@ const PREBUILT = [
           "width": 92,
           "depth": 118,
           "curviness": 0.3,
+          "snaking": 0,
           "hilliness": 0.3,
           "roughness": 0.44,
           "obstacles": 0.5,
@@ -1233,6 +1294,7 @@ const PREBUILT = [
           "drones": 0.22,
           "seals": 0,
           "panels": 2,
+          "slotgap": 4,
           "hue": 0.16
         },
         {
@@ -1241,6 +1303,7 @@ const PREBUILT = [
           "width": 86,
           "depth": 122,
           "curviness": 0.26,
+          "snaking": 0,
           "hilliness": 0.26,
           "roughness": 0.42,
           "obstacles": 0.2,
@@ -1255,6 +1318,7 @@ const PREBUILT = [
           "drones": 0.2,
           "seals": 1,
           "panels": 3,
+          "slotgap": 4,
           "hue": 0.14
         },
         {
@@ -1263,6 +1327,7 @@ const PREBUILT = [
           "width": 82,
           "depth": 126,
           "curviness": 0.3,
+          "snaking": 0,
           "hilliness": 0.3,
           "roughness": 0.45,
           "obstacles": 0.4,
@@ -1276,6 +1341,7 @@ const PREBUILT = [
           "drones": 0.24,
           "seals": 0,
           "panels": 2,
+          "slotgap": 4,
           "hue": 0.08
         },
         {
@@ -1284,6 +1350,7 @@ const PREBUILT = [
           "width": 80,
           "depth": 128,
           "curviness": 0.3,
+          "snaking": 0,
           "hilliness": 0.3,
           "roughness": 0.45,
           "obstacles": 0.2,
@@ -1298,6 +1365,7 @@ const PREBUILT = [
           "drones": 0.24,
           "seals": 1,
           "panels": 4,
+          "slotgap": 4,
           "hue": 0.05
         },
         {
@@ -1306,6 +1374,7 @@ const PREBUILT = [
           "width": 80,
           "depth": 120,
           "curviness": 0.3,
+          "snaking": 0,
           "hilliness": 0.26,
           "roughness": 0.42,
           "obstacles": 0.42,
@@ -1321,6 +1390,7 @@ const PREBUILT = [
           "drones": 0.2,
           "seals": 0,
           "panels": 2,
+          "slotgap": 4,
           "hue": 0.02
         }
       ]
@@ -1337,6 +1407,7 @@ const PREBUILT = [
         "end": 300
       },
       "finale": "port",
+      "armedPort": false,
       "sections": [
         {
           "name": "open approach",
@@ -1344,6 +1415,7 @@ const PREBUILT = [
           "width": 112,
           "depth": 88,
           "curviness": 0.08,
+          "snaking": 0,
           "hilliness": 0.15,
           "roughness": 0.3,
           "obstacles": 0.1,
@@ -1357,6 +1429,7 @@ const PREBUILT = [
           "drones": 0.15,
           "seals": 0,
           "panels": 2,
+          "slotgap": 4,
           "hue": 0.5
         },
         {
@@ -1365,6 +1438,7 @@ const PREBUILT = [
           "width": 100,
           "depth": 96,
           "curviness": 0.18,
+          "snaking": 0,
           "hilliness": 0.22,
           "roughness": 0.36,
           "obstacles": 0.22,
@@ -1378,6 +1452,7 @@ const PREBUILT = [
           "drones": 0.25,
           "seals": 0,
           "panels": 2,
+          "slotgap": 4,
           "hue": 0.5
         },
         {
@@ -1386,6 +1461,7 @@ const PREBUILT = [
           "width": 88,
           "depth": 108,
           "curviness": 0.38,
+          "snaking": 0,
           "hilliness": 0.3,
           "roughness": 0.42,
           "obstacles": 0.3,
@@ -1400,6 +1476,7 @@ const PREBUILT = [
           "drones": 0.28,
           "seals": 0,
           "panels": 2,
+          "slotgap": 4,
           "hue": 0.51
         },
         {
@@ -1408,6 +1485,7 @@ const PREBUILT = [
           "width": 80,
           "depth": 116,
           "curviness": 0.42,
+          "snaking": 0,
           "hilliness": 0.35,
           "roughness": 0.46,
           "obstacles": 0.38,
@@ -1422,6 +1500,7 @@ const PREBUILT = [
           "drones": 0.3,
           "seals": 0,
           "panels": 2,
+          "slotgap": 4,
           "hue": 0.51
         },
         {
@@ -1430,6 +1509,7 @@ const PREBUILT = [
           "width": 74,
           "depth": 124,
           "curviness": 0.36,
+          "snaking": 0,
           "hilliness": 0.32,
           "roughness": 0.45,
           "obstacles": 0.3,
@@ -1444,6 +1524,7 @@ const PREBUILT = [
           "drones": 0.25,
           "seals": 1,
           "panels": 3,
+          "slotgap": 4,
           "hue": 0.52
         },
         {
@@ -1452,6 +1533,7 @@ const PREBUILT = [
           "width": 68,
           "depth": 120,
           "curviness": 0.4,
+          "snaking": 0,
           "hilliness": 0.3,
           "roughness": 0.45,
           "obstacles": 0.36,
@@ -1466,6 +1548,7 @@ const PREBUILT = [
           "drones": 0.2,
           "seals": 0,
           "panels": 2,
+          "slotgap": 4,
           "hue": 0.52
         }
       ]
@@ -1482,6 +1565,7 @@ const PREBUILT = [
         "end": 430
       },
       "finale": "port",
+      "armedPort": false,
       "sections": [
         {
           "name": "wide mouth",
@@ -1489,6 +1573,7 @@ const PREBUILT = [
           "width": 118,
           "depth": 110,
           "curviness": 0.12,
+          "snaking": 0,
           "hilliness": 0.2,
           "roughness": 0.35,
           "obstacles": 0.12,
@@ -1502,6 +1587,7 @@ const PREBUILT = [
           "drones": 0.2,
           "seals": 0,
           "panels": 2,
+          "slotgap": 4,
           "hue": 0.13
         },
         {
@@ -1510,6 +1596,7 @@ const PREBUILT = [
           "width": 96,
           "depth": 128,
           "curviness": 0.3,
+          "snaking": 0,
           "hilliness": 0.28,
           "roughness": 0.45,
           "obstacles": 0.26,
@@ -1524,6 +1611,7 @@ const PREBUILT = [
           "drones": 0.25,
           "seals": 0,
           "panels": 2,
+          "slotgap": 4,
           "hue": 0.13
         },
         {
@@ -1532,6 +1620,7 @@ const PREBUILT = [
           "width": 74,
           "depth": 145,
           "curviness": 0.5,
+          "snaking": 0,
           "hilliness": 0.4,
           "roughness": 0.52,
           "obstacles": 0.4,
@@ -1547,6 +1636,7 @@ const PREBUILT = [
           "drones": 0.3,
           "seals": 1,
           "panels": 3,
+          "slotgap": 4,
           "hue": 0.12
         },
         {
@@ -1555,6 +1645,7 @@ const PREBUILT = [
           "width": 62,
           "depth": 158,
           "curviness": 0.62,
+          "snaking": 0,
           "hilliness": 0.45,
           "roughness": 0.58,
           "obstacles": 0.48,
@@ -1570,6 +1661,7 @@ const PREBUILT = [
           "drones": 0.28,
           "seals": 1,
           "panels": 2,
+          "slotgap": 4,
           "hue": 0.11
         },
         {
@@ -1578,6 +1670,7 @@ const PREBUILT = [
           "width": 54,
           "depth": 168,
           "curviness": 0.66,
+          "snaking": 0,
           "hilliness": 0.48,
           "roughness": 0.6,
           "obstacles": 0.44,
@@ -1593,6 +1686,7 @@ const PREBUILT = [
           "drones": 0.24,
           "seals": 1,
           "panels": 2,
+          "slotgap": 4,
           "hue": 0.1
         },
         {
@@ -1601,6 +1695,7 @@ const PREBUILT = [
           "width": 44,
           "depth": 156,
           "curviness": 0.5,
+          "snaking": 0,
           "hilliness": 0.35,
           "roughness": 0.52,
           "obstacles": 0.5,
@@ -1616,6 +1711,7 @@ const PREBUILT = [
           "drones": 0.2,
           "seals": 0,
           "panels": 2,
+          "slotgap": 4,
           "hue": 0.09
         },
         {
@@ -1624,6 +1720,7 @@ const PREBUILT = [
           "width": 40,
           "depth": 150,
           "curviness": 0.42,
+          "snaking": 0,
           "hilliness": 0.3,
           "roughness": 0.48,
           "obstacles": 0.45,
@@ -1638,6 +1735,7 @@ const PREBUILT = [
           "drones": 0.18,
           "seals": 0,
           "panels": 2,
+          "slotgap": 4,
           "hue": 0.08
         }
       ]
@@ -1654,6 +1752,7 @@ const PREBUILT = [
         "end": 500
       },
       "finale": "port",
+      "armedPort": false,
       "sections": [
         {
           "name": "the descent",
@@ -1661,6 +1760,7 @@ const PREBUILT = [
           "width": 100,
           "depth": 130,
           "curviness": 0.15,
+          "snaking": 0,
           "hilliness": 0.3,
           "roughness": 0.5,
           "obstacles": 0.14,
@@ -1674,6 +1774,7 @@ const PREBUILT = [
           "drones": 0.25,
           "seals": 0,
           "panels": 2,
+          "slotgap": 4,
           "hue": 0.02
         },
         {
@@ -1682,6 +1783,7 @@ const PREBUILT = [
           "width": 82,
           "depth": 150,
           "curviness": 0.35,
+          "snaking": 0,
           "hilliness": 0.45,
           "roughness": 0.6,
           "obstacles": 0.3,
@@ -1697,6 +1799,7 @@ const PREBUILT = [
           "drones": 0.3,
           "seals": 0,
           "panels": 2,
+          "slotgap": 4,
           "hue": 0.02
         },
         {
@@ -1705,6 +1808,7 @@ const PREBUILT = [
           "width": 66,
           "depth": 168,
           "curviness": 0.5,
+          "snaking": 0,
           "hilliness": 0.55,
           "roughness": 0.65,
           "obstacles": 0.45,
@@ -1719,6 +1823,7 @@ const PREBUILT = [
           "drones": 0.35,
           "seals": 1,
           "panels": 3,
+          "slotgap": 4,
           "hue": 0.01
         },
         {
@@ -1727,6 +1832,7 @@ const PREBUILT = [
           "width": 56,
           "depth": 180,
           "curviness": 0.65,
+          "snaking": 0,
           "hilliness": 0.55,
           "roughness": 0.65,
           "obstacles": 0.55,
@@ -1742,6 +1848,7 @@ const PREBUILT = [
           "drones": 0.35,
           "seals": 0,
           "panels": 2,
+          "slotgap": 4,
           "hue": 0.01
         },
         {
@@ -1750,6 +1857,7 @@ const PREBUILT = [
           "width": 50,
           "depth": 192,
           "curviness": 0.7,
+          "snaking": 0,
           "hilliness": 0.5,
           "roughness": 0.6,
           "obstacles": 0.5,
@@ -1765,6 +1873,7 @@ const PREBUILT = [
           "drones": 0.3,
           "seals": 2,
           "panels": 4,
+          "slotgap": 4,
           "hue": 0.01
         },
         {
@@ -1773,6 +1882,7 @@ const PREBUILT = [
           "width": 44,
           "depth": 196,
           "curviness": 0.75,
+          "snaking": 0,
           "hilliness": 0.45,
           "roughness": 0.55,
           "obstacles": 0.55,
@@ -1788,6 +1898,7 @@ const PREBUILT = [
           "drones": 0.28,
           "seals": 0,
           "panels": 2,
+          "slotgap": 4,
           "hue": 0.04
         },
         {
@@ -1796,6 +1907,7 @@ const PREBUILT = [
           "width": 40,
           "depth": 190,
           "curviness": 0.6,
+          "snaking": 0,
           "hilliness": 0.4,
           "roughness": 0.55,
           "obstacles": 0.5,
@@ -1810,6 +1922,7 @@ const PREBUILT = [
           "drones": 0.26,
           "seals": 1,
           "panels": 3,
+          "slotgap": 4,
           "hue": 0.03
         },
         {
@@ -1818,6 +1931,7 @@ const PREBUILT = [
           "width": 36,
           "depth": 180,
           "curviness": 0.42,
+          "snaking": 0,
           "hilliness": 0.3,
           "roughness": 0.45,
           "obstacles": 0.42,
@@ -1831,6 +1945,7 @@ const PREBUILT = [
           "drones": 0.22,
           "seals": 0,
           "panels": 2,
+          "slotgap": 4,
           "hue": 0
         }
       ]
@@ -1847,6 +1962,7 @@ const PREBUILT = [
         "end": 540
       },
       "finale": "port",
+      "armedPort": false,
       "sections": [
         {
           "name": "the drop",
@@ -1854,6 +1970,7 @@ const PREBUILT = [
           "width": 82,
           "depth": 120,
           "curviness": 0.3,
+          "snaking": 0,
           "hilliness": 0.6,
           "roughness": 0.55,
           "obstacles": 0.34,
@@ -1868,6 +1985,7 @@ const PREBUILT = [
           "drones": 0.28,
           "seals": 0,
           "panels": 2,
+          "slotgap": 4,
           "hue": 0.01
         },
         {
@@ -1876,6 +1994,7 @@ const PREBUILT = [
           "width": 72,
           "depth": 132,
           "curviness": 0.4,
+          "snaking": 0,
           "hilliness": 0.78,
           "roughness": 0.55,
           "obstacles": 0.38,
@@ -1890,6 +2009,7 @@ const PREBUILT = [
           "drones": 0.28,
           "seals": 1,
           "panels": 3,
+          "slotgap": 4,
           "hue": 0.01
         },
         {
@@ -1898,6 +2018,7 @@ const PREBUILT = [
           "width": 64,
           "depth": 144,
           "curviness": 0.4,
+          "snaking": 0,
           "hilliness": 0.78,
           "roughness": 0.55,
           "obstacles": 0.5,
@@ -1911,6 +2032,7 @@ const PREBUILT = [
           "drones": 0.28,
           "seals": 1,
           "panels": 2,
+          "slotgap": 4,
           "hue": 0.01
         },
         {
@@ -1919,6 +2041,7 @@ const PREBUILT = [
           "width": 56,
           "depth": 152,
           "curviness": 0.4,
+          "snaking": 0,
           "hilliness": 0.78,
           "roughness": 0.55,
           "obstacles": 0.5,
@@ -1933,6 +2056,7 @@ const PREBUILT = [
           "drones": 0.28,
           "seals": 1,
           "panels": 3,
+          "slotgap": 4,
           "hue": 0.02
         },
         {
@@ -1941,6 +2065,7 @@ const PREBUILT = [
           "width": 52,
           "depth": 150,
           "curviness": 0.4,
+          "snaking": 0,
           "hilliness": 0.78,
           "roughness": 0.55,
           "obstacles": 0.46,
@@ -1955,6 +2080,7 @@ const PREBUILT = [
           "drones": 0.28,
           "seals": 1,
           "panels": 2,
+          "slotgap": 4,
           "hue": 0.01
         },
         {
@@ -1963,6 +2089,7 @@ const PREBUILT = [
           "width": 50,
           "depth": 140,
           "curviness": 0.4,
+          "snaking": 0,
           "hilliness": 0.78,
           "roughness": 0.55,
           "obstacles": 0.44,
@@ -1977,6 +2104,7 @@ const PREBUILT = [
           "drones": 0.28,
           "seals": 0,
           "panels": 2,
+          "slotgap": 4,
           "hue": 0
         }
       ]
@@ -1984,7 +2112,7 @@ const PREBUILT = [
   },
   {
     label: "THE ESSES",
-    blurb: "A giant S with slits cut through it. The upright ones only take the ship on edge and the flat ones only take it level, so the run is a conversation with the roll -- and the green hexagons are speed you can pick up on the way.",
+    blurb: "A river, not a road. It snakes hard the whole way and the walls come at you from the side, with nine slits that alternate upright and flat so the ship spends the run rolling onto its edge and back, and turbo gates down the straights.",
     spec: {
       "name": "THE ESSES",
       "seed": 8121,
@@ -1993,13 +2121,15 @@ const PREBUILT = [
         "end": 430
       },
       "finale": "port",
+      "armedPort": false,
       "sections": [
         {
           "name": "the run in",
           "length": 3000,
           "width": 104,
           "depth": 104,
-          "curviness": 0.18,
+          "curviness": 0.9,
+          "snaking": 0.85,
           "hilliness": 0.3,
           "roughness": 0.42,
           "obstacles": 0.2,
@@ -2013,6 +2143,7 @@ const PREBUILT = [
           "drones": 0.2,
           "seals": 0,
           "panels": 2,
+          "slotgap": 4,
           "hue": 0.42
         },
         {
@@ -2020,7 +2151,8 @@ const PREBUILT = [
           "length": 3000,
           "width": 96,
           "depth": 112,
-          "curviness": 0.72,
+          "curviness": 0.9,
+          "snaking": 0.85,
           "hilliness": 0.3,
           "roughness": 0.42,
           "obstacles": 0.34,
@@ -2035,6 +2167,7 @@ const PREBUILT = [
           "drones": 0.24,
           "seals": 0,
           "panels": 2,
+          "slotgap": 4,
           "hue": 0.38
         },
         {
@@ -2042,7 +2175,8 @@ const PREBUILT = [
           "length": 3000,
           "width": 88,
           "depth": 118,
-          "curviness": 0.66,
+          "curviness": 0.9,
+          "snaking": 0.85,
           "hilliness": 0.3,
           "roughness": 0.42,
           "obstacles": 0.44,
@@ -2056,6 +2190,7 @@ const PREBUILT = [
           "drones": 0.24,
           "seals": 0,
           "panels": 2,
+          "slotgap": 4,
           "hue": 0.33
         },
         {
@@ -2063,7 +2198,8 @@ const PREBUILT = [
           "length": 3000,
           "width": 84,
           "depth": 120,
-          "curviness": 0.78,
+          "curviness": 0.9,
+          "snaking": 0.85,
           "hilliness": 0.3,
           "roughness": 0.42,
           "obstacles": 0.38,
@@ -2078,6 +2214,7 @@ const PREBUILT = [
           "drones": 0.24,
           "seals": 0,
           "panels": 2,
+          "slotgap": 4,
           "hue": 0.28
         },
         {
@@ -2085,7 +2222,8 @@ const PREBUILT = [
           "length": 3000,
           "width": 80,
           "depth": 124,
-          "curviness": 0.8,
+          "curviness": 0.9,
+          "snaking": 0.85,
           "hilliness": 0.3,
           "roughness": 0.42,
           "obstacles": 0.42,
@@ -2100,6 +2238,7 @@ const PREBUILT = [
           "drones": 0.24,
           "seals": 0,
           "panels": 2,
+          "slotgap": 4,
           "hue": 0.22
         },
         {
@@ -2107,7 +2246,8 @@ const PREBUILT = [
           "length": 3000,
           "width": 76,
           "depth": 126,
-          "curviness": 0.6,
+          "curviness": 0.9,
+          "snaking": 0.85,
           "hilliness": 0.3,
           "roughness": 0.42,
           "obstacles": 0.46,
@@ -2122,6 +2262,7 @@ const PREBUILT = [
           "drones": 0.24,
           "seals": 0,
           "panels": 2,
+          "slotgap": 4,
           "hue": 0.16
         },
         {
@@ -2129,7 +2270,8 @@ const PREBUILT = [
           "length": 3000,
           "width": 72,
           "depth": 124,
-          "curviness": 0.7,
+          "curviness": 0.9,
+          "snaking": 0.85,
           "hilliness": 0.3,
           "roughness": 0.42,
           "obstacles": 0.44,
@@ -2144,6 +2286,7 @@ const PREBUILT = [
           "drones": 0.24,
           "seals": 0,
           "panels": 2,
+          "slotgap": 4,
           "hue": 0.1
         },
         {
@@ -2151,7 +2294,8 @@ const PREBUILT = [
           "length": 3000,
           "width": 70,
           "depth": 118,
-          "curviness": 0.5,
+          "curviness": 0.9,
+          "snaking": 0.85,
           "hilliness": 0.3,
           "roughness": 0.42,
           "obstacles": 0.36,
@@ -2166,6 +2310,7 @@ const PREBUILT = [
           "drones": 0.24,
           "seals": 0,
           "panels": 2,
+          "slotgap": 4,
           "hue": 0.05
         }
       ]
@@ -2194,6 +2339,7 @@ const PREBUILT = [
 const GRID = 20;              // grid step for the precomputed profile
 const RUNOUT = 1100;       // extra track past the last section, for the finale
 const MAX_SLOPE_X = 0.55;
+const SNAKE_PULL = 0.22;   // how hard a snaking canyon is drawn back to its own line
 const MAX_SLOPE_Y = 0.30;
 const BLEND = 260;         // transition length between sections
 const TIME_STEP = 40;      // grid for the position-to-seconds table
@@ -2257,6 +2403,7 @@ class Track {
     const rough = new Float32Array(n);
     const hue = new Float32Array(n);
     const curv = new Float32Array(n);
+    const snake = new Float32Array(n);
     const hill = new Float32Array(n);
 
     for (let i = 0; i < n; i++) {
@@ -2269,6 +2416,7 @@ class Track {
       rough[i] = p.roughness;
       hue[i] = p.hue;
       curv[i] = p.curviness;
+      snake[i] = p.snaking;
       hill[i] = p.hilliness;
     }
 
@@ -2291,9 +2439,23 @@ class Track {
     const sy = new Float32Array(n);
     for (let i = 0; i < n; i++) {
       const t = i * GRID;
-      const nx = 0.55 * vnoise(t, 1400, 1) + 0.3 * vnoise(t, 620, 2) + 0.15 * vnoise(t, 300, 3);
+      // `curviness` says how far the canyon wanders; `snaking` says how often.
+      // Scaling only the amplitude is what made a maximum-curviness section
+      // read as one long lazy sweep instead of a river: the bends have to come
+      // closer together as well, and lean harder when they do.
+      // Noise makes a canyon that wanders; a river bends. Snaking crossfades
+      // the steering from one to the other -- a wave with a wavelength, plus
+      // enough noise left in that it does not read as a machined sine -- and
+      // shortens the wave as it rises, so the bends come closer together.
+      const k = snake[i];
+      const drift = 0.55 * vnoise(t, 1400, 1) + 0.3 * vnoise(t, 620, 2)
+        + 0.15 * vnoise(t, 300, 3);
+      const wl = 1500 * (1 - 0.45 * k);
+      const river = 0.84 * Math.sin((t / wl) * TAU + 1.7) + 0.16 * vnoise(t, 480, 6);
+      const nx = drift + (river - drift) * k;
       const ny = 0.6 * vnoise(t, 1700, 4) + 0.4 * vnoise(t, 700, 5);
-      sx[i] = clamp(curv[i] * nx * 1.35, -MAX_SLOPE_X, MAX_SLOPE_X);
+      const lean = MAX_SLOPE_X * (1 + 0.65 * k);
+      sx[i] = clamp(curv[i] * nx * 1.35 * (1 + 0.5 * k), -lean, lean);
       sy[i] = clamp(hill[i] * ny * 0.9, -MAX_SLOPE_Y, MAX_SLOPE_Y);
     }
     smoothPass(sx, 3);
@@ -2302,6 +2464,18 @@ class Track {
     const X = new Float32Array(n);
     const Y = new Float32Array(n);
     for (let i = 1; i < n; i++) {
+      // A slope integrated from noise is a random walk: it wanders off in one
+      // direction and never comes back, which reads as a long diagonal with
+      // kinks in it rather than as a river. Snaking adds a pull back toward
+      // the line it started on, so the bends have something to bend about --
+      // applied to the slope itself, not to the finished path, because the
+      // heading is read from the slope and the two have to stay the same
+      // curve.
+      const pull = SNAKE_PULL * snake[i - 1] * (X[i - 1] / 800);
+      if (pull) {
+        const lean = MAX_SLOPE_X * (1 + 0.65 * snake[i - 1]);
+        sx[i - 1] = clamp(sx[i - 1] - pull, -lean, lean);
+      }
       X[i] = X[i - 1] + sx[i - 1] * GRID;
       Y[i] = Y[i - 1] + sy[i - 1] * GRID;
     }
@@ -2499,6 +2673,7 @@ const NUMERIC = ['width', 'depth', 'curviness', 'hilliness', 'roughness', 'hue']
 
 
 
+
 // Everything that shoots can be locked. The obstacles cannot -- they are the
 // part of a level you fly around rather than the part you answer.
 //
@@ -2679,8 +2854,18 @@ function buildLevel(spec, track) {
         // the whole conversation between this and the roll.
         slotFlip++;
         const upright = slotFlip % 2 === 1;
-        const gw = upright ? 5 : clamp(38 + rand() * 10, 20, hw - 12);
-        const gh = upright ? 44 + rand() * 12 : 7;
+        // The slit is the ship's own footprint plus a margin each side, so it
+        // is authored in the units that matter -- how much room you have --
+        // rather than in absolute width. It was five units of half width,
+        // which is two and a half each side of a ship on edge, and that is
+        // threading a needle at four hundred units a second.
+        //
+        // The ceiling on that margin is what keeps a slot a slot: an upright
+        // slit has to stay narrower than the ship is wide when level, or it
+        // stops asking for the roll at all. Half of (14 - 5) is 4.5.
+        const gap = sec.slotgap;
+        const gw = upright ? KNIFE_HX + gap : clamp(38 + rand() * 10, 20, hw - 12);
+        const gh = upright ? 44 + rand() * 12 : SHIP_HY + gap;
         const gx = (rand() * 2 - 1) * Math.max(0, hw - gw - 14);
         const gy = clamp(26 + rand() * 40, gh + 8, Math.max(gh + 9, rim - gh - 12));
         obstacles.push(obstacle(t, 16, 'slot', [
@@ -3364,9 +3549,61 @@ function drawObstacles(rd, track, obstacles, cursor, camT, far, time) {
         track.localToWorld(ob.t + ob.dz, px, py, q);
         rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], 1, col[0], col[1], col[2], 0.7);
         // Radial struts out to the surrounding rock.
-        const ex = cx + Math.cos(a0) * (r + 22), ey = cy + Math.sin(a0) * (r + 22);
+        const ex = cx + Math.cos(a0) * (r + RING_BEAM.gap);
+        const ey = cy + Math.sin(a0) * (r + RING_BEAM.gap);
         track.localToWorld(ob.t, ex, ey, q);
         rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], 0.8, 1, 0.5, 0.2, 0.55);
+      }
+
+      // What comes out of the tentacles. Not a line -- a wedge with a mouth and
+      // a far end, drawn at both faces of the hoop and joined up, so it is a
+      // slab of light standing in the trench rather than a scratch on the
+      // glass. Bright orange as it leaves, yellow as it goes.
+      if (ob.beams) {
+        for (const b of ob.beams) {
+          const age = Math.min(1, (time - b.born) / RING_BEAM.life);
+          const ca = Math.cos(b.ang), sa = Math.sin(b.ang);
+          const nx = -sa, ny = ca;
+          const w0 = RING_BEAM.wide;
+          const w1 = RING_BEAM.wide + (b.reach - b.from) * RING_BEAM.spread;
+          const bright = (1 - age) ** 0.5;
+          const g = 0.35 + age * 0.6;
+          const wgt = 2.6 - age * 1.4;
+          // The four corners of the wedge, at both ends of the hoop's depth.
+          const corner = (rad, w, side) => [
+            cx + ca * rad + nx * w * side,
+            cy + sa * rad + ny * w * side,
+          ];
+          for (const tt of [ob.t - RING_BEAM.lead, ob.t + ob.dz]) {
+            for (const side of [-1, 1]) {
+              const A0 = corner(b.from, w0, side), A1 = corner(b.reach, w1, side);
+              track.localToWorld(tt, A0[0], A0[1], p);
+              track.localToWorld(tt, A1[0], A1[1], q);
+              rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], wgt, 1, g, 0.08, bright);
+            }
+            const M0 = corner(b.from, w0, -1), M1 = corner(b.from, w0, 1);
+            track.localToWorld(tt, M0[0], M0[1], p);
+            track.localToWorld(tt, M1[0], M1[1], q);
+            rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], wgt, 1, g, 0.08, bright);
+            const F0 = corner(b.reach, w1, -1), F1 = corner(b.reach, w1, 1);
+            track.localToWorld(tt, F0[0], F0[1], p);
+            track.localToWorld(tt, F1[0], F1[1], q);
+            rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], wgt * 0.7, 1, g, 0.08, bright * 0.7);
+          }
+          // The four long edges joining the two faces, which is what gives it
+          // its thickness, and a hot core down the middle.
+          for (const side of [-1, 1]) {
+            for (const [rad, w] of [[b.from, w0], [b.reach, w1]]) {
+              const C = corner(rad, w, side);
+              track.localToWorld(ob.t - RING_BEAM.lead, C[0], C[1], p);
+              track.localToWorld(ob.t + ob.dz, C[0], C[1], q);
+              rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], wgt * 0.8, 1, g, 0.08, bright * 0.8);
+            }
+          }
+          track.localToWorld(ob.t + ob.dz * 0.5, cx + ca * b.from, cy + sa * b.from, p);
+          track.localToWorld(ob.t + ob.dz * 0.5, cx + ca * b.reach, cy + sa * b.reach, q);
+          rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], wgt * 1.5, 1, 0.75 + age * 0.2, 0.35, bright);
+        }
       }
       continue;
     }
@@ -3380,7 +3617,7 @@ function drawObstacles(rd, track, obstacles, cursor, camT, far, time) {
       for (const [rad, w] of [[r, 2.2], [r * 0.82, 1.2]]) {
         for (let k = 0; k < 6; k++) {
           const a0 = (k / 6) * TAU, a1 = ((k + 1) / 6) * TAU;
-          for (const tt of [ob.t, ob.t + ob.dz]) {
+          for (const tt of [ob.t - RING_BEAM.lead, ob.t + ob.dz]) {
             track.localToWorld(tt, cx + Math.cos(a0) * rad, cy + Math.sin(a0) * rad, p);
             track.localToWorld(tt, cx + Math.cos(a1) * rad, cy + Math.sin(a1) * rad, q);
             rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], w, g[0], g[1], g[2], pulse);
@@ -4927,8 +5164,10 @@ class Input {
     this.missilePressed = false;
     this.holdTime = 0;
     this.rolling = false;          // the ship is turning onto its side
-    this.rollHeld = false;         // the ROLL button, or a key, is down
-    this.boostPressed = false;
+    this.rollHeld = false;         // the ROLL button is down
+    this.boosting = false;         // the burn is open
+    this.boostHeld = false;        // the BURN button is down
+    this.boostHeld = false;
     this.motion = 'unavailable';   // unavailable | granted | denied
     this.padName = '';             // the controller in use, if there is one
     this._padFiring = false;
@@ -4978,7 +5217,7 @@ class Input {
       if ((k === 'shift' || k === 'm' || k === 'enter') && !this.keys.has(k)) {
         this.launchMissiles();
       }
-      if (k === 'b' && !this.keys.has(k)) this.boost();
+
       this.keys.add(k);
       if ([' ', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright'].includes(e.key.toLowerCase())) {
         e.preventDefault();
@@ -4993,6 +5232,8 @@ class Input {
       this.firing = false;
       this.rolling = false;
       this.rollHeld = false;
+      this.boosting = false;
+      this.boostHeld = false;
     });
   }
 
@@ -5199,6 +5440,7 @@ class Input {
     // roll that borrowed it would be a roll that cost you the shot you were
     // taking. So it is a button you hold, a key, or a face button on a pad.
     this.rolling = this.rollHeld;
+    this.boosting = this.boostHeld;
 
     let sx = 0;
     let sy = 0;
@@ -5260,9 +5502,7 @@ class Input {
       if (launch && !this._padMissile) this.launchMissiles();
       this._padMissile = launch;
       if (held(2)) this.rolling = true;                 // X / Square: on edge
-      const boost = held(3);                            // Y / Triangle: burn
-      if (boost && !this._padBoost) this.boostPressed = true;
-      this._padBoost = boost;
+      if (held(3)) this.boosting = true;                // Y / Triangle: burn
     }
 
     const k = this.keys;
@@ -5274,6 +5514,7 @@ class Input {
     if (kx || ky) { sx = kx; sy = ky; }
     if (k.has(' ')) { if (!this.firing) this.justPressed = true; this.firing = true; }
     if (k.has('q') || k.has('e') || k.has('control')) this.rolling = true;
+    if (k.has('b')) this.boosting = true;
 
     this.steerX = sx;
     this.steerY = sy;
@@ -5286,16 +5527,9 @@ class Input {
     return v;
   }
 
-  /** Requests the burn. Edge-triggered, like the salvo. */
-  boost() {
-    this.boostPressed = true;
-  }
-
-  /** True once per burn request. */
-  takeBoost() {
-    const v = this.boostPressed;
-    this.boostPressed = false;
-    return v;
+  /** The burn is held, not fired: this is the button being down. */
+  boost(on = true) {
+    this.boostHeld = on;
   }
 
   /** Requests a salvo. The on-screen button and the keyboard both land here. */
@@ -5409,16 +5643,15 @@ const GATLING_SPREAD = 0.78;  // tighter: the stream is meant to connect
 // the width it needs for height it needs -- which is the whole point: a slot
 // too narrow to fly through level is easy sideways, and vice versa.
 const KNIFE_RATE = 4.2;       // how fast it goes over, and comes back
-const SHIP_HX = 7, SHIP_HY = 5;
-const KNIFE_HX = 2.5, KNIFE_HY = 9;
 
-// The burn. Short, expensive, and it stacks with a turbo gate into something
-// genuinely hard to hold onto.
+// The burn: a tank you hold open rather than a shot you fire. It runs for as
+// long as the button is down and there is charge left, and it fills back up
+// when it is not. Letting go early keeps what is left, which makes it a thing
+// you spend in pieces across a run instead of once.
 const BOOST_MUL = 1.5;
-const BOOST_TIME = 2.4;
-const BOOST_COOL = 9;
-const GATE_BOOST_TIME = 2.2;
-const SUPER_MUL = 2.1;        // gated while already burning
+const BOOST_TANK = 2.4;       // seconds of burn in a full tank
+const BOOST_REFILL = 8;       // seconds to fill it from empty
+const SUPER_MUL = 2.1;        // a gate taken while already burning
 
 const SEAL_DROP_SPEED = 190;  // how fast a bulkhead sinks once its panels go
 
@@ -5429,6 +5662,10 @@ const SEAL_DROP_SPEED = 190;  // how fast a bulkhead sinks once its panels go
 const BEAM_INTERVAL = 0.13;   // one shaft after another: pew pew pew
 const BEAM_HALF = 4.5;        // how close counts as flying into one
 const BEAM_DAMAGE = 16;
+const RING_BEAM_DAMAGE = 20;
+// Twelve o'clock is a quarter turn round from the zero the arms are numbered
+// from, and counting down from it sweeps clockwise: twelve, three, six, nine.
+const RING_TOP_ARM = 2;
 
 const RADIUS = { turret: 13, wallgun: 11, emplacement: 21, drone: 11, port: 20 };
 
@@ -5479,8 +5716,8 @@ class Game {
     this.velY = 0;
     this.bank = 0;
     this.knife = 0;             // 0 level, 1 fully on edge
-    this.boost = 0;             // seconds of burn left
-    this.boostCool = 0;
+    this.boost = BOOST_TANK;    // seconds of burn left in the tank
+    this.burning = false;
     this.boostMul = BOOST_MUL;
     this.pitch = 0;
     this.yaw = 0;
@@ -5516,6 +5753,7 @@ class Game {
     for (const w of this.level.drones) w.spawned = false;
     for (const ob of this.level.obstacles) {
       ob.dropY = 0; ob.gone = false; ob.dropping = false; ob.taken = false;
+      ob.beams = null;
     }
     for (const e of this.level.enemies) {
       e.alive = true;
@@ -5540,8 +5778,8 @@ class Game {
     this.particles.clear();
     this.aimDist = AIM_DIST;
     this.knife = 0;
-    this.boost = 0;
-    this.boostCool = 0;
+    this.boost = BOOST_TANK;
+    this.burning = false;
     this.boostMul = BOOST_MUL;
     this.phase = 'flying';
   }
@@ -5608,21 +5846,19 @@ class Game {
     const inp = this.input;
 
     // The burn, and the ship going over onto its edge.
-    this.boostCool = Math.max(0, this.boostCool - dt);
-    if (inp.takeBoost() && this.boost <= 0 && this.boostCool <= 0) {
-      this.boost = BOOST_TIME;
-      this.boostMul = BOOST_MUL;
-      this.boostCool = BOOST_COOL;
-      this.say('BURN', 0.8);
-      this.audio.boost();
-    }
-    if (this.boost > 0) {
+    const wantBurn = inp.boosting && this.boost > 0;
+    if (wantBurn) {
+      if (!this.burning) { this.say('BURN', 0.7); this.audio.boost(); }
       this.boost = Math.max(0, this.boost - dt);
-      if (this.boost <= 0) this.boostMul = BOOST_MUL;
+      if (this.boost <= 0) this.say('BURN SPENT', 0.8);
+    } else {
+      this.boost = Math.min(BOOST_TANK, this.boost + dt * (BOOST_TANK / BOOST_REFILL));
+      this.boostMul = BOOST_MUL;
     }
+    this.burning = wantBurn && this.boost > 0;
     this.knife = approach(this.knife, inp.rolling ? 1 : 0, KNIFE_RATE, dt);
 
-    this.speed = tr.speedAt(this.t) * (this.boost > 0 ? this.boostMul : 1);
+    this.speed = tr.speedAt(this.t) * (this.burning ? this.boostMul : 1);
     this.t += this.speed * dt;
 
     const hw = tr.halfWidth(this.t);
@@ -5683,8 +5919,10 @@ class Game {
     if (this.grinding && hash2((this.time * 12) | 0, 8) < 0.25) this.audio.scrape();
 
     this.updateSeals(dt);
+    this.updateRingBeams(dt);
     this.updatePortBeams(dt);
     this.checkObstacles(dt);
+    this.checkRingBeams();
     this.checkPortBeams();
     this.spawnDrones();
     this.updateDrones(dt);
@@ -5802,15 +6040,14 @@ class Game {
    * a good deal and briefly more speed than the trench really allows.
    */
   takeGate() {
-    if (this.boost > 0) {
+    if (this.burning) {
       this.boostMul = SUPER_MUL;
-      this.boost = Math.max(this.boost, GATE_BOOST_TIME);
+      this.boost = BOOST_TANK;
       this.say('SUPER BURN', 1);
       this.shake = Math.min(1.5, this.shake + 0.5);
     } else {
-      this.boostMul = BOOST_MUL;
-      this.boost = GATE_BOOST_TIME;
-      this.say('BURN', 0.8);
+      this.boost = BOOST_TANK;
+      this.say('TANK FULL', 0.8);
     }
     this.score += 150;
     this.audio.boost();
@@ -6148,9 +6385,69 @@ class Game {
    * the fight is the approach: you are flying into it while you paint it, and
    * a wall you only meet at the instant of arrival is not a fight.
    */
+  /**
+   * The rings firing. Eight tentacles round the hoop, going off one after
+   * another clockwise from twelve, each beam a wedge that hangs for a moment
+   * and fades. The hoop itself is the way through: beams start at the tentacle
+   * tips and go outward at the rock, so the aperture stays open and the space
+   * around it does not.
+   */
+  updateRingBeams(dt) {
+    const now = this.time;
+    for (const ob of this.level.obstacles) {
+      if (ob.kind !== 'ring' || !ob.ring) continue;
+      const ahead = ob.t - this.t;
+      if (ahead > FAR || ahead < -80) continue;
+      if (!ob.beams) {
+        ob.beams = [];
+        ob.beamArm = (RING_TOP_ARM + 1) % RING_BEAM.arms;
+        ob.beamTimer = hash2(ob.t | 0, 11) * RING_BEAM.interval;
+      }
+      for (let i = ob.beams.length - 1; i >= 0; i--) {
+        if (now - ob.beams[i].born > RING_BEAM.life) ob.beams.splice(i, 1);
+      }
+      ob.beamTimer -= dt;
+      if (ob.beamTimer > 0) continue;
+      ob.beamTimer += RING_BEAM.interval;
+      ob.beamArm = (ob.beamArm - 1 + RING_BEAM.arms) % RING_BEAM.arms;
+      const hw = this.track.halfWidth(ob.t);
+      const rim = this.track.rim(ob.t);
+      const ang = (ob.beamArm / RING_BEAM.arms) * TAU;
+      ob.beams.push({
+        ang,
+        born: now,
+        from: ob.ring.r + RING_BEAM.gap,
+        reach: Math.max(hw, rim) * 1.6,
+        hit: false,
+      });
+      if (ahead < 700 && ahead > -40) this.audio.beam();
+    }
+  }
+
+  /** Flying into one. The wedge is thin at the tentacle and fans out. */
+  checkRingBeams() {
+    for (const ob of this.level.obstacles) {
+      if (ob.kind !== 'ring' || !ob.beams || !ob.beams.length) continue;
+      if (this.t + 9 < ob.t - RING_BEAM.lead || this.t - 9 > ob.t + ob.dz) continue;
+      const { cx, cy } = ob.ring;
+      const dx = this.shipX - cx, dy = this.shipY - cy;
+      for (const b of ob.beams) {
+        if (b.hit) continue;
+        const along = dx * Math.cos(b.ang) + dy * Math.sin(b.ang);
+        if (along < b.from - 6 || along > b.reach) continue;
+        const off = Math.abs(-dx * Math.sin(b.ang) + dy * Math.cos(b.ang));
+        // The wedge widens with distance, exactly as it is drawn.
+        if (off > 3 + along * RING_BEAM.spread + 7) continue;
+        b.hit = true;
+        this.damage(RING_BEAM_DAMAGE);
+        this.sparkAt(this.shipX, this.shipY, 8, 130, 1, 0.55, 0.12);
+      }
+    }
+  }
+
   updatePortBeams(dt) {
     const e = this.level.port;
-    if (!e || !e.alive) return;
+    if (!e || !e.alive || !this.spec.armedPort) return;
     const ahead = e.t - this.t;
     if (ahead > 1700 || ahead < -80) return;
     const now = this.time;
@@ -6841,25 +7138,27 @@ class UI {
       e.preventDefault();
       this.input.launchMissiles();
     });
-    $('burn').addEventListener('pointerdown', (e) => {
-      e.preventDefault();
-      this.input.boost();
-    });
-
-    // Held, not tapped: the ship is on edge for exactly as long as this is
-    // down. It is a button of its own so that touch-and-hold anywhere else is
-    // still nothing but the gun.
-    const roll = $('roll');
-    const setRoll = (on) => (e) => {
-      e.preventDefault();
-      this.input.rollHeld = on;
-      roll.classList.toggle('on', on);
-      if (on) roll.setPointerCapture?.(e.pointerId);
+    // Both of these are held, not tapped: the ship is on edge for exactly as
+    // long as ROLL is down, and the burn runs for as long as BURN is down and
+    // there is anything left in the tank. They are buttons of their own so that
+    // touch-and-hold anywhere else is still nothing but the gun.
+    const hold = (id, set) => {
+      const el = $(id);
+      const go = (on) => (e) => {
+        e.preventDefault();
+        set(on);
+        if (on) el.setPointerCapture?.(e.pointerId);
+      };
+      el.addEventListener('pointerdown', go(true));
+      for (const ev of ['pointerup', 'pointercancel', 'pointerleave']) {
+        el.addEventListener(ev, go(false));
+      }
     };
-    roll.addEventListener('pointerdown', setRoll(true));
-    for (const ev of ['pointerup', 'pointercancel', 'pointerleave']) {
-      roll.addEventListener(ev, setRoll(false));
-    }
+    hold('roll', (on) => {
+      this.input.rollHeld = on;
+      $('roll').classList.toggle('on', on);
+    });
+    hold('burn', (on) => { this.input.boostHeld = on; });
 
     $('calibrate').addEventListener('click', async () => {
       if (this.input.motion !== 'granted') await this.input.requestMotion();
@@ -6918,11 +7217,11 @@ class UI {
    */
   syncBurnButton() {
     const g = this.game;
-    const ready = g.boostCool <= 0 && g.boost <= 0;
-    const text = g.boost > 0 ? `BURN ${g.boost.toFixed(1)}`
-      : ready ? 'BURN' : `${g.boostCool.toFixed(0)}s`;
+    // The button is the gauge: how much burn is in the tank, and lit while it
+    // is actually being spent.
+    const text = g.boost <= 0.05 ? 'EMPTY' : `BURN ${g.boost.toFixed(1)}`;
     if (text !== this._burnText) { $('burn').textContent = text; this._burnText = text; }
-    const cls = ready || g.boost > 0 ? '' : 'cooling';
+    const cls = g.burning ? 'on' : g.boost <= 0.05 ? 'cooling' : '';
     if (cls !== this._burnCls) { $('burn').className = cls; this._burnCls = cls; }
   }
 

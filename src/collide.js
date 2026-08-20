@@ -12,12 +12,44 @@
  * so the safest looking spot in the fight -- dead on the port's axis, with the
  * wall turning around you -- was the one place every beam hit.
  */
+/**
+ * The ship, as two rectangles: flying level, and turned onto its edge.
+ *
+ * Anything that decides whether the ship fits through a hole reads these --
+ * the collision, the slot builder, and the fairness audit -- so the shape can
+ * only ever be changed in one place.
+ */
+export const SHIP_HX = 7, SHIP_HY = 5;
+export const KNIFE_HX = 2.5, KNIFE_HY = 9;
+
 export const PORT_BEAM = {
   shafts: 14,
   inner: 40,      // where a beam starts, just off the shaft mouths
   slab: 340,      // how far in front of the port the wall stands. Deep enough
                   // to fly through for about a second rather than to cross.
   life: 1.05,     // how long one beam hangs there
+};
+
+/**
+ * The ring's, which is the same idea on a smaller thing: eight tentacles round
+ * the hoop firing outward at the rock, one after another clockwise from twelve.
+ * A beam starts at the tentacle tip, so the hole in the middle stays the way
+ * through -- the ring is an aperture you fly, and a beam across it would turn
+ * it into a wall.
+ */
+export const RING_BEAM = {
+  arms: 8,
+  gap: 22,        // how far past the hoop the tentacle tip sits
+  life: 0.4,
+  interval: 0.1,  // pew pew pew
+  spread: 0.055,  // how much the wedge fans out over its length, in radians
+  wide: 3,        // half width where it leaves the tentacle
+  // How far in front of the hoop the light stands. Without this the beams are
+  // pure decoration: the ring's own boxes already fill the whole cross-section
+  // except the hole, so anywhere a beam could reach is somewhere you have
+  // already crashed. Standing them in the approach makes cutting the corner on
+  // the way in cost something, while the hole stays clean.
+  lead: 90,
 };
 
 export function segSphere(ax, ay, az, bx, by, bz, cx, cy, cz, r) {

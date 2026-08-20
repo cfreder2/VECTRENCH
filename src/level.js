@@ -7,6 +7,7 @@
 // rim is only interesting if the surface is defended.
 
 import { rng, clamp } from './math.js';
+import { SHIP_HY, KNIFE_HX } from './collide.js';
 
 // Everything that shoots can be locked. The obstacles cannot -- they are the
 // part of a level you fly around rather than the part you answer.
@@ -188,8 +189,18 @@ export function buildLevel(spec, track) {
         // the whole conversation between this and the roll.
         slotFlip++;
         const upright = slotFlip % 2 === 1;
-        const gw = upright ? 5 : clamp(38 + rand() * 10, 20, hw - 12);
-        const gh = upright ? 44 + rand() * 12 : 7;
+        // The slit is the ship's own footprint plus a margin each side, so it
+        // is authored in the units that matter -- how much room you have --
+        // rather than in absolute width. It was five units of half width,
+        // which is two and a half each side of a ship on edge, and that is
+        // threading a needle at four hundred units a second.
+        //
+        // The ceiling on that margin is what keeps a slot a slot: an upright
+        // slit has to stay narrower than the ship is wide when level, or it
+        // stops asking for the roll at all. Half of (14 - 5) is 4.5.
+        const gap = sec.slotgap;
+        const gw = upright ? KNIFE_HX + gap : clamp(38 + rand() * 10, 20, hw - 12);
+        const gh = upright ? 44 + rand() * 12 : SHIP_HY + gap;
         const gx = (rand() * 2 - 1) * Math.max(0, hw - gw - 14);
         const gy = clamp(26 + rand() * 40, gh + 8, Math.max(gh + 9, rim - gh - 12));
         obstacles.push(obstacle(t, 16, 'slot', [

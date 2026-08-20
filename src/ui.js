@@ -76,25 +76,27 @@ export class UI {
       e.preventDefault();
       this.input.launchMissiles();
     });
-    $('burn').addEventListener('pointerdown', (e) => {
-      e.preventDefault();
-      this.input.boost();
-    });
-
-    // Held, not tapped: the ship is on edge for exactly as long as this is
-    // down. It is a button of its own so that touch-and-hold anywhere else is
-    // still nothing but the gun.
-    const roll = $('roll');
-    const setRoll = (on) => (e) => {
-      e.preventDefault();
-      this.input.rollHeld = on;
-      roll.classList.toggle('on', on);
-      if (on) roll.setPointerCapture?.(e.pointerId);
+    // Both of these are held, not tapped: the ship is on edge for exactly as
+    // long as ROLL is down, and the burn runs for as long as BURN is down and
+    // there is anything left in the tank. They are buttons of their own so that
+    // touch-and-hold anywhere else is still nothing but the gun.
+    const hold = (id, set) => {
+      const el = $(id);
+      const go = (on) => (e) => {
+        e.preventDefault();
+        set(on);
+        if (on) el.setPointerCapture?.(e.pointerId);
+      };
+      el.addEventListener('pointerdown', go(true));
+      for (const ev of ['pointerup', 'pointercancel', 'pointerleave']) {
+        el.addEventListener(ev, go(false));
+      }
     };
-    roll.addEventListener('pointerdown', setRoll(true));
-    for (const ev of ['pointerup', 'pointercancel', 'pointerleave']) {
-      roll.addEventListener(ev, setRoll(false));
-    }
+    hold('roll', (on) => {
+      this.input.rollHeld = on;
+      $('roll').classList.toggle('on', on);
+    });
+    hold('burn', (on) => { this.input.boostHeld = on; });
 
     $('calibrate').addEventListener('click', async () => {
       if (this.input.motion !== 'granted') await this.input.requestMotion();
@@ -153,11 +155,11 @@ export class UI {
    */
   syncBurnButton() {
     const g = this.game;
-    const ready = g.boostCool <= 0 && g.boost <= 0;
-    const text = g.boost > 0 ? `BURN ${g.boost.toFixed(1)}`
-      : ready ? 'BURN' : `${g.boostCool.toFixed(0)}s`;
+    // The button is the gauge: how much burn is in the tank, and lit while it
+    // is actually being spent.
+    const text = g.boost <= 0.05 ? 'EMPTY' : `BURN ${g.boost.toFixed(1)}`;
     if (text !== this._burnText) { $('burn').textContent = text; this._burnText = text; }
-    const cls = ready || g.boost > 0 ? '' : 'cooling';
+    const cls = g.burning ? 'on' : g.boost <= 0.05 ? 'cooling' : '';
     if (cls !== this._burnCls) { $('burn').className = cls; this._burnCls = cls; }
   }
 

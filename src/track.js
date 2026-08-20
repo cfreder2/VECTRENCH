@@ -12,12 +12,13 @@
 // Canyon-local coordinates are (x, y): x is lateral offset from the centreline,
 // y is height above the trench floor. The rim sits at y = rim(t).
 
-import { hash2, clamp, smoothstep, lerp } from './math.js';
+import { hash2, clamp, smoothstep, lerp, TAU } from './math.js';
 import { specLength } from './spec.js';
 
 const G = 20;              // grid step for the precomputed profile
 const RUNOUT = 1100;       // extra track past the last section, for the finale
 const MAX_SLOPE_X = 0.55;
+const SNAKE_PULL = 0.22;   // how hard a snaking canyon is drawn back to its own line
 const MAX_SLOPE_Y = 0.30;
 const BLEND = 260;         // transition length between sections
 const TIME_STEP = 40;      // grid for the position-to-seconds table
@@ -81,6 +82,7 @@ export class Track {
     const rough = new Float32Array(n);
     const hue = new Float32Array(n);
     const curv = new Float32Array(n);
+    const snake = new Float32Array(n);
     const hill = new Float32Array(n);
 
     for (let i = 0; i < n; i++) {
@@ -93,6 +95,7 @@ export class Track {
       rough[i] = p.roughness;
       hue[i] = p.hue;
       curv[i] = p.curviness;
+      snake[i] = p.snaking;
       hill[i] = p.hilliness;
     }
 
@@ -115,9 +118,23 @@ export class Track {
     const sy = new Float32Array(n);
     for (let i = 0; i < n; i++) {
       const t = i * G;
-      const nx = 0.55 * vnoise(t, 1400, 1) + 0.3 * vnoise(t, 620, 2) + 0.15 * vnoise(t, 300, 3);
+      // `curviness` says how far the canyon wanders; `snaking` says how often.
+      // Scaling only the amplitude is what made a maximum-curviness section
+      // read as one long lazy sweep instead of a river: the bends have to come
+      // closer together as well, and lean harder when they do.
+      // Noise makes a canyon that wanders; a river bends. Snaking crossfades
+      // the steering from one to the other -- a wave with a wavelength, plus
+      // enough noise left in that it does not read as a machined sine -- and
+      // shortens the wave as it rises, so the bends come closer together.
+      const k = snake[i];
+      const drift = 0.55 * vnoise(t, 1400, 1) + 0.3 * vnoise(t, 620, 2)
+        + 0.15 * vnoise(t, 300, 3);
+      const wl = 1500 * (1 - 0.45 * k);
+      const river = 0.84 * Math.sin((t / wl) * TAU + 1.7) + 0.16 * vnoise(t, 480, 6);
+      const nx = drift + (river - drift) * k;
       const ny = 0.6 * vnoise(t, 1700, 4) + 0.4 * vnoise(t, 700, 5);
-      sx[i] = clamp(curv[i] * nx * 1.35, -MAX_SLOPE_X, MAX_SLOPE_X);
+      const lean = MAX_SLOPE_X * (1 + 0.65 * k);
+      sx[i] = clamp(curv[i] * nx * 1.35 * (1 + 0.5 * k), -lean, lean);
       sy[i] = clamp(hill[i] * ny * 0.9, -MAX_SLOPE_Y, MAX_SLOPE_Y);
     }
     smoothPass(sx, 3);
@@ -126,6 +143,18 @@ export class Track {
     const X = new Float32Array(n);
     const Y = new Float32Array(n);
     for (let i = 1; i < n; i++) {
+      // A slope integrated from noise is a random walk: it wanders off in one
+      // direction and never comes back, which reads as a long diagonal with
+      // kinks in it rather than as a river. Snaking adds a pull back toward
+      // the line it started on, so the bends have something to bend about --
+      // applied to the slope itself, not to the finished path, because the
+      // heading is read from the slope and the two have to stay the same
+      // curve.
+      const pull = SNAKE_PULL * snake[i - 1] * (X[i - 1] / 800);
+      if (pull) {
+        const lean = MAX_SLOPE_X * (1 + 0.65 * snake[i - 1]);
+        sx[i - 1] = clamp(sx[i - 1] - pull, -lean, lean);
+      }
       X[i] = X[i - 1] + sx[i - 1] * G;
       Y[i] = Y[i - 1] + sy[i - 1] * G;
     }

@@ -130,28 +130,34 @@
     pointer-events: auto; opacity: 0.35; padding: 6px 10px; font-size: 10px;
   }
   #pause:hover { opacity: 1; }
-  /* The launcher. Big, in the corner a right thumb already rests in, and
-     readable at a glance because it doubles as the cooldown clock. */
+  /* Everything a thumb needs, stacked in the corner a right thumb already
+     rests in. The layer itself is click-through so that touching the canvas
+     fires the gun; each control has to opt back in, and ROLL and BURN did not,
+     which is why they did nothing but fire. */
+  #pad {
+    position: absolute;
+    right: max(10px, env(safe-area-inset-right));
+    bottom: max(10px, env(safe-area-inset-bottom));
+    display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+    width: min(46vw, 260px);
+  }
+  #pad > button {
+    pointer-events: auto; touch-action: none; user-select: none;
+    font: inherit; letter-spacing: .14em; border-radius: 10px;
+  }
+  #roll, #burn { padding: 15px 0; font-size: 13px; }
   #roll {
-    position: absolute; left: 12px; bottom: 20px;
-    padding: 16px 22px; font: inherit; font-size: 14px; letter-spacing: .14em;
     color: #9fd8ff; background: rgba(10,24,38,.55); border: 1px solid #2f6f9f;
-    border-radius: 10px; touch-action: none; user-select: none;
   }
   #roll.on { color: #061018; background: #7dd0ff; border-color: #7dd0ff; }
   #burn {
-    position: absolute; right: 12px; bottom: 92px;
-    padding: 12px 18px; font: inherit; font-size: 13px; letter-spacing: .14em;
     color: #7dffb0; background: rgba(10,32,20,.55); border: 1px solid #2f8f5c;
-    border-radius: 8px; touch-action: none; user-select: none;
   }
-  #burn.cooling { color: #4a6b58; border-color: #23503a; }
+  #burn.on { color: #04140b; background: #6dffa8; border-color: #6dffa8; }
+  #burn.cooling { color: #4a6b58; border-color: #23503a; background: rgba(10,32,20,.3); }
   #msl {
-    position: absolute;
-    right: max(12px, env(safe-area-inset-right));
-    bottom: max(12px, env(safe-area-inset-bottom));
-    pointer-events: auto; padding: 16px 20px; min-width: 116px;
-    font-size: 13px; letter-spacing: 0.16em; border-radius: 6px;
+    grid-column: 1 / -1; padding: 20px 0;
+    font-size: 14px; letter-spacing: 0.16em;
     background: rgba(255,183,77,0.13); color: var(--amber);
     border: 1px solid rgba(255,183,77,0.5);
     transition: opacity 0.12s, background 0.12s;
@@ -239,9 +245,11 @@
 
   <div id="flight" class="layer">
     <button id="pause" class="chip">MENU</button>
-    <button id="roll">ROLL</button>
-    <button id="msl">MISSILES</button>
-    <button id="burn">BURN</button>
+    <div id="pad">
+      <button id="roll">ROLL</button>
+      <button id="burn">BURN</button>
+      <button id="msl">MISSILES</button>
+    </div>
   </div>
 </div>
 <script type="module" src="./src/main.js"></script>

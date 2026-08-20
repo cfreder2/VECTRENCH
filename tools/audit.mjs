@@ -13,7 +13,8 @@ import { buildLevel } from '../src/level.js';
 import { hitsObstacle } from '../src/collide.js';
 // The real limits, not a copy of them: if the ship gets faster and this file
 // does not hear about it, the audit keeps proving a harder game than shipped.
-import { MAX_VX, MAX_VY, SHIP_HX, SHIP_HY, KNIFE_HX, KNIFE_HY } from '../src/game.js';
+import { MAX_VX, MAX_VY } from '../src/game.js';
+import { SHIP_HX, SHIP_HY, KNIFE_HX, KNIFE_HY } from '../src/collide.js';
 
 const NX = 49, NY = 37;
 
