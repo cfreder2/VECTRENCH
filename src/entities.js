@@ -697,10 +697,15 @@ export class Weapons {
    * it can be shot out of the air, which is what the gun is for when a battery
    * empties itself at you.
    */
-  fireSeeker(x, y, z, dx, dy, dz) {
+  fireSeeker(x, y, z, dx, dy, dz, over) {
+    // The defaults are a surface battery's: fast enough to run the ship down
+    // across open air. A launch from inside the trench is a different problem
+    // -- it starts close and there is nowhere to go -- so the emplacement
+    // passes slower, blunter numbers rather than reusing these.
     this.seekers.push({
       x, y, z, px: x, py: y, pz: z, dx, dy, dz,
       speed: 300, accel: 265, maxSpeed: 640, turn: 2.05, life: 7, arm: 0.35,
+      ...over,
     });
   }
 

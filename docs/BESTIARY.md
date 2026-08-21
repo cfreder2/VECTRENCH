@@ -274,6 +274,8 @@ still only expensive to get wrong.
 | Argument | Value | Meaning |
 | --- | --- | --- |
 | `hp` | 14 | Fourteen cannon hits. One missile, like everything else |
+| fire | 3 heavy shells 0.17 s apart, then 1.15 s | 19 each, at 560 u/s |
+| missile | one per pass, from 560 units | 26. Slower and blunter than a battery's — a trench is not open air |
 | shape | 8-sided drum, R 17, 15 tall | Mounted on a wall rather than standing on the floor, so it is drawn lying on its side with the wide base against the rock and the barrel across the trench |
 | `points` | 900 | |
 | `cool` | 1.2 | |

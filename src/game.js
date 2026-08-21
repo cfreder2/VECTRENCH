@@ -106,6 +106,14 @@ const BURN_SPOOL_DOWN = 6;
 const SUPER_MUL = 2.1;        // burning and gated at the same time
 const GATE_TIME = 3;          // seconds a turbo gate is worth, and they add up
 
+// The one heavy thing that lives in the trench with you: two shots and a
+// missile, on a cycle short enough to matter in the three seconds you are
+// inside its reach.
+const EMP_BURST = 3;           // heavy shells in a burst
+const EMP_BURST_STEP = 0.17;   // seconds between them
+const EMP_BURST_GAP = 1.15;    // and between bursts
+const EMP_MISSILE_RANGE = 560; // it launches its one missile from about here
+
 const SEAL_DROP_SPEED = 190;  // how fast a bulkhead sinks once its panels go
 
 // The port's defence. It does not turn -- the shafts around its rim are fixed,
@@ -224,6 +232,8 @@ export class Game {
       e.wind = 0;
       e.barrel = 0;
       e.spin = hash2((e.t * 3) | 0, 9) * TAU;
+      e.launched = false;
+      e.burst = 0;
     }
     if (this.level.port) {
       this.level.port.alive = true;
@@ -704,6 +714,7 @@ export class Game {
         // spools up in front of you and then does not stop.
         if (e.kind === 'battery') { this.updateBattery(e, dt, ahead); continue; }
         if (e.kind === 'gatling') { this.updateGatling(e, dt, ahead); continue; }
+        if (e.kind === 'emplacement') { this.updateEmplacement(e, dt, ahead); continue; }
         if (e.kind === 'panel') continue;
 
         let wants = false;
@@ -899,6 +910,72 @@ export class Game {
     this.updateGun(dt, cx, cy);
 
     if (inp.takeMissile()) this.launchMissiles();
+  }
+
+  /**
+   * The emplacement: two heavy shots and then a missile, over and over.
+   *
+   * It used to be a turret with more hit points -- one heavy bolt every second
+   * and a half, of which about one landed on a fly-by, for seventeen of a
+   * hundred shield. Fourteen cannon hits or one of your eight locks to kill,
+   * against seventeen damage for ignoring it: flying past was simply the right
+   * answer, which is a waste of the only heavy thing that lives down in the
+   * trench with you.
+   *
+   * The missile is what makes it a decision rather than a toll. Dodge it, shoot
+   * it out of the air, or kill the launcher before the next one -- and it is
+   * the thing that teaches the lock before the port, so it fighting you with
+   * your own weapon is the lesson stated twice.
+   *
+   * Its seekers are deliberately blunter than a surface battery's. One at a
+   * time, slower, and turning worse, because a trench is not open air and there
+   * is nowhere to go when one is launched from inside it.
+   */
+  updateEmplacement(e, dt, ahead) {
+    if (!(ahead < 1250 && ahead > -60)) return;
+    e.cool -= dt;
+    if (e.cool > 0) return;
+    const dx = this.shipPos[0] - e.world[0];
+    const dy = this.shipPos[1] - e.world[1];
+    const dz = this.shipPos[2] - e.world[2];
+    const dist = Math.hypot(dx, dy, dz) || 1;
+
+    // One missile per pass, and only from close in. Fired from far out it has
+    // to cross a curving trench at a closing speed of about seven hundred a
+    // second: measured, two out of three missed narrowly, turned hard to chase,
+    // and killed themselves on the opposite wall. Near in it is a real question
+    // -- dodge it, shoot it, or have killed the launcher already.
+    if (!e.launched && ahead < EMP_MISSILE_RANGE) {
+      e.launched = true;
+      e.cool = 0.5;
+      const out = e.x < 0 ? 1 : -1;
+      this.track.localToWorld(e.t, e.x + out * 34, e.y, this._p);
+      const mx = this.shipPos[0] - this._p[0];
+      const my = this.shipPos[1] - this._p[1];
+      const mz = this.shipPos[2] - this._p[2];
+      const ml = Math.hypot(mx, my, mz) || 1;
+      this.weapons.fireSeeker(this._p[0], this._p[1], this._p[2], mx / ml, my / ml, mz / ml,
+        { speed: 260, accel: 210, maxSpeed: 450, turn: 1.7, life: 4, arm: 0.4 });
+      this.audio.missile(0.7);
+      this.say('MISSILE -- SHOOT IT OR DODGE', 1.1);
+      return;
+    }
+
+    // Otherwise a burst of three heavy shells, which is the reliable half of
+    // it. One shell every second and a half was the old behaviour and it cost
+    // seventeen of a hundred shield to ignore the thing entirely.
+    e.burst = (e.burst || 0) + 1;
+    if (e.burst >= EMP_BURST) { e.burst = 0; e.cool = EMP_BURST_GAP; }
+    else e.cool = EMP_BURST_STEP;
+    const speed = 560;
+    const lead = dist / speed;
+    const px = this.shipPos[0] + this.camF[0] * this.speed * lead * 0.85;
+    const py = this.shipPos[1] + this.camF[1] * this.speed * lead * 0.85;
+    const pz = this.shipPos[2] + this.camF[2] * this.speed * lead * 0.85;
+    let ax = px - e.world[0], ay = py - e.world[1], az = pz - e.world[2];
+    const al = Math.hypot(ax, ay, az) || 1;
+    this.weapons.fireBolt(e.world[0], e.world[1], e.world[2], ax / al, ay / al, az / al, speed, true);
+    if (ahead < 800) this.audio.enemyShot();
   }
 
   /**
