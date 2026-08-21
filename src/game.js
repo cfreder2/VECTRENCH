@@ -114,6 +114,27 @@ const EMP_BURST_STEP = 0.17;   // seconds between them
 const EMP_BURST_GAP = 1.15;    // and between bursts
 const EMP_MISSILE_RANGE = 560; // it launches its one missile from about here
 
+// How well the guns lead you, and what boosting does to that.
+//
+// The lead was computed from the ship's speed with a flat 0.85 fudge on it,
+// which is a fixed *fraction* of a distance that grows with speed -- so the
+// faster you went the further the shells fell behind, and at 2.1x nothing could
+// touch you at all. Aim is now a roll: a shot is either laid properly, velocity
+// and all, or thrown deliberately wide. Speed buys a worse roll rather than
+// geometric immunity.
+const AIM_BASE = 0.8;         // shots laid properly when you are not boosting
+const AIM_BOOST = 0.6;        // and when you are
+const AIM_DROP = 0.1;         // less again for each further boost stacked on
+const AIM_MISS = 26;          // how far wide a thrown shot goes, in units
+// A shell has to outrun the thing it is shooting at. At a burn the ship was
+// doing 567 units a second against shells doing 520, and one per cent of them
+// landed: not a matter of aim, a matter of arithmetic.
+//
+// Scaled by the burn rather than by the ship's speed outright, so that a gun
+// firing at a ship going its normal speed throws exactly the shell it always
+// did. Only the boost is compensated for.
+const SHELL_BOOST = 1.7;      // extra shell speed per unit of boost multiplier
+
 const SEAL_DROP_SPEED = 190;  // how fast a bulkhead sinks once its panels go
 
 // The port's defence. It does not turn -- the shafts around its rim are fixed,
@@ -152,6 +173,7 @@ export class Game {
     this._p = [0, 0, 0];
     this._q = [0, 0, 0];
     this._frame = [0, 0, 1, 0];
+    this._aim = [0, 0, 0];
     this._l = [0, 0, 0];
 
     this.phase = 'idle';
@@ -759,13 +781,11 @@ export class Game {
         e.cool -= dt;
         if (wants && e.cool <= 0) {
           e.cool = reload * (0.75 + hash2((this.time * 60) | 0, (e.t | 0) & 255) * 0.6);
-          const speed = heavy ? 420 : 520;
-          // Lead the target, or the shot always trails a ship this fast.
-          const lead = dist / speed;
-          const px = this.shipPos[0] + this.camF[0] * this.speed * lead * 0.85;
-          const py = this.shipPos[1] + this.camF[1] * this.speed * lead * 0.85;
-          const pz = this.shipPos[2] + this.camF[2] * this.speed * lead * 0.85;
-          let ax = px - e.world[0], ay = py - e.world[1], az = pz - e.world[2];
+          const speed = this.shotSpeed(heavy ? 420 : 520);
+          this.aimPoint(e, speed, this._aim);
+          let ax = this._aim[0] - e.world[0];
+          let ay = this._aim[1] - e.world[1];
+          let az = this._aim[2] - e.world[2];
           const al = Math.hypot(ax, ay, az) || 1;
           this.weapons.fireBolt(e.world[0], e.world[1], e.world[2],
             ax / al, ay / al, az / al, speed, heavy);
@@ -913,6 +933,48 @@ export class Game {
   }
 
   /**
+   * Where to shoot, for a gun with a shell of a given speed.
+   *
+   * The lead uses the ship's whole velocity -- down the track at whatever the
+   * burn is currently making it, plus whatever the stick is doing sideways --
+   * so a boosting ship is still a solvable problem. Whether this particular
+   * shot gets that solution is a roll against the accuracy that boosting buys.
+   */
+  /** How fast a shell has to fly to be able to lead the ship at all. */
+  shotSpeed(base) {
+    // Exactly the shell it always threw when the ship is not boosting, and a
+    // faster one in proportion to how much boost there is to compensate for.
+    return base * (1 + Math.max(0, this.speedMul - 1) * SHELL_BOOST);
+  }
+
+  aimPoint(e, shotSpeed, out) {
+    const dist = Math.hypot(this.shipPos[0] - e.world[0],
+      this.shipPos[1] - e.world[1], this.shipPos[2] - e.world[2]) || 1;
+    const lead = dist / shotSpeed;
+    const vx = this.camF[0] * this.speed + this.camR[0] * this.velX + this.camU[0] * this.velY;
+    const vy = this.camF[1] * this.speed + this.camR[1] * this.velX + this.camU[1] * this.velY;
+    const vz = this.camF[2] * this.speed + this.camR[2] * this.velX + this.camU[2] * this.velY;
+    out[0] = this.shipPos[0] + vx * lead;
+    out[1] = this.shipPos[1] + vy * lead;
+    out[2] = this.shipPos[2] + vz * lead;
+
+    const boosts = (this.burning ? 1 : 0) + (this.gateTime > 0 ? 1 : 0);
+    const acc = boosts === 0 ? AIM_BASE
+      : Math.max(0.2, AIM_BOOST - AIM_DROP * (boosts - 1));
+    if (hash2((this.time * 61) | 0, (e.t | 0) & 511) <= acc) return out;
+
+    // A thrown shot goes wide across the line of fire rather than short: a
+    // shell that lands behind you reads as the gun being slow, and one that
+    // goes past your wing reads as the gun missing.
+    const a = hash2((this.time * 89) | 0, (e.t | 0) & 255) * TAU;
+    const off = AIM_MISS * (0.7 + hash2((this.time * 29) | 0, e.t & 127) * 0.6);
+    out[0] += (this.camR[0] * Math.cos(a) + this.camU[0] * Math.sin(a)) * off;
+    out[1] += (this.camR[1] * Math.cos(a) + this.camU[1] * Math.sin(a)) * off;
+    out[2] += (this.camR[2] * Math.cos(a) + this.camU[2] * Math.sin(a)) * off;
+    return out;
+  }
+
+  /**
    * The emplacement: two heavy shots and then a missile, over and over.
    *
    * It used to be a turret with more hit points -- one heavy bolt every second
@@ -967,12 +1029,11 @@ export class Game {
     e.burst = (e.burst || 0) + 1;
     if (e.burst >= EMP_BURST) { e.burst = 0; e.cool = EMP_BURST_GAP; }
     else e.cool = EMP_BURST_STEP;
-    const speed = 560;
-    const lead = dist / speed;
-    const px = this.shipPos[0] + this.camF[0] * this.speed * lead * 0.85;
-    const py = this.shipPos[1] + this.camF[1] * this.speed * lead * 0.85;
-    const pz = this.shipPos[2] + this.camF[2] * this.speed * lead * 0.85;
-    let ax = px - e.world[0], ay = py - e.world[1], az = pz - e.world[2];
+    const speed = this.shotSpeed(560);
+    this.aimPoint(e, speed, this._aim);
+    let ax = this._aim[0] - e.world[0];
+    let ay = this._aim[1] - e.world[1];
+    let az = this._aim[2] - e.world[2];
     const al = Math.hypot(ax, ay, az) || 1;
     this.weapons.fireBolt(e.world[0], e.world[1], e.world[2], ax / al, ay / al, az / al, speed, true);
     if (ahead < 800) this.audio.enemyShot();
@@ -1166,15 +1227,14 @@ export class Game {
     e.cool = GATLING_CADENCE;
     const dist = Math.hypot(
       this.shipPos[0] - e.world[0], this.shipPos[1] - e.world[1], this.shipPos[2] - e.world[2]) || 1;
-    const speed = 700;
-    const lead = dist / speed;
+    const speed = this.shotSpeed(700);
     // Leads the ship, then scatters: a stream that converged perfectly would be
     // a hitscan death sentence, and one that did not converge would be scenery.
+    this.aimPoint(e, speed, this._aim);
     const j = () => (hash2((this.time * 120) | 0, (e.t | 0) & 511) - 0.5) * GATLING_SPREAD;
-    const px = this.shipPos[0] + this.camF[0] * this.speed * lead * 0.9 + j() * 26;
-    const py = this.shipPos[1] + this.camF[1] * this.speed * lead * 0.9 + j() * 22;
-    const pz = this.shipPos[2] + this.camF[2] * this.speed * lead * 0.9;
-    let ax = px - e.world[0], ay = py - e.world[1], az = pz - e.world[2];
+    let ax = this._aim[0] - e.world[0] + j() * 26;
+    let ay = this._aim[1] - e.world[1] + j() * 22;
+    let az = this._aim[2] - e.world[2];
     const al = Math.hypot(ax, ay, az) || 1;
     this.weapons.fireBolt(e.world[0], e.world[1] + 11, e.world[2],
       ax / al, ay / al, az / al, speed, false, true);

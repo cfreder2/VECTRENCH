@@ -393,6 +393,31 @@ climbing into its fire.
 
 ---
 
+## Aim, and what speed buys you
+
+Every gun that throws a shell -- turret, gatling, wall gun, drone, emplacement --
+lays each shot either properly or deliberately wide, and how often it manages
+the first is what boosting changes:
+
+| You are | Shots laid properly |
+| --- | --- |
+| flying normally | **80%** |
+| burning, or gated (1.5×) | **60%** |
+| both at once (2.1×) | **50%** |
+
+A shot laid properly leads the ship's whole velocity -- down the track at
+whatever the burn is making it, plus whatever the stick is doing sideways. A
+thrown one goes wide *across* the line of fire rather than short, because a
+shell that lands behind you reads as the gun being slow and one that goes past
+your wing reads as the gun missing.
+
+Shells also fly faster in proportion to the boost, which is arithmetic rather
+than flavour: at 2.1× the ship was outrunning a 520 u/s shell, and one per cent
+of them landed. Boosting past the surface guns was immunity. It costs them
+accuracy now instead — measured over a run above the rim, boosting cuts what
+they take off you roughly in half and a super burn to about a sixth, where it
+used to be to nothing at all.
+
 ## What hurts, and how much
 
 | Source | Damage |
