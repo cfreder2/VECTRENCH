@@ -5982,6 +5982,11 @@ const AIM_DRIFT = 110;         // units more per second the shell is in the air
 // did. Only the boost is compensated for.
 const SHELL_BOOST = 1.7;      // extra shell speed per unit of boost multiplier
 
+// What a missile takes off what it hits. Everything light dies to one; the
+// heavies -- an emplacement at 14, the bigger batteries at 10 and up -- take
+// two, or one and a few seconds of the gun.
+const MISSILE_DAMAGE = 8;
+
 const SEAL_DROP_SPEED = 190;  // how fast a bulkhead sinks once its panels go
 
 // The port's defence. It does not turn -- the shafts around its rim are fixed,
@@ -7336,8 +7341,19 @@ class Game {
         if (segSphere(m.px, m.py, m.pz, m.x, m.y, m.z,
           tg.world[0], tg.world[1], tg.world[2], R + 6)) {
           boom = true;
-          tg.hp = 0;
-          this.destroy(tg);
+          // A missile does damage rather than deleting whatever it touches.
+          // Killing outright meant the two heaviest things in the game died to
+          // one lock each from as far away as the lock reached: an emplacement
+          // was dead 697 units out, having fired eight shells from maximum
+          // range and landed none of them. It was not a threat because it was
+          // never alive while you were close.
+          tg.hp -= MISSILE_DAMAGE;
+          tg.flash = 1;
+          if (tg.hp <= 0) this.destroy(tg);
+          else {
+            this.score += 120;
+            this.say(`${tg.kind === 'emplacement' ? 'EMPLACEMENT' : 'TARGET'} STILL UP`, 0.9);
+          }
         }
       } else if (!tg || !tg.alive) {
         boom = m.life < 5.4;

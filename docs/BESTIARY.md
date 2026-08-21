@@ -65,7 +65,7 @@ enemy('turret', t, x, y, { hp: 3, maxHp: 3, lockable: true, points: 250, cool: 0
 | `t` | units | Where along the track it stands. 0 is the start line |
 | `x` | units | Across the trench. 0 is the centre line, negative is one wall, positive the other. Beyond `±halfWidth` is on the surface |
 | `y` | units | Height above the trench floor. `rim` is the lip |
-| `hp` / `maxHp` | number | Gun hits to kill — the cannons do exactly 1 each. A missile ignores this and kills outright |
+| `hp` / `maxHp` | number | Gun hits to kill — the cannons do exactly 1 each. A missile does **8**, so anything above that takes two, or one and a few seconds of the gun |
 | `points` | number | Score for killing it |
 | `cool` | seconds | Time until it may fire again. Set at build time so a cluster does not fire in lockstep |
 | `lockable` | bool | Whether the crosshair can paint it. False means missiles will not go near it |
@@ -263,6 +263,13 @@ apart, spawned when you are within 950 units and cleared 90 units behind you.
 
 ### Emplacement — `emplacement`
 
+**The one thing a single lock will not kill.** That is the whole point of it:
+killing outright meant it died 697 units out, having fired eight shells from
+maximum range and landed none of them — not a threat, because it was never
+alive while you were close. Spend the second missile, or finish it with the gun,
+or accept the 19 damage it does to you on the way past.
+
+
 <img src="assets/emplacement.png" width="420">
 
 The turret's big brother: eight sides instead of six, nearly twice the radius,
@@ -273,7 +280,7 @@ still only expensive to get wrong.
 
 | Argument | Value | Meaning |
 | --- | --- | --- |
-| `hp` | 14 | Fourteen cannon hits. One missile, like everything else |
+| `hp` | 14 | Fourteen cannon hits, or **two missiles** — or one missile and six cannon hits. It is the only thing in the trench that survives a lock |
 | fire | 3 heavy shells 0.17 s apart, then 1.15 s | 19 each, at 560 u/s |
 | missile | one per pass, from 560 units | 26. Slower and blunter than a battery's — a trench is not open air |
 | shape | 8-sided drum, R 17, 15 tall | Mounted on a wall rather than standing on the floor, so it is drawn lying on its side with the wide base against the rock and the barrel across the trench |
@@ -377,7 +384,7 @@ fins, and an engine flare whose length tracks the throttle.
 | Weapon | Numbers |
 | --- | --- |
 | **Cannon** | 0.09 s cadence, 1500 u/s, 1 damage. Heat 0.38/s up, 0.5/s down; overheats at 1 and will not fire again until 0.25 |
-| **Missiles** | Up to **8** locks, 5 s cooldown, 620 u/s, kills anything locked outright. Free to fire — you buy them by flying, since painting means holding the crosshair on a target for 0.24 s |
+| **Missiles** | Up to **8** locks, 5 s cooldown, 620 u/s, **8 damage** — which kills everything light outright and leaves the heavies standing. Free to fire — you buy them by flying, since painting means holding the crosshair on a target for 0.24 s |
 | **Roll** | A double tap with the second tap held down — there is no roll button, because a button in a fixed corner cannot say *which way*. The roll starts on the press rather than once the hold has proved itself: 7.5 rad/s, on edge in about 150ms. 7.5 rad/s onto its edge, trading 14×10 for 5×18 — width for height. **Signed**: it goes over to whichever side you asked for, because rolling only ever one way is no use when the thing you are avoiding is on that side |
 | **Barrel roll** | A double tap let go of. A whole turn at 11 rad/s, about half a second, at a steady rate rather than easing out — and it is a *dodge*: 165 u/s sideways while it goes round, so it moves the ship and not only the model. It passes through the knife edge twice on the way |
 | **Burn** | Held. 1.5× for as long as the button is down and the tank has charge: 2.4 s of it, refilling over 8 s, and letting go early keeps what is left. Run it dry and it latches off until you release. Both it and gate time spool in and out rather than switching |
