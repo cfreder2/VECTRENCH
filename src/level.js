@@ -366,8 +366,10 @@ export function buildLevel(spec, track) {
       if (t < 400) continue;
       const hw = track.halfWidth(t);
       const side = off === 1750 ? -1 : 1;
-      enemies.push(enemy('emplacement', t, side * (hw - 14), track.rim(t) * 0.5,
-        { hp: 14, maxHp: 14, lockable: true, points: 900, cool: 1.2 }));
+      // Bolted to the trench wall, not standing on anything, so it is drawn
+      // lying on its side with the wide base against the rock.
+      enemies.push(enemy('emplacement', t, side * (hw - 4), track.rim(t) * 0.5,
+        { hp: 14, maxHp: 14, lockable: true, points: 900, cool: 1.2, mount: 'wall' }));
     }
   }
 

@@ -77,10 +77,11 @@ export class UI {
       e.preventDefault();
       this.input.launchMissiles();
     });
-    // Both of these are held, not tapped: the ship is on edge for exactly as
-    // long as ROLL is down, and the burn runs for as long as BURN is down and
-    // there is anything left in the tank. They are buttons of their own so that
-    // touch-and-hold anywhere else is still nothing but the gun.
+    // Held, not tapped: the burn runs for as long as this is down and there is
+    // anything left in the tank. It is a button of its own so that touch-and-
+    // hold anywhere else is still nothing but the gun. There is no roll button
+    // any more -- double tap and hold does that, on the side you ask for, which
+    // a single button in a fixed corner could never do.
     const hold = (id, set) => {
       const el = $(id);
       const go = (on) => (e) => {
@@ -93,10 +94,6 @@ export class UI {
         el.addEventListener(ev, go(false));
       }
     };
-    hold('roll', (on) => {
-      this.input.rollHeld = on;
-      $('roll').classList.toggle('on', on);
-    });
     hold('burn', (on) => { this.input.boostHeld = on; });
 
     $('calibrate').addEventListener('click', async () => {

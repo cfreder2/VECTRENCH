@@ -148,7 +148,7 @@
     position: absolute;
     right: max(10px, env(safe-area-inset-right));
     bottom: max(10px, env(safe-area-inset-bottom));
-    display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+    display: grid; grid-template-columns: 1fr; gap: 8px;
     width: min(46vw, 260px);
   }
   #pad > button {
@@ -160,11 +160,7 @@
     -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent;
     font: inherit; letter-spacing: .14em; border-radius: 10px;
   }
-  #roll, #burn { padding: 15px 0; font-size: 13px; }
-  #roll {
-    color: #9fd8ff; background: rgba(10,24,38,.55); border: 1px solid #2f6f9f;
-  }
-  #roll.on { color: #061018; background: #7dd0ff; border-color: #7dd0ff; }
+  #burn { padding: 16px 0; font-size: 15px; }
   #burn {
     color: #7dffb0; background: rgba(10,32,20,.55); border: 1px solid #2f8f5c;
     display: flex; align-items: center; justify-content: center; gap: 2px;
@@ -176,7 +172,7 @@
   #burn.on b.lit { color: #04140b; }
   #burn.cooling { border-color: #23503a; background: rgba(10,32,20,.3); }
   #msl {
-    grid-column: 1 / -1; padding: 20px 0;
+    padding: 20px 0;
     font-size: 14px; letter-spacing: 0.16em;
     background: rgba(255,183,77,0.13); color: var(--amber);
     border: 1px solid rgba(255,183,77,0.5);
@@ -265,9 +261,8 @@
             side rule. Lift to come level.<br>
             Tap on the <i>picture</i>, not on the buttons &mdash; the corner they
             sit in does not pass taps through. Anywhere above them counts.<br>
-            <b>ROLL</b> holds it on edge too, going over the way you are steering.
-            <b>&#10095;&#10095;&#10095;</b> is the boost, held, and the lit
-            chevrons are what is left in the tank.
+            <b>&#10095;&#10095;&#10095;</b> is the boost. Hold it; the lit chevrons
+            are what is left in the tank.
           </div>
           <div class="note" id="padstate">gamepad: none</div>
         </div>
@@ -278,7 +273,6 @@
   <div id="flight" class="layer">
     <button id="pause" class="chip">MENU</button>
     <div id="pad">
-      <button id="roll">ROLL</button>
       <button id="burn" aria-label="boost"></button>
       <button id="msl">MISSILES</button>
     </div>

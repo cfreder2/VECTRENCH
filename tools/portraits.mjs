@@ -379,6 +379,7 @@ const SUBJECTS = [
     id: 'emplacement', name: 'EMPLACEMENT', fov: 1.0, view: HEADON, fill: 0.68,
     draw: showEnemy(enemy({
       kind: 'emplacement', x: -HALF_WIDTH + 14, y: RIM * 0.5, hp: 14, maxHp: 14,
+      mount: 'wall',
       aim: -0.3, spin: 1.1,
     })),
   },

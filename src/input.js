@@ -63,7 +63,6 @@ export class Input {
     this.missilePressed = false;
     this.holdTime = 0;
     this.rolling = false;          // the ship is turning onto its side
-    this.rollHeld = false;         // the ROLL button is down
     this.rollDir = 1;              // which way it goes over: -1 left, 1 right
     this.barrelReq = 0;            // a double tap let go of, waiting to be taken
     this._double = null;           // the second tap of a pair, still down
@@ -134,7 +133,6 @@ export class Input {
       this.stick = null;
       this.firing = false;
       this.rolling = false;
-      this.rollHeld = false;
       this.boosting = false;
       this.boostHeld = false;
       this._double = null;
@@ -385,7 +383,7 @@ export class Input {
     // the gun and stays the gun: it is the best thing about flying this, and a
     // roll that borrowed it would be a roll that cost you the shot you were
     // taking. So it is a button you hold, a key, or a face button on a pad.
-    this.rolling = this.rollHeld;
+    this.rolling = false;
     this.boosting = this.boostHeld;
     if (Math.abs(this.steerX) > 0.15) this.rollDir = Math.sign(this.steerX);
     // A second tap still held past the tap window is the knife edge, for as
