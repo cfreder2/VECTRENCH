@@ -245,6 +245,14 @@
           <label>TILT SENSITIVITY</label>
           <div class="row"><input type="range" id="sens" min="0.5" max="2.2" step="0.1" value="1"><span class="note" id="sensval">1.0</span></div>
           <div class="row">
+            <span class="toggle"><input type="checkbox" id="paintlock" checked> PAINT TO LOCK</span>
+          </div>
+          <div class="note">
+            On, a target locks only while the crosshair is actually on it. Off,
+            anything within a quarter of the screen paints, which plays as an
+            auto-lock.
+          </div>
+          <div class="row">
             <span class="toggle"><input type="checkbox" id="invx"> INVERT LEFT/RIGHT</span>
             <span class="toggle"><input type="checkbox" id="invy" checked> INVERT UP/DOWN</span>
           </div>
@@ -5903,7 +5911,13 @@ const LOCK_MAX = 8;
 // That is the shape of the weapon: it pays off exactly where it is needed.
 const TARGET_RANGE = FAR;
 const PAINT_TIME = 0.24;      // crosshair dwell that turns a target into a lock
-const PAINT_RADIUS = 108;     // how wide the crosshair paints, in scale units
+// How wide the crosshair paints. The loose number is a quarter of the screen's
+// short side, which is generous enough that pointing the ship down the canyon
+// paints most of what is in front of it -- it plays as an auto-lock, and it is
+// fun, so it stays as a setting. The strict one is the reticle itself: a target
+// is painted when it is actually inside the brackets.
+const PAINT_RADIUS = 108;     // loose, in scale units
+const PAINT_TIGHT = 26;       // strict: the smallest the brackets ever draw
 const CROSSHAIR_PULL = 0.35;  // how far the crosshair drifts toward a target
 const MISSILE_COOLDOWN = 5;
 
@@ -6050,6 +6064,7 @@ class Game {
     this.velX = 0;
     this.velY = 0;
     this.bank = 0;
+    this.paintToLock = true;    // must the crosshair be on it, or merely near it
     this.knife = 0;             // 0 level, 1 fully on edge -- |sin| of the roll
     this.rollAng = 0;           // signed, so the ship can go over either way
     this.rollTarget = 0;
@@ -6700,7 +6715,9 @@ class Game {
     // sweep across a group paints the group. Painting one at a time would make
     // a salvo of five cost five separate passes, which is not a salvo -- it is
     // five shots with extra steps.
-    const grab = PAINT_RADIUS * rd.scale;
+    const grab = this.paintToLock
+      ? Math.max(this.aimSize || 0, PAINT_TIGHT * rd.scale)
+      : PAINT_RADIUS * rd.scale;
     let best = null;
     let bestD = grab;
     for (const arr of cands) {
@@ -7726,6 +7743,7 @@ class UI {
       this.input.sensitivity = +e.target.value;
       $('sensval').textContent = (+e.target.value).toFixed(1);
     });
+    $('paintlock').addEventListener('change', (e) => { this.game.paintToLock = e.target.checked; });
     $('invx').addEventListener('change', (e) => { this.input.invertX = e.target.checked; });
     $('invy').addEventListener('change', (e) => { this.input.invertY = e.target.checked; });
     $('mute').addEventListener('change', (e) => this.audio.setMuted(e.target.checked));

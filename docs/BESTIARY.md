@@ -394,6 +394,14 @@ The crosshair is not aimed. It sits where the nose points, and the nose yaws up
 to 0.52 rad with your steering — so *flying* is how you put it on things, and a
 lock is bought with flight path.
 
+**PAINT TO LOCK**, on by default, decides how much of that is required. On, a
+target paints only while it is inside the drawn brackets — what you see is what
+you paint. Off, anything within 108 scale units paints, which is a quarter of
+the screen's short side, and pointing the ship down the canyon paints most of
+what is in front of it: it plays as an auto-lock. Measured over a run with a
+pilot who never aims, strict paints 0.70 targets in an average frame against
+1.81 loose.
+
 **Line of sight is real.** A surface gun cannot be seen, painted or locked from
 the trench floor: the sight line clips the rim. Fighting the surface means
 climbing into its fire.

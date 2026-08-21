@@ -105,6 +105,7 @@ export class UI {
       this.input.sensitivity = +e.target.value;
       $('sensval').textContent = (+e.target.value).toFixed(1);
     });
+    $('paintlock').addEventListener('change', (e) => { this.game.paintToLock = e.target.checked; });
     $('invx').addEventListener('change', (e) => { this.input.invertX = e.target.checked; });
     $('invy').addEventListener('change', (e) => { this.input.invertY = e.target.checked; });
     $('mute').addEventListener('change', (e) => this.audio.setMuted(e.target.checked));

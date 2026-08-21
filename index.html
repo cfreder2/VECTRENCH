@@ -245,6 +245,14 @@
           <label>TILT SENSITIVITY</label>
           <div class="row"><input type="range" id="sens" min="0.5" max="2.2" step="0.1" value="1"><span class="note" id="sensval">1.0</span></div>
           <div class="row">
+            <span class="toggle"><input type="checkbox" id="paintlock" checked> PAINT TO LOCK</span>
+          </div>
+          <div class="note">
+            On, a target locks only while the crosshair is actually on it. Off,
+            anything within a quarter of the screen paints, which plays as an
+            auto-lock.
+          </div>
+          <div class="row">
             <span class="toggle"><input type="checkbox" id="invx"> INVERT LEFT/RIGHT</span>
             <span class="toggle"><input type="checkbox" id="invy" checked> INVERT UP/DOWN</span>
           </div>

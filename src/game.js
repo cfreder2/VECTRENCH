@@ -66,7 +66,13 @@ const LOCK_MAX = 8;
 // That is the shape of the weapon: it pays off exactly where it is needed.
 const TARGET_RANGE = FAR;
 const PAINT_TIME = 0.24;      // crosshair dwell that turns a target into a lock
-const PAINT_RADIUS = 108;     // how wide the crosshair paints, in scale units
+// How wide the crosshair paints. The loose number is a quarter of the screen's
+// short side, which is generous enough that pointing the ship down the canyon
+// paints most of what is in front of it -- it plays as an auto-lock, and it is
+// fun, so it stays as a setting. The strict one is the reticle itself: a target
+// is painted when it is actually inside the brackets.
+const PAINT_RADIUS = 108;     // loose, in scale units
+const PAINT_TIGHT = 26;       // strict: the smallest the brackets ever draw
 const CROSSHAIR_PULL = 0.35;  // how far the crosshair drifts toward a target
 const MISSILE_COOLDOWN = 5;
 
@@ -213,6 +219,7 @@ export class Game {
     this.velX = 0;
     this.velY = 0;
     this.bank = 0;
+    this.paintToLock = true;    // must the crosshair be on it, or merely near it
     this.knife = 0;             // 0 level, 1 fully on edge -- |sin| of the roll
     this.rollAng = 0;           // signed, so the ship can go over either way
     this.rollTarget = 0;
@@ -863,7 +870,9 @@ export class Game {
     // sweep across a group paints the group. Painting one at a time would make
     // a salvo of five cost five separate passes, which is not a salvo -- it is
     // five shots with extra steps.
-    const grab = PAINT_RADIUS * rd.scale;
+    const grab = this.paintToLock
+      ? Math.max(this.aimSize || 0, PAINT_TIGHT * rd.scale)
+      : PAINT_RADIUS * rd.scale;
     let best = null;
     let bestD = grab;
     for (const arr of cands) {
