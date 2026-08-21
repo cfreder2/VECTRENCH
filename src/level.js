@@ -145,6 +145,12 @@ export function buildLevel(spec, track) {
     // Trench obstacles.
     const og = spacing(sec.obstacles, 2500, 6.2);
     let lastOb = -Infinity;
+    // A run of slits shares one centre line. Placed independently they ask the
+    // ship to be on its edge *and* somewhere else at the same time -- a run
+    // measured 22, then 73, then -45 across, which is a hundred and eighteen
+    // units of sideways in about a second while you are also rolling. Lined up,
+    // a run is one straight line and the only thing that changes is posture.
+    let slotLine = null;
     for (let t = start + og * rand(); t < end; t += og * (0.72 + rand() * 0.56)) {
       if (nearSeal(t) || nearPort(t)) continue;
       if (t - lastOb < MIN_OB_GAP) continue;
@@ -189,6 +195,14 @@ export function buildLevel(spec, track) {
         // the whole conversation between this and the roll.
         slotFlip++;
         const upright = slotFlip % 2 === 1;
+        if (!slotLine) {
+          // Room for the widest slit in the run on either side of it, and a
+          // height every slit in the run can be built around.
+          slotLine = {
+            x: (rand() * 2 - 1) * Math.max(0, hw - 62),
+            y: clamp(rim * 0.46, 34, rim - 34),
+          };
+        }
         // The slit is the ship's own footprint plus a margin each side, so it
         // is authored in the units that matter -- how much room you have --
         // rather than in absolute width. It was five units of half width,
@@ -201,8 +215,8 @@ export function buildLevel(spec, track) {
         const gap = sec.slotgap;
         const gw = upright ? KNIFE_HX + gap : clamp(38 + rand() * 10, 20, hw - 12);
         const gh = upright ? 44 + rand() * 12 : SHIP_HY + gap;
-        const gx = (rand() * 2 - 1) * Math.max(0, hw - gw - 14);
-        const gy = clamp(26 + rand() * 40, gh + 8, Math.max(gh + 9, rim - gh - 12));
+        const gx = clamp(slotLine.x, -(hw - gw - 12), hw - gw - 12);
+        const gy = clamp(slotLine.y, gh + 8, Math.max(gh + 9, rim - gh - 12));
         obstacles.push(obstacle(t, 16, 'slot', [
           [-hw - 30, gx - gw, -30, rim + 14],
           [gx + gw, hw + 30, -30, rim + 14],

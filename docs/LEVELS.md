@@ -150,7 +150,7 @@ rather than as rock, and two of them talk to the ship's own controls.
 | `press` | A crusher that opens and closes on a cycle. Timing. |
 | `slider` | A wall that slides across the trench and back. |
 | `cross` | Four thick arms from the middle, turning. |
-| `slot` | A wall with a slit in it, and the slits alternate. Upright ones only take the ship **on edge**; flat ones only take it **level**. See `slotgap` for how much room they leave |
+| `slot` | A wall with a slit in it, and the slits alternate. Upright ones only take the ship **on edge**; flat ones only take it **level**. See `slotgap` for how much room they leave A run of them in one section shares a single centre line, so a run is a straight line down which only your posture changes rather than a slalom you also have to roll through |
 | `boostgate` | A green hexagonal hoop, and the only friendly thing in a canyon. Through the hole is three seconds of 1.5x on a timer of its own -- it neither spends the burn tank nor fills it, and a second hoop adds three more seconds. Not solid: it cannot hurt you, it does not stop shots, and the fairness audit does not treat it as an obstruction |
 | `pinwheel` | Three or five thin arms from the middle, turning. Geometry, not a gun. |
 
