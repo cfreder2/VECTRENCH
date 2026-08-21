@@ -8,9 +8,9 @@ A vector-graphics rails shooter in a canyon.  The goal of this was to experiment
 - Tilt the phone to move within the trench. 
 - Touch anywhere to fire the machine gun.
 - Paint your targets and launch missiles all at once.
-- Tap or hold anywhere to fire. **Double tap** to barrel roll, **triple tap** to
-  hold the ship on its edge — the side of the screen you tap is the way it goes
-  over. **ROLL** does the same while held.
+- Tap or hold anywhere to fire. **Double tap** to barrel roll, which dodges the
+  ship sideways; **double tap and hold** to stay on edge for the upright slits.
+  The side of the screen you tap is the way it goes. **ROLL** holds it too.
 - The green chevrons are the boost: hold them for 1.5× while there is anything
   in the tank. Green hexagons give three seconds free, and stack.
 - Stay below the rim of the canyon, or you'll be womp rat meat

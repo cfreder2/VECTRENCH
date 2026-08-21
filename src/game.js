@@ -91,7 +91,8 @@ const GATLING_SPREAD = 0.78;  // tighter: the stream is meant to connect
 // the width it needs for height it needs -- which is the whole point: a slot
 // too narrow to fly through level is easy sideways, and vice versa.
 const KNIFE_RATE = 4.2;
-const BARREL_RATE = 11;       // a barrel roll is a flourish, not a manoeuvre       // how fast it goes over, and comes back
+const BARREL_RATE = 11;       // radians a second: a whole turn in about half of one
+const BARREL_SLIDE = 165;     // units a second sideways while it goes round       // how fast it goes over, and comes back
 
 // The burn: a tank you hold open rather than a shot you fire. It runs for as
 // long as the button is down and there is charge left, and it fills back up
@@ -171,7 +172,7 @@ export class Game {
     this.rollAng = 0;           // signed, so the ship can go over either way
     this.rollTarget = 0;
     this.barreling = false;
-    this.knifeLatch = 0;        // -1, 0 or 1: held on edge by a triple tap
+    this.barrelDir = 0;         // a barrel roll is a dodge: it takes you sideways
     this.boost = BOOST_TANK;    // seconds of burn left in the tank
     this.burning = false;
     this.burnSpent = false;
@@ -239,7 +240,7 @@ export class Game {
     this.rollAng = 0;
     this.rollTarget = 0;
     this.barreling = false;
-    this.knifeLatch = 0;
+    this.barrelDir = 0;
     this.boost = BOOST_TANK;
     this.burning = false;
     this.burnSpent = false;
@@ -344,21 +345,18 @@ export class Game {
     // is why the footprint is taken from |sin| rather than from the angle: the
     // ship is at its thinnest a quarter turn round, whichever way it went, and
     // back to its normal shape at a half turn.
+    // Which way is over. Steering right banks the ship negative, so right is a
+    // negative roll -- reading the tap side straight through sent the ship the
+    // opposite way from the side you asked for.
     const barrel = inp.takeBarrel();
     if (barrel && !this.barreling) {
       this.barreling = true;
-      this.rollTarget = this.rollAng + barrel * TAU;
-      this.knifeLatch = 0;
+      this.barrelDir = barrel;
+      this.rollTarget = this.rollAng - barrel * TAU;
       this.say('BARREL ROLL', 0.7);
     }
-    const knifeTap = inp.takeKnife();
-    if (knifeTap) {
-      this.barreling = false;
-      this.knifeLatch = this.knifeLatch === knifeTap ? 0 : knifeTap;
-    }
     if (!this.barreling) {
-      const held = inp.rolling ? (inp.rollDir || 1) : this.knifeLatch;
-      this.rollTarget = held * Math.PI * 0.5;
+      this.rollTarget = inp.rolling ? -(inp.rollDir || 1) * Math.PI * 0.5 : 0;
     }
     if (this.barreling) {
       // A steady spin, not an ease-out: approach() would crawl through the last
@@ -386,6 +384,11 @@ export class Game {
     const hw = tr.halfWidth(this.t);
     const rim = tr.rim(this.t);
     this.ceiling = rim + 92;
+
+    // A barrel roll moves the ship, not just the model: rolling right is how
+    // you get out of the way of something on your left. It goes in on top of
+    // the steer and is clamped by the same walls.
+    if (this.barreling) this.shipX += this.barrelDir * BARREL_SLIDE * dt;
 
     this.velX = approach(this.velX, inp.steerX * MAX_VX, STEER_RATE, dt);
     this.velY = approach(this.velY, inp.steerY * MAX_VY, STEER_RATE, dt);

@@ -376,8 +376,8 @@ fins, and an engine flare whose length tracks the throttle.
 | --- | --- |
 | **Cannon** | 0.09 s cadence, 1500 u/s, 1 damage. Heat 0.38/s up, 0.5/s down; overheats at 1 and will not fire again until 0.25 |
 | **Missiles** | Up to **8** locks, 5 s cooldown, 620 u/s, kills anything locked outright. Free to fire — you buy them by flying, since painting means holding the crosshair on a target for 0.24 s |
-| **Roll** | Held, or a triple tap. 4.2 rad/s onto its edge, trading 14×10 for 5×18 — width for height. **Signed**: it goes over to whichever side you asked for, because rolling only ever one way is no use when the thing you are avoiding is on that side |
-| **Barrel roll** | A double tap. A whole turn at 11 rad/s, about half a second, at a steady rate rather than easing out. It passes through the knife edge twice on the way round |
+| **Roll** | Held, or a double tap held down. 4.2 rad/s onto its edge, trading 14×10 for 5×18 — width for height. **Signed**: it goes over to whichever side you asked for, because rolling only ever one way is no use when the thing you are avoiding is on that side |
+| **Barrel roll** | A double tap let go of. A whole turn at 11 rad/s, about half a second, at a steady rate rather than easing out — and it is a *dodge*: 165 u/s sideways while it goes round, so it moves the ship and not only the model. It passes through the knife edge twice on the way |
 | **Burn** | Held. 1.5× for as long as the button is down and the tank has charge: 2.4 s of it, refilling over 8 s, and letting go early keeps what is left. Run it dry and it latches off until you release. Both it and gate time spool in and out rather than switching |
 | **Gate time** | A separate 1.5× that a turbo gate grants for 3 s and stacks. Independent of the tank in both directions. Burning *and* gated is 2.1× |
 

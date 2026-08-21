@@ -27,9 +27,13 @@ const FULL_TILT_X = 21.5 * (Math.PI / 180);
 const FULL_TILT_Y = 16.6 * (Math.PI / 180);
 const DEADZONE = 0.05;
 const PAD_DEADZONE = 0.14;   // sticks rest a little off centre, and they wear
-const TAP_TIME = 260;        // ms: longer than this and it is a held trigger
-const TAP_SLOP = 26;         // px a tap may travel and still be a tap
-const TAP_WINDOW = 360;      // ms between taps for them to count as a run
+// Tap timings, which are the difference between a gesture that works under a
+// thumb and one that only works in a test. 260ms was tight: firing happens on
+// the way down, so people hold a moment longer than they think they do, and a
+// triple tap had to land three touches inside 720ms.
+const TAP_TIME = 340;        // ms: longer than this and it is a held trigger
+const TAP_SLOP = 30;         // px a tap may travel and still be a tap
+const TAP_WINDOW = 480;      // ms between taps going down, hold time excluded
 
 // Calibration waits for stillness: this many consecutive readings within this
 // tolerance, or this many readings total before it settles for what it has.
@@ -61,9 +65,9 @@ export class Input {
     this.rolling = false;          // the ship is turning onto its side
     this.rollHeld = false;         // the ROLL button is down
     this.rollDir = 1;              // which way it goes over: -1 left, 1 right
-    this.barrelReq = 0;            // a double tap, waiting to be taken
-    this.knifeReq = 0;             // a triple tap, waiting to be taken
-    this._taps = [];               // recent taps, for counting them
+    this.barrelReq = 0;            // a double tap let go of, waiting to be taken
+    this._double = null;           // the second tap of a pair, still down
+    this._lastPress = null;
     this.boosting = false;         // the burn is open
     this.boostHeld = false;        // the BURN button is down
     this.boostHeld = false;
@@ -133,6 +137,8 @@ export class Input {
       this.rollHeld = false;
       this.boosting = false;
       this.boostHeld = false;
+      this._double = null;
+      this._lastPress = null;
     });
   }
 
@@ -275,27 +281,28 @@ export class Input {
   }
 
   /**
-   * Taps, counted.
+   * Two taps, and then it depends what you do with the second one.
    *
-   * One tap is the gun and always has been -- it fires on the way down, so the
-   * gestures built on top of it never cost you a shot. Two is a barrel roll and
-   * three puts the ship on its edge, and which side of the screen you tapped
-   * decides which way it goes over, because rolling only ever one way is no use
-   * when the thing you are avoiding is on that side.
+   * Let it go and the ship barrel rolls; keep holding and it stays on its edge
+   * until you lift. One tap is still only the gun, and still fires on the way
+   * down, so neither gesture costs a shot.
    *
-   * The third tap supersedes the second rather than the second waiting to see
-   * if a third is coming. Waiting would put a delay on every barrel roll, and a
-   * barrel roll passes through the knife edge anyway, so a spin that turns into
-   * a held edge looks like what you asked for rather than like a mistake.
+   * The run is timed press to press. Timed release to release -- which is what
+   * this did first -- the gap between two taps includes however long the second
+   * was held, so a pair of unhurried 300ms taps 400ms apart measured 700ms and
+   * never counted. It worked with 40ms taps in a test and not under a thumb.
    */
-  _tap(x, w) {
-    const now = performance.now();
-    this._taps = this._taps.filter((t) => now - t.at < TAP_WINDOW);
+  _press(x, w, id, at) {
+    // One convention, stated once: -1 is left, 1 is right, matching shipX.
+    // Whether that means a positive or a negative roll angle is the game's
+    // business, not this file's -- flipping it here as well as there is how
+    // the dodge ended up going the opposite way from the tap.
     const dir = x < w * 0.5 ? -1 : 1;
-    this._taps.push({ at: now, dir });
-    const run = this._taps.filter((t) => t.dir === dir).length;
-    if (run === 2) this.barrelReq = dir;
-    else if (run >= 3) { this.knifeReq = dir; this.barrelReq = 0; this._taps = []; }
+    if (this._lastPress && this._lastPress.dir === dir
+        && at - this._lastPress.at < TAP_WINDOW) {
+      this._double = { dir, id, at };
+    }
+    this._lastPress = { dir, at };
   }
 
   _down(e) {
@@ -319,7 +326,9 @@ export class Input {
       this.firing = true;
       this.justPressed = true;
       this.holdTime = 0;
-      this._tapFrom = [p[0], p[1], performance.now()];
+      const now = performance.now();
+      this._tapFrom = [p[0], p[1], now];
+      this._press(p[0], this.canvas.getBoundingClientRect().width || 1, e.pointerId, now);
     }
   }
 
@@ -335,10 +344,15 @@ export class Input {
     if (e.pointerId === this.primary) {
       // A tap is a touch that went down and came up quickly without travelling.
       // Anything longer is the trigger being held, which is not a gesture.
-      const f = this._tapFrom;
-      if (f && at && performance.now() - f[2] < TAP_TIME
-          && Math.hypot(at[0] - f[0], at[1] - f[1]) < TAP_SLOP) {
-        this._tap(at[0], this.canvas.getBoundingClientRect().width || 1);
+      // The second tap of a pair: let go quickly and it is a barrel roll, hold
+      // it and it was the knife edge, which ends here.
+      const d = this._double;
+      if (d && d.id === e.pointerId) {
+        const f = this._tapFrom;
+        const still = f && at && Math.hypot(at[0] - f[0], at[1] - f[1]) < TAP_SLOP;
+        if (still && performance.now() - d.at < TAP_TIME) this.barrelReq = d.dir;
+        this._double = null;
+        this._lastPress = null;
       }
       this.primary = null;
       this.firing = false;
@@ -374,6 +388,12 @@ export class Input {
     this.rolling = this.rollHeld;
     this.boosting = this.boostHeld;
     if (Math.abs(this.steerX) > 0.15) this.rollDir = Math.sign(this.steerX);
+    // A second tap still held past the tap window is the knife edge, for as
+    // long as the finger stays down.
+    if (this._double && performance.now() - this._double.at >= TAP_TIME) {
+      this.rolling = true;
+      this.rollDir = this._double.dir;
+    }
 
     let sx = 0;
     let sy = 0;
@@ -464,13 +484,6 @@ export class Input {
   takeBarrel() {
     const v = this.barrelReq;
     this.barrelReq = 0;
-    return v;
-  }
-
-  /** A triple tap, once. Same convention. */
-  takeKnife() {
-    const v = this.knifeReq;
-    this.knifeReq = 0;
     return v;
   }
 
