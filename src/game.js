@@ -90,7 +90,7 @@ const GATLING_SPREAD = 0.78;  // tighter: the stream is meant to connect
 // On edge. The ship is a wide flat thing, so turning it ninety degrees trades
 // the width it needs for height it needs -- which is the whole point: a slot
 // too narrow to fly through level is easy sideways, and vice versa.
-const KNIFE_RATE = 4.2;
+const KNIFE_RATE = 7.5;       // 1/rate is the lag: about a seventh of a second
 const BARREL_RATE = 11;       // radians a second: a whole turn in about half of one
 const BARREL_SLIDE = 165;     // units a second sideways while it goes round       // how fast it goes over, and comes back
 

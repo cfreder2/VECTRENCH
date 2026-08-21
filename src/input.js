@@ -386,9 +386,16 @@ export class Input {
     this.rolling = false;
     this.boosting = this.boostHeld;
     if (Math.abs(this.steerX) > 0.15) this.rollDir = Math.sign(this.steerX);
-    // A second tap still held past the tap window is the knife edge, for as
-    // long as the finger stays down.
-    if (this._double && performance.now() - this._double.at >= TAP_TIME) {
+    // The second tap starts the roll the instant it lands, not once it has
+    // been held long enough to prove it is a hold. Waiting for that put 340ms
+    // of nothing between the press and the ship moving, and the ship then took
+    // another 280 to get over: two thirds of a second to go on edge.
+    //
+    // Nothing is lost by starting early. Let go quickly and the roll it has
+    // already begun carries on into the full turn of a barrel roll; keep
+    // holding and it stops at the edge. Both gestures start the same way, which
+    // is also how they look.
+    if (this._double) {
       this.rolling = true;
       this.rollDir = this._double.dir;
     }
