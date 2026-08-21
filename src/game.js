@@ -90,7 +90,8 @@ const GATLING_SPREAD = 0.78;  // tighter: the stream is meant to connect
 // On edge. The ship is a wide flat thing, so turning it ninety degrees trades
 // the width it needs for height it needs -- which is the whole point: a slot
 // too narrow to fly through level is easy sideways, and vice versa.
-const KNIFE_RATE = 4.2;       // how fast it goes over, and comes back
+const KNIFE_RATE = 4.2;
+const BARREL_RATE = 11;       // a barrel roll is a flourish, not a manoeuvre       // how fast it goes over, and comes back
 
 // The burn: a tank you hold open rather than a shot you fire. It runs for as
 // long as the button is down and there is charge left, and it fills back up
@@ -166,7 +167,11 @@ export class Game {
     this.velX = 0;
     this.velY = 0;
     this.bank = 0;
-    this.knife = 0;             // 0 level, 1 fully on edge
+    this.knife = 0;             // 0 level, 1 fully on edge -- |sin| of the roll
+    this.rollAng = 0;           // signed, so the ship can go over either way
+    this.rollTarget = 0;
+    this.barreling = false;
+    this.knifeLatch = 0;        // -1, 0 or 1: held on edge by a triple tap
     this.boost = BOOST_TANK;    // seconds of burn left in the tank
     this.burning = false;
     this.burnSpent = false;
@@ -231,6 +236,10 @@ export class Game {
     this.particles.clear();
     this.aimDist = AIM_DIST;
     this.knife = 0;
+    this.rollAng = 0;
+    this.rollTarget = 0;
+    this.barreling = false;
+    this.knifeLatch = 0;
     this.boost = BOOST_TANK;
     this.burning = false;
     this.burnSpent = false;
@@ -330,7 +339,46 @@ export class Game {
     // note all at once. Up is slower than down, the way a jet actually is.
     this.speedMul = approach(this.speedMul, target,
       this.speedMul < target ? BURN_SPOOL_UP : BURN_SPOOL_DOWN, dt);
-    this.knife = approach(this.knife, inp.rolling ? 1 : 0, KNIFE_RATE, dt);
+    // The roll is an angle with a sign now, not an amount. Level is 0, on edge
+    // is a quarter turn either way, and a barrel roll is a whole one -- which
+    // is why the footprint is taken from |sin| rather than from the angle: the
+    // ship is at its thinnest a quarter turn round, whichever way it went, and
+    // back to its normal shape at a half turn.
+    const barrel = inp.takeBarrel();
+    if (barrel && !this.barreling) {
+      this.barreling = true;
+      this.rollTarget = this.rollAng + barrel * TAU;
+      this.knifeLatch = 0;
+      this.say('BARREL ROLL', 0.7);
+    }
+    const knifeTap = inp.takeKnife();
+    if (knifeTap) {
+      this.barreling = false;
+      this.knifeLatch = this.knifeLatch === knifeTap ? 0 : knifeTap;
+    }
+    if (!this.barreling) {
+      const held = inp.rolling ? (inp.rollDir || 1) : this.knifeLatch;
+      this.rollTarget = held * Math.PI * 0.5;
+    }
+    if (this.barreling) {
+      // A steady spin, not an ease-out: approach() would crawl through the last
+      // thirty degrees, and a barrel roll that decelerates on its way home
+      // looks like the ship changed its mind.
+      const left = this.rollTarget - this.rollAng;
+      const step = BARREL_RATE * dt;
+      if (Math.abs(left) <= step) {
+        this.barreling = false;
+        // A whole turn from where it started is the same attitude, so fold it
+        // back to the near side rather than letting the angle grow forever.
+        this.rollAng = ((this.rollTarget + Math.PI) % TAU + TAU) % TAU - Math.PI;
+        this.rollTarget = this.rollAng;
+      } else {
+        this.rollAng += Math.sign(left) * step;
+      }
+    } else {
+      this.rollAng = approach(this.rollAng, this.rollTarget, KNIFE_RATE, dt);
+    }
+    this.knife = Math.abs(Math.sin(this.rollAng));
 
     this.speed = tr.speedAt(this.t) * this.speedMul;
     this.t += this.speed * dt;
@@ -383,7 +431,7 @@ export class Game {
     // The ship rolls the whole ninety degrees; the camera leans a fraction of
     // it. Rolling the camera with it turns the canyon on its side, which reads
     // as the world being wrong rather than as the ship being clever.
-    this.shipRoll = this.bank + this.knife * Math.PI * 0.5;
+    this.shipRoll = this.bank + this.rollAng;
     this.pitch = approach(this.pitch, inp.steerY * 0.32, 6.5, dt);
     // Yaw is aim. It follows the steer rather than the velocity so that the
     // crosshair answers the stick directly -- pointing somewhere should not
@@ -610,7 +658,7 @@ export class Game {
 
     // Roll the camera part-way into the ship's bank: enough to feel the turn,
     // not enough to lose the horizon.
-    const roll = this.bank * 0.42 + this.knife * 0.2;
+    const roll = this.bank * 0.42 + Math.sin(this.rollAng) * 0.2;
     const cr = Math.cos(roll), sr = Math.sin(roll);
     for (let i = 0; i < 3; i++) {
       const ri = r[i] * cr + u[i] * sr;

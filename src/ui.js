@@ -15,6 +15,8 @@ import { drawSchematic } from './hud.js';
 
 const $ = (id) => document.getElementById(id);
 
+const BURN_PIPS = 5;   // chevrons on the boost gauge
+
 export class UI {
   constructor(rd, input, audio, game) {
     this.rd = rd;
@@ -154,11 +156,16 @@ export class UI {
    */
   syncBurnButton() {
     const g = this.game;
-    // The button is the gauge: how much burn is in the tank, and lit while it
-    // is actually being spent.
-    const text = g.boost <= 0.05 ? 'EMPTY' : `BURN ${g.boost.toFixed(1)}`;
-    if (text !== this._burnText) { $('burn').textContent = text; this._burnText = text; }
-    const cls = g.burning ? 'on' : g.boost <= 0.05 ? 'cooling' : '';
+    // The button is the gauge, and the gauge is chevrons: five of them, lit from
+    // the left as the tank fills. A word would have to be read; a row of arrows
+    // is a fuel bar you take in without looking away from the canyon.
+    const lit = Math.round(Math.max(0, Math.min(1, g.boost / 2.4)) * BURN_PIPS);
+    if (lit !== this._burnPips) {
+      $('burn').innerHTML = Array.from({ length: BURN_PIPS }, (_, i) =>
+        `<b class="${i < lit ? 'lit' : ''}">\u276f</b>`).join('');
+      this._burnPips = lit;
+    }
+    const cls = g.burning ? 'on' : lit === 0 ? 'cooling' : '';
     if (cls !== this._burnCls) { $('burn').className = cls; this._burnCls = cls; }
   }
 

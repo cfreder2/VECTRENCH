@@ -167,9 +167,14 @@
   #roll.on { color: #061018; background: #7dd0ff; border-color: #7dd0ff; }
   #burn {
     color: #7dffb0; background: rgba(10,32,20,.55); border: 1px solid #2f8f5c;
+    display: flex; align-items: center; justify-content: center; gap: 2px;
   }
-  #burn.on { color: #04140b; background: #6dffa8; border-color: #6dffa8; }
-  #burn.cooling { color: #4a6b58; border-color: #23503a; background: rgba(10,32,20,.3); }
+  #burn b { font-weight: 400; color: #1d4a33; transition: color .12s; }
+  #burn b.lit { color: #6dffa8; text-shadow: 0 0 8px rgba(109,255,168,.7); }
+  #burn.on { background: #6dffa8; border-color: #6dffa8; }
+  #burn.on b { color: #06301b; text-shadow: none; }
+  #burn.on b.lit { color: #04140b; }
+  #burn.cooling { border-color: #23503a; background: rgba(10,32,20,.3); }
   #msl {
     grid-column: 1 / -1; padding: 20px 0;
     font-size: 14px; letter-spacing: 0.16em;
@@ -252,6 +257,16 @@
             <span class="toggle"><input type="checkbox" id="music" checked> MUSIC</span>
             <span class="toggle"><input type="checkbox" id="crt" checked> CRT GLOW</span>
           </div>
+          <div class="note">
+            <b>TAP</b> or hold anywhere &mdash; machine gun.<br>
+            <b>DOUBLE TAP</b> &mdash; barrel roll. Tap the left of the screen to go
+            over to the left, the right to go right.<br>
+            <b>TRIPLE TAP</b> &mdash; hold the ship on its edge, same side rule.
+            Triple tap again to come level.<br>
+            <b>ROLL</b> holds it on edge while pressed, going over the way you are
+            steering. <b>&#10095;&#10095;&#10095;</b> is the boost, held, and the
+            lit chevrons are what is left in the tank.
+          </div>
           <div class="note" id="padstate">gamepad: none</div>
         </div>
       </details>
@@ -262,7 +277,7 @@
     <button id="pause" class="chip">MENU</button>
     <div id="pad">
       <button id="roll">ROLL</button>
-      <button id="burn">BURN</button>
+      <button id="burn" aria-label="boost"></button>
       <button id="msl">MISSILES</button>
     </div>
   </div>
@@ -5302,6 +5317,9 @@ const FULL_TILT_X = 21.5 * (Math.PI / 180);
 const FULL_TILT_Y = 16.6 * (Math.PI / 180);
 const DEADZONE = 0.05;
 const PAD_DEADZONE = 0.14;   // sticks rest a little off centre, and they wear
+const TAP_TIME = 260;        // ms: longer than this and it is a held trigger
+const TAP_SLOP = 26;         // px a tap may travel and still be a tap
+const TAP_WINDOW = 360;      // ms between taps for them to count as a run
 
 // Calibration waits for stillness: this many consecutive readings within this
 // tolerance, or this many readings total before it settles for what it has.
@@ -5332,6 +5350,10 @@ class Input {
     this.holdTime = 0;
     this.rolling = false;          // the ship is turning onto its side
     this.rollHeld = false;         // the ROLL button is down
+    this.rollDir = 1;              // which way it goes over: -1 left, 1 right
+    this.barrelReq = 0;            // a double tap, waiting to be taken
+    this.knifeReq = 0;             // a triple tap, waiting to be taken
+    this._taps = [];               // recent taps, for counting them
     this.boosting = false;         // the burn is open
     this.boostHeld = false;        // the BURN button is down
     this.boostHeld = false;
@@ -5542,6 +5564,30 @@ class Input {
     return [e.clientX - r.left, e.clientY - r.top];
   }
 
+  /**
+   * Taps, counted.
+   *
+   * One tap is the gun and always has been -- it fires on the way down, so the
+   * gestures built on top of it never cost you a shot. Two is a barrel roll and
+   * three puts the ship on its edge, and which side of the screen you tapped
+   * decides which way it goes over, because rolling only ever one way is no use
+   * when the thing you are avoiding is on that side.
+   *
+   * The third tap supersedes the second rather than the second waiting to see
+   * if a third is coming. Waiting would put a delay on every barrel roll, and a
+   * barrel roll passes through the knife edge anyway, so a spin that turns into
+   * a held edge looks like what you asked for rather than like a mistake.
+   */
+  _tap(x, w) {
+    const now = performance.now();
+    this._taps = this._taps.filter((t) => now - t.at < TAP_WINDOW);
+    const dir = x < w * 0.5 ? -1 : 1;
+    this._taps.push({ at: now, dir });
+    const run = this._taps.filter((t) => t.dir === dir).length;
+    if (run === 2) this.barrelReq = dir;
+    else if (run >= 3) { this.knifeReq = dir; this.barrelReq = 0; this._taps = []; }
+  }
+
   _down(e) {
     e.preventDefault();
     // Capture is a nicety -- it keeps a finger that slides off the canvas
@@ -5563,6 +5609,7 @@ class Input {
       this.firing = true;
       this.justPressed = true;
       this.holdTime = 0;
+      this._tapFrom = [p[0], p[1], performance.now()];
     }
   }
 
@@ -5572,9 +5619,17 @@ class Input {
   }
 
   _up(e) {
+    const at = this.pointers.get(e.pointerId);
     this.pointers.delete(e.pointerId);
     if (e.pointerId === this.stick) this.stick = null;
     if (e.pointerId === this.primary) {
+      // A tap is a touch that went down and came up quickly without travelling.
+      // Anything longer is the trigger being held, which is not a gesture.
+      const f = this._tapFrom;
+      if (f && at && performance.now() - f[2] < TAP_TIME
+          && Math.hypot(at[0] - f[0], at[1] - f[1]) < TAP_SLOP) {
+        this._tap(at[0], this.canvas.getBoundingClientRect().width || 1);
+      }
       this.primary = null;
       this.firing = false;
       this.holdTime = 0;
@@ -5608,6 +5663,7 @@ class Input {
     // taking. So it is a button you hold, a key, or a face button on a pad.
     this.rolling = this.rollHeld;
     this.boosting = this.boostHeld;
+    if (Math.abs(this.steerX) > 0.15) this.rollDir = Math.sign(this.steerX);
 
     let sx = 0;
     let sy = 0;
@@ -5691,6 +5747,20 @@ class Input {
   takeMissile() {
     const v = this.missilePressed;
     this.missilePressed = false;
+    return v;
+  }
+
+  /** A double tap, once. Returns -1 or 1 for the side, or 0 for nothing. */
+  takeBarrel() {
+    const v = this.barrelReq;
+    this.barrelReq = 0;
+    return v;
+  }
+
+  /** A triple tap, once. Same convention. */
+  takeKnife() {
+    const v = this.knifeReq;
+    this.knifeReq = 0;
     return v;
   }
 
@@ -5809,7 +5879,8 @@ const GATLING_SPREAD = 0.78;  // tighter: the stream is meant to connect
 // On edge. The ship is a wide flat thing, so turning it ninety degrees trades
 // the width it needs for height it needs -- which is the whole point: a slot
 // too narrow to fly through level is easy sideways, and vice versa.
-const KNIFE_RATE = 4.2;       // how fast it goes over, and comes back
+const KNIFE_RATE = 4.2;
+const BARREL_RATE = 11;       // a barrel roll is a flourish, not a manoeuvre       // how fast it goes over, and comes back
 
 // The burn: a tank you hold open rather than a shot you fire. It runs for as
 // long as the button is down and there is charge left, and it fills back up
@@ -5885,7 +5956,11 @@ class Game {
     this.velX = 0;
     this.velY = 0;
     this.bank = 0;
-    this.knife = 0;             // 0 level, 1 fully on edge
+    this.knife = 0;             // 0 level, 1 fully on edge -- |sin| of the roll
+    this.rollAng = 0;           // signed, so the ship can go over either way
+    this.rollTarget = 0;
+    this.barreling = false;
+    this.knifeLatch = 0;        // -1, 0 or 1: held on edge by a triple tap
     this.boost = BOOST_TANK;    // seconds of burn left in the tank
     this.burning = false;
     this.burnSpent = false;
@@ -5950,6 +6025,10 @@ class Game {
     this.particles.clear();
     this.aimDist = AIM_DIST;
     this.knife = 0;
+    this.rollAng = 0;
+    this.rollTarget = 0;
+    this.barreling = false;
+    this.knifeLatch = 0;
     this.boost = BOOST_TANK;
     this.burning = false;
     this.burnSpent = false;
@@ -6049,7 +6128,46 @@ class Game {
     // note all at once. Up is slower than down, the way a jet actually is.
     this.speedMul = approach(this.speedMul, target,
       this.speedMul < target ? BURN_SPOOL_UP : BURN_SPOOL_DOWN, dt);
-    this.knife = approach(this.knife, inp.rolling ? 1 : 0, KNIFE_RATE, dt);
+    // The roll is an angle with a sign now, not an amount. Level is 0, on edge
+    // is a quarter turn either way, and a barrel roll is a whole one -- which
+    // is why the footprint is taken from |sin| rather than from the angle: the
+    // ship is at its thinnest a quarter turn round, whichever way it went, and
+    // back to its normal shape at a half turn.
+    const barrel = inp.takeBarrel();
+    if (barrel && !this.barreling) {
+      this.barreling = true;
+      this.rollTarget = this.rollAng + barrel * TAU;
+      this.knifeLatch = 0;
+      this.say('BARREL ROLL', 0.7);
+    }
+    const knifeTap = inp.takeKnife();
+    if (knifeTap) {
+      this.barreling = false;
+      this.knifeLatch = this.knifeLatch === knifeTap ? 0 : knifeTap;
+    }
+    if (!this.barreling) {
+      const held = inp.rolling ? (inp.rollDir || 1) : this.knifeLatch;
+      this.rollTarget = held * Math.PI * 0.5;
+    }
+    if (this.barreling) {
+      // A steady spin, not an ease-out: approach() would crawl through the last
+      // thirty degrees, and a barrel roll that decelerates on its way home
+      // looks like the ship changed its mind.
+      const left = this.rollTarget - this.rollAng;
+      const step = BARREL_RATE * dt;
+      if (Math.abs(left) <= step) {
+        this.barreling = false;
+        // A whole turn from where it started is the same attitude, so fold it
+        // back to the near side rather than letting the angle grow forever.
+        this.rollAng = ((this.rollTarget + Math.PI) % TAU + TAU) % TAU - Math.PI;
+        this.rollTarget = this.rollAng;
+      } else {
+        this.rollAng += Math.sign(left) * step;
+      }
+    } else {
+      this.rollAng = approach(this.rollAng, this.rollTarget, KNIFE_RATE, dt);
+    }
+    this.knife = Math.abs(Math.sin(this.rollAng));
 
     this.speed = tr.speedAt(this.t) * this.speedMul;
     this.t += this.speed * dt;
@@ -6102,7 +6220,7 @@ class Game {
     // The ship rolls the whole ninety degrees; the camera leans a fraction of
     // it. Rolling the camera with it turns the canyon on its side, which reads
     // as the world being wrong rather than as the ship being clever.
-    this.shipRoll = this.bank + this.knife * Math.PI * 0.5;
+    this.shipRoll = this.bank + this.rollAng;
     this.pitch = approach(this.pitch, inp.steerY * 0.32, 6.5, dt);
     // Yaw is aim. It follows the steer rather than the velocity so that the
     // crosshair answers the stick directly -- pointing somewhere should not
@@ -6329,7 +6447,7 @@ class Game {
 
     // Roll the camera part-way into the ship's bank: enough to feel the turn,
     // not enough to lose the horizon.
-    const roll = this.bank * 0.42 + this.knife * 0.2;
+    const roll = this.bank * 0.42 + Math.sin(this.rollAng) * 0.2;
     const cr = Math.cos(roll), sr = Math.sin(roll);
     for (let i = 0; i < 3; i++) {
       const ri = r[i] * cr + u[i] * sr;
@@ -7272,6 +7390,8 @@ class Game {
 
 const $ = (id) => document.getElementById(id);
 
+const BURN_PIPS = 5;   // chevrons on the boost gauge
+
 class UI {
   constructor(rd, input, audio, game) {
     this.rd = rd;
@@ -7411,11 +7531,16 @@ class UI {
    */
   syncBurnButton() {
     const g = this.game;
-    // The button is the gauge: how much burn is in the tank, and lit while it
-    // is actually being spent.
-    const text = g.boost <= 0.05 ? 'EMPTY' : `BURN ${g.boost.toFixed(1)}`;
-    if (text !== this._burnText) { $('burn').textContent = text; this._burnText = text; }
-    const cls = g.burning ? 'on' : g.boost <= 0.05 ? 'cooling' : '';
+    // The button is the gauge, and the gauge is chevrons: five of them, lit from
+    // the left as the tank fills. A word would have to be read; a row of arrows
+    // is a fuel bar you take in without looking away from the canyon.
+    const lit = Math.round(Math.max(0, Math.min(1, g.boost / 2.4)) * BURN_PIPS);
+    if (lit !== this._burnPips) {
+      $('burn').innerHTML = Array.from({ length: BURN_PIPS }, (_, i) =>
+        `<b class="${i < lit ? 'lit' : ''}">\u276f</b>`).join('');
+      this._burnPips = lit;
+    }
+    const cls = g.burning ? 'on' : lit === 0 ? 'cooling' : '';
     if (cls !== this._burnCls) { $('burn').className = cls; this._burnCls = cls; }
   }
 
