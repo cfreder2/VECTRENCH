@@ -5942,6 +5942,16 @@ const AIM_BASE = 0.8;         // shots laid properly when you are not boosting
 const AIM_BOOST = 0.6;        // and when you are
 const AIM_DROP = 0.1;         // less again for each further boost stacked on
 const AIM_MISS = 26;          // how far wide a thrown shot goes, in units
+// Even a shot laid properly is not laid perfectly. Solving the intercept
+// exactly made every gun a marksman -- 44% of shots landing where 15% had, and
+// the whole game twice as lethal.
+//
+// The error grows with the shell's flight time, which is what a gunner's error
+// actually does: a shot across the width of the trench is nearly a certainty
+// and one at the far end of its range is a guess. It also puts the danger where
+// it belongs, close in, instead of spread evenly over a thousand units.
+const AIM_JITTER = 6;         // units, at zero range
+const AIM_DRIFT = 110;         // units more per second the shell is in the air
 // A shell has to outrun the thing it is shooting at. At a burn the ship was
 // doing 567 units a second against shells doing 520, and one per cent of them
 // landed: not a matter of aim, a matter of arithmetic.
@@ -6764,29 +6774,61 @@ class Game {
   }
 
   aimPoint(e, shotSpeed, out) {
-    const dist = Math.hypot(this.shipPos[0] - e.world[0],
-      this.shipPos[1] - e.world[1], this.shipPos[2] - e.world[2]) || 1;
-    const lead = dist / shotSpeed;
+    // Solve the intercept rather than guess at it.
+    //
+    // The lead used to be dist/shellSpeed, which is the flight time to where
+    // the ship is *now* -- but the ship is flying at the gun, so the shell and
+    // the ship close on each other and the real intercept is sooner than that.
+    // A flat 0.85 was standing in for the difference, and it only fitted one
+    // speed: leading the full amount instead halved what an emplacement could
+    // do, and at a burn nothing landed at all.
+    //
+    // With r the vector to the ship and v its velocity, a shell of speed s
+    // meets it when |r + v t| = s t, which is a quadratic in t.
+    const rx = this.shipPos[0] - e.world[0];
+    const ry = this.shipPos[1] - e.world[1];
+    const rz = this.shipPos[2] - e.world[2];
     const vx = this.camF[0] * this.speed + this.camR[0] * this.velX + this.camU[0] * this.velY;
     const vy = this.camF[1] * this.speed + this.camR[1] * this.velX + this.camU[1] * this.velY;
     const vz = this.camF[2] * this.speed + this.camR[2] * this.velX + this.camU[2] * this.velY;
-    out[0] = this.shipPos[0] + vx * lead;
-    out[1] = this.shipPos[1] + vy * lead;
-    out[2] = this.shipPos[2] + vz * lead;
+    const a = vx * vx + vy * vy + vz * vz - shotSpeed * shotSpeed;
+    const b = 2 * (rx * vx + ry * vy + rz * vz);
+    const c = rx * rx + ry * ry + rz * rz;
+    let t;
+    if (Math.abs(a) < 1e-4) {
+      t = b !== 0 ? -c / b : 0;
+    } else {
+      const disc = b * b - 4 * a * c;
+      if (disc < 0) {
+        // No solution: the ship is outrunning the shell. Lead it as far as the
+        // shell can reach and let the shot fall behind, which is honest.
+        t = Math.hypot(rx, ry, rz) / shotSpeed;
+      } else {
+        const root = Math.sqrt(disc);
+        const t1 = (-b - root) / (2 * a);
+        const t2 = (-b + root) / (2 * a);
+        t = Math.min(...[t1, t2].filter((x) => x > 0), Infinity);
+        if (!Number.isFinite(t)) t = Math.max(t1, t2, 0);
+      }
+    }
+    out[0] = this.shipPos[0] + vx * t;
+    out[1] = this.shipPos[1] + vy * t;
+    out[2] = this.shipPos[2] + vz * t;
 
     const boosts = (this.burning ? 1 : 0) + (this.gateTime > 0 ? 1 : 0);
     const acc = boosts === 0 ? AIM_BASE
       : Math.max(0.2, AIM_BOOST - AIM_DROP * (boosts - 1));
-    if (hash2((this.time * 61) | 0, (e.t | 0) & 511) <= acc) return out;
+    const wide = hash2((this.time * 61) | 0, (e.t | 0) & 511) > acc;
+    const spread = wide
+      ? AIM_MISS * (0.7 + hash2((this.time * 29) | 0, e.t & 127) * 0.6)
+      : (AIM_JITTER + AIM_DRIFT * t) * hash2((this.time * 17) | 0, (e.t | 0) & 63);
 
-    // A thrown shot goes wide across the line of fire rather than short: a
-    // shell that lands behind you reads as the gun being slow, and one that
-    // goes past your wing reads as the gun missing.
-    const a = hash2((this.time * 89) | 0, (e.t | 0) & 255) * TAU;
-    const off = AIM_MISS * (0.7 + hash2((this.time * 29) | 0, e.t & 127) * 0.6);
-    out[0] += (this.camR[0] * Math.cos(a) + this.camU[0] * Math.sin(a)) * off;
-    out[1] += (this.camR[1] * Math.cos(a) + this.camU[1] * Math.sin(a)) * off;
-    out[2] += (this.camR[2] * Math.cos(a) + this.camU[2] * Math.sin(a)) * off;
+    // Off across the line of fire rather than short: a shell that lands behind
+    // you reads as the gun being slow, one past your wing reads as a miss.
+    const ang = hash2((this.time * 89) | 0, (e.t | 0) & 255) * TAU;
+    out[0] += (this.camR[0] * Math.cos(ang) + this.camU[0] * Math.sin(ang)) * spread;
+    out[1] += (this.camR[1] * Math.cos(ang) + this.camU[1] * Math.sin(ang)) * spread;
+    out[2] += (this.camR[2] * Math.cos(ang) + this.camU[2] * Math.sin(ang)) * spread;
     return out;
   }
 

@@ -405,18 +405,33 @@ the first is what boosting changes:
 | burning, or gated (1.5×) | **60%** |
 | both at once (2.1×) | **50%** |
 
-A shot laid properly leads the ship's whole velocity -- down the track at
-whatever the burn is making it, plus whatever the stick is doing sideways. A
-thrown one goes wide *across* the line of fire rather than short, because a
-shell that lands behind you reads as the gun being slow and one that goes past
+A shot laid properly *solves* the intercept — where the ship will be when the
+shell gets there, given its whole velocity — rather than aiming at where it is
+now. A thrown one goes wide **across** the line of fire rather than short,
+because a shell that lands behind you reads as the gun being slow and one past
 your wing reads as the gun missing.
 
-Shells also fly faster in proportion to the boost, which is arithmetic rather
-than flavour: at 2.1× the ship was outrunning a 520 u/s shell, and one per cent
-of them landed. Boosting past the surface guns was immunity. It costs them
-accuracy now instead — measured over a run above the rim, boosting cuts what
-they take off you roughly in half and a super burn to about a sixth, where it
-used to be to nothing at all.
+Even a proper shot is not a perfect one. Its error grows with the shell's flight
+time — 6 units at the muzzle, 110 more for every second in the air — which is
+what a gunner's error actually does: a shot across the trench is nearly certain
+and one at the far end of its range is a guess. Solving the intercept exactly
+and leaving it at that made every gun a marksman, 44% of shots landing where
+15% had, and the whole game twice as lethal.
+
+Shells fly faster in proportion to the boost, too, which is arithmetic rather
+than flavour: at 2.1× the ship was outrunning a 520 u/s shell and one per cent
+of them landed.
+
+| Above the rim, same line | Damage a second | Shots that land |
+| --- | --- | --- |
+| not boosting | 26.8 | 24% |
+| burning | 13.1 | 27% |
+| super burn | 5.9 | 23% |
+
+The fraction landing barely moves — the geometry is fair at any speed now. What
+speed buys is *fewer shots fired at you*, because you spend less time inside each
+gun's reach. It used to buy immunity: 0.2 damage a second and one shot in a
+hundred.
 
 ## What hurts, and how much
 
