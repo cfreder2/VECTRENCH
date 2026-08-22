@@ -28,12 +28,12 @@ districts not yet built sit dark on the map, which is honest.
 | --- | --- | --- | --- | --- | --- |
 | 1 | **RIVERWORKS** | THE ESSES *(exists)* | cyan 0.48–0.53 | coolant rivers — snaking bends, slots | **WAVE** |
 | 2 | **REACTOR** | REACTOR *(exists)* | red 0.0–0.06 | the furnace — everything at once, on fire | **MAGMA** |
-| 3 | **OVERGROWTH** | *new* | green 0.30–0.36 | a reclaimed district — vines as rings, pinwheels as windmills | **SAW** |
+| 3 | **OVERGROWTH** | CANOPY RUN *(exists)* | green 0.30–0.36 | a reclaimed district — vines as rings, pinwheels as windmills | **SAW** |
 | 4 | **NEON** | NEON DISTRICT *(exists)* | violet 0.74–0.86 | the power grid at night | **ARC** *(built)* |
 | 5 | **BULKHEAD** | BULKHEAD RUN *(exists)* | steel 0.63–0.66 | doors, presses, crushers | **BREACH** |
-| 6 | **GLACIER** | *new* | ice 0.56–0.60 | a frozen intake — knife-edge slot country | **FREEZE** |
+| 6 | **GLACIER** | THE SHEAR *(exists)* | ice 0.56–0.60 | a frozen intake — knife-edge slot country | **FREEZE** |
 | 7 | **THE GAUNTLET** | GAUNTLET *(exists)* | gold 0.13–0.16 on black | the armory corridor — wall guns the whole way | **RAIL** |
-| 8 | **VOID** | *new* | magenta 0.90–0.94, sparse | a dead district above the rim — inverts the surface-is-lethal rule | **GHOST** |
+| 8 | **VOID** | DEAD AIR *(exists)* | magenta 0.90–0.94, sparse | a dead district — long silent flats, then a pocket of everything at once | **GHOST** |
 | 9 | **CITADEL** | *new, final* | every hue, shifting per section | the dive to the core — one hazard quoted from each district, then the boss | — |
 
 SHAKEDOWN and PROVING GROUND stay outside the campaign as training.
@@ -116,17 +116,17 @@ color — it is the setup. *(See the parking lot.)*
 | Title / select screen | **anthem** — written, playing: it starts on the first screen after the opening tap and returns whenever a run ends |
 | Riverworks | **water** — written, assigned |
 | Reactor | **fire** — written, assigned |
-| Overgrowth | to write — pastoral but driving, 6/8 |
+| Overgrowth | **overgrowth** — written, assigned |
 | Neon | **neon** — written, assigned |
 | Bulkhead | to write — industrial ostinato, machine rhythms |
-| Glacier | to write — sparse, crystalline, high arpeggios |
+| Glacier | **glacier** — written, assigned |
 | The Gauntlet | to write — a relentless march |
-| Void | to write — hollow, tritone-heavy, the empty one |
+| Void | **void** — written, assigned |
 | **Boss** | **boss** — written, wired: when the port falls on a warden level, the music turns on the spot |
 | **Final run** (Citadel) | to write — the biggest track in the game, quoting the anthem's theme |
 | Training | **bumblebee** — where the joke belongs |
 
-Six to write, six written. The synth has the full NES palette now
+Three to write (Bulkhead, Gauntlet, the Citadel run), nine written. The synth has the full NES palette now
 ([BESTIARY — the music](BESTIARY.md#the-music)); keeping eight districts
 audibly distinct is what the duty cycles, sweeps, and written basslines
 are *for*.

@@ -35,13 +35,13 @@ export const WEAPONS = {
 export const DISTRICTS = [
   { id: 'riverworks', name: 'RIVERWORKS', level: 'THE ESSES',     weapon: 'ghost',  css: '#4fd8ff' },
   { id: 'reactor',    name: 'REACTOR',    level: 'REACTOR',       weapon: 'wave',   css: '#ff5a3c' },
-  { id: 'overgrowth', name: 'OVERGROWTH', level: null,            weapon: 'magma',  css: '#7dff6a' },
+  { id: 'overgrowth', name: 'OVERGROWTH', level: 'CANOPY RUN',    weapon: 'magma',  css: '#7dff6a' },
   { id: 'neon',       name: 'NEON',       level: 'NEON DISTRICT', weapon: 'saw',    css: '#b06fff' },
   { id: 'citadel',    name: 'CITADEL',    level: null,            weapon: null,     css: '#ffffff', center: true },
   { id: 'bulkhead',   name: 'BULKHEAD',   level: 'BULKHEAD RUN',  weapon: 'arc',    css: '#6f9fe6' },
-  { id: 'glacier',    name: 'GLACIER',    level: null,            weapon: 'breach', css: '#cfeeff' },
+  { id: 'glacier',    name: 'GLACIER',    level: 'THE SHEAR',     weapon: 'breach', css: '#cfeeff' },
   { id: 'gauntlet',   name: 'GAUNTLET',   level: 'GAUNTLET',      weapon: 'freeze', css: '#ffd24f' },
-  { id: 'void',       name: 'VOID',       level: null,            weapon: 'rail',   css: '#ff4fd8' },
+  { id: 'void',       name: 'VOID',       level: 'DEAD AIR',      weapon: 'rail',   css: '#ff4fd8' },
 ];
 // A cell's `weapon` is what its warden is WEAK to, per the wheel; the weapon
 // you TAKE from a district is the one its own warden fights with, which is

@@ -573,6 +573,237 @@ export const SONGS = {
   },
 
   /**
+   * OVERGROWTH. The one major-key stage theme, and the one in compound time:
+   * twelve sixteenths to the bar -- 6/8, two big beats with a lilt between
+   * them -- because a reclaimed district full of windmills does not march, it
+   * sways. C major, pastoral but driving: the arpeggio never stops turning,
+   * the way the windmills do not.
+   */
+  overgrowth: {
+    name: 'OVERGROWTH',
+    bpm: 138,
+    beats: 12,
+    loopFrom: 2,
+    drumsFrom: 2,
+    lead: [
+      '-  -  -  -  -  -  -  -  -  -  -  - ',
+      '-  -  -  -  -  -  g4 .  b4 .  d5 . ',
+      'e5 .  g5 .  e5 .  c6 .  .  .  g5 . ',
+      'a5 .  .  .  e5 .  c5 .  d5 .  e5 . ',
+      'f5 .  a5 .  f5 .  c6 .  .  .  a5 . ',
+      'b5 .  .  .  g5 .  d5 .  e5 .  f5 . ',
+      'e5 .  g5 .  e5 .  c6 .  .  .  d6 . ',
+      'e6 .  .  .  c6 .  a5 .  b5 .  c6 . ',
+      'd6 .  .  .  a5 .  f5 .  g5 .  a5 . ',
+      'g5 .  .  .  .  .  b5 .  .  .  d5 . ',
+      'a5 .  .  .  c6 .  f5 .  g5 .  a5 . ',
+      'g5 .  .  .  c6 .  e5 .  f5 .  g5 . ',
+      'b5 .  .  .  d6 .  g5 .  a5 .  b5 . ',
+      'c6 .  .  .  .  .  a5 .  .  .  e5 . ',
+      'f5 .  a5 .  c6 .  d6 .  .  .  c6 . ',
+      'e6 .  .  .  .  .  c6 .  .  .  g5 . ',
+      'a5 .  f5 .  d5 .  e5 .  f5 .  g5 . ',
+      'd5 .  .  .  f5 .  g5 .  .  .  b5 . ',
+    ],
+    lead2: [
+      '-  -  -  -  -  -  -  -  -  -  -  - ',
+      '-  -  -  -  -  -  -  -  -  -  -  - ',
+      '-  -  -  -  -  -  -  -  -  -  -  - ',
+      '-  -  -  -  -  -  -  -  -  -  -  - ',
+      '-  -  -  -  -  -  -  -  -  -  -  - ',
+      '-  -  -  -  -  -  -  -  -  -  -  - ',
+      'c5 .  e5 .  c5 .  g5 .  .  .  b5 . ',
+      'c6 .  .  .  a5 .  e5 .  g5 .  a5 . ',
+      'f5 .  .  .  f5 .  d5 .  e5 .  f5 . ',
+      'd5 .  .  .  .  .  g5 .  .  .  b4 . ',
+      'f5 .  .  .  a5 .  c5 .  e5 .  f5 . ',
+      'e5 .  .  .  g5 .  c5 .  d5 .  e5 . ',
+      'g5 .  .  .  b5 .  d5 .  f5 .  g5 . ',
+      'a5 .  .  .  .  .  e5 .  .  .  c5 . ',
+      'c5 .  f5 .  a5 .  a5 .  .  .  a5 . ',
+      'c6 .  .  .  .  .  g5 .  .  .  e5 . ',
+      'f5 .  d5 .  a4 .  c5 .  d5 .  e5 . ',
+      'b4 .  .  .  d5 .  d5 .  .  .  g5 . ',
+    ],
+    arp: ['c', 'c',
+      'c', 'am', 'f', 'g', 'c', 'am', 'dm', 'g',
+      'f', 'c', 'g', 'am', 'f', 'c', 'dm', 'g'],
+    // The lilt lives in the bass: root on the downbeat, the fifth on the
+    // second big beat, and a passing step swinging into the next bar.
+    bassLine: [
+      'c3 .  .  .  .  .  .  .  .  .  .  . ',
+      'c3 .  .  .  .  .  g2 .  .  .  .  . ',
+      'c3 .  .  .  .  .  g2 .  .  .  a2 . ',
+      'a2 .  .  .  .  .  e3 .  .  .  g2 . ',
+      'f2 .  .  .  .  .  c3 .  .  .  e3 . ',
+      'g2 .  .  .  .  .  d3 .  .  .  b2 . ',
+      'c3 .  .  .  .  .  g2 .  .  .  a2 . ',
+      'a2 .  .  .  .  .  e3 .  .  .  c3 . ',
+      'd3 .  .  .  .  .  a2 .  .  .  f3 . ',
+      'g2 .  .  .  .  .  d3 .  .  .  f2 . ',
+      'f2 .  .  .  .  .  c3 .  .  .  e3 . ',
+      'c3 .  .  .  .  .  g2 .  .  .  b2 . ',
+      'g2 .  .  .  .  .  d3 .  .  .  e3 . ',
+      'a2 .  .  .  .  .  e3 .  .  .  g2 . ',
+      'f2 .  .  .  .  .  c3 .  .  .  d3 . ',
+      'c3 .  .  .  .  .  g2 .  .  .  a2 . ',
+      'd3 .  .  .  .  .  a2 .  .  .  c3 . ',
+      'g2 .  .  .  .  .  d3 .  .  .  g2 . ',
+    ],
+    bass: null,
+    drums: [
+      '............',
+      '............',
+      'k.....h.....',
+      'k.....h.....',
+      'k.....h.....',
+      'k.....h..h..',
+      'k.....h.....',
+      'k.....h.....',
+      'k.....h.....',
+      'k..h..k..h..',
+      'k..h..h.....',
+      'k..h..h.....',
+      'k..h..h.....',
+      'k..h..h..h..',
+      'k..h..h.....',
+      'k..h..h.....',
+      'k..h..h.....',
+      'k..h..k.hh..',
+    ],
+    duty: { lead: 0.25, under: 0.125, arp: 0.25, bass: 0.5 },
+    mix: { lead: 0.3, under: 0.09, arp: 0.075, bass: 0.12, sub: 0.06 },
+  },
+
+  /**
+   * GLACIER. Crystalline means empty: long high notes over an arpeggio that
+   * rings rather than runs, a bass that moves in half-notes, and almost no
+   * drums -- a metallic tick, like ice settling. The one slow song, and the
+   * one with the hollow 50% lead used cold instead of synthwave-warm: at this
+   * register and this pace it reads as glass.
+   */
+  glacier: {
+    name: 'GLACIER',
+    bpm: 112,
+    beats: 16,
+    loopFrom: 2,
+    drumsFrom: 2,
+    lead: [
+      '-  -  -  -  -  -  -  -  -  -  -  -  -  -  -  - ',
+      '-  -  -  -  -  -  -  -  -  -  -  -  e5 .  .  . ',
+      'a5 .  .  .  .  .  .  .  -  -  -  -  e5 .  .  . ',
+      'g5 .  .  .  .  .  .  .  -  -  -  -  b4 .  .  . ',
+      'a4 .  .  .  c5 .  .  .  f5 .  .  .  e5 .  .  . ',
+      'e5 .  .  .  .  .  .  .  g5 .  .  .  .  .  .  . ',
+      'a5 .  .  .  .  .  b5 .  c6 .  .  .  .  .  .  . ',
+      'b5 .  .  .  .  .  .  .  g5 .  .  .  e5 .  .  . ',
+      'f5 .  .  .  e5 .  .  .  d5 .  .  .  c5 .  .  . ',
+      'b4 .  .  .  .  .  .  .  e5 .  .  .  .  .  .  . ',
+    ],
+    // An echo an octave down, arriving late -- the sound coming back off ice.
+    lead2: [
+      '-  -  -  -  -  -  -  -  -  -  -  -  -  -  -  - ',
+      '-  -  -  -  -  -  -  -  -  -  -  -  -  -  -  - ',
+      '-  -  -  -  a4 .  .  .  -  -  -  -  -  -  -  - ',
+      '-  -  -  -  g4 .  .  .  -  -  -  -  -  -  -  - ',
+      '-  -  -  -  -  -  -  -  -  -  a4 .  .  .  -  - ',
+      '-  -  -  -  e4 .  .  .  -  -  -  -  g4 .  .  . ',
+      '-  -  -  -  a4 .  .  .  -  -  -  -  c5 .  .  . ',
+      '-  -  -  -  b4 .  .  .  -  -  -  -  e4 .  .  . ',
+      '-  -  -  -  f4 .  .  .  -  -  -  -  c4 .  .  . ',
+      '-  -  -  -  b3 .  .  .  -  -  -  -  e4 .  .  . ',
+    ],
+    arp: ['am', 'am', 'am', 'em', 'f', 'c', 'am', 'em', 'f', 'e7'],
+    // Half-notes, mostly. Ice does not walk; it shifts.
+    bassLine: [
+      'a2 .  .  .  .  .  .  .  .  .  .  .  .  .  .  . ',
+      'a2 .  .  .  .  .  .  .  e2 .  .  .  .  .  .  . ',
+      'a2 .  .  .  .  .  .  .  e3 .  .  .  .  .  .  . ',
+      'e2 .  .  .  .  .  .  .  b2 .  .  .  .  .  .  . ',
+      'f2 .  .  .  .  .  .  .  c3 .  .  .  .  .  .  . ',
+      'c3 .  .  .  .  .  .  .  g2 .  .  .  a2 .  .  . ',
+      'a2 .  .  .  .  .  .  .  e3 .  .  .  .  .  .  . ',
+      'e2 .  .  .  .  .  .  .  b2 .  .  .  d3 .  .  . ',
+      'f2 .  .  .  .  .  .  .  c3 .  .  .  d3 .  .  . ',
+      'e2 .  .  .  .  .  .  .  g#2 .  .  .  b2 .  .  . ',
+    ],
+    bass: null,
+    drums: [
+      '................',
+      '................',
+      'm...............',
+      '........m.......',
+      'm...............',
+      '........m...h...',
+      'm...............',
+      '........m.......',
+      'm.......m.......',
+      '........m...m...',
+    ],
+    duty: { lead: 0.5, under: 0.25, arp: 0.25, bass: 0.5 },
+    mix: { lead: 0.26, under: 0.07, arp: 0.1, bass: 0.12, sub: 0.05 },
+  },
+
+  /**
+   * VOID. The hollow one: the only stage theme with no arpeggio at all,
+   * because a dead district does not shimmer. Slow, low, and built on the
+   * tritone -- e against a sharp, f against b -- the interval that refuses to
+   * settle, over a pedal that barely moves. The drums are a heartbeat and a
+   * static tick. Dread, at ninety-six to the minute.
+   */
+  void: {
+    name: 'VOID',
+    bpm: 96,
+    beats: 16,
+    lead: [
+      'e4 .  .  .  .  .  .  .  a#4 .  .  .  .  .  .  . ',
+      'e4 .  .  .  .  .  .  .  -  -  -  -  d4 .  .  . ',
+      'f4 .  .  .  .  .  .  .  b4 .  .  .  .  .  .  . ',
+      'e4 .  .  .  .  .  .  .  -  -  -  -  -  -  -  - ',
+      'g4 .  .  .  .  .  a#4 .  .  .  .  .  e4 .  .  . ',
+      'f#4 .  .  .  .  .  .  .  c5 .  .  .  .  .  .  . ',
+      'f4 .  .  .  e4 .  .  .  d#4 .  .  .  e4 .  .  . ',
+      'e4 .  .  .  .  .  .  .  -  -  -  -  -  -  -  - ',
+    ],
+    // Dyads underneath: the tritone made explicit, held.
+    lead2: [
+      'a#3 .  .  .  .  .  .  .  e4 .  .  .  .  .  .  . ',
+      'a#3 .  .  .  .  .  .  .  -  -  -  -  g#3 .  .  . ',
+      'b3 .  .  .  .  .  .  .  f4 .  .  .  .  .  .  . ',
+      'a#3 .  .  .  .  .  .  .  -  -  -  -  -  -  -  - ',
+      'c#4 .  .  .  .  .  e4 .  .  .  .  .  a#3 .  .  . ',
+      'c4 .  .  .  .  .  .  .  f#4 .  .  .  .  .  .  . ',
+      'b3 .  .  .  a#3 .  .  .  a3 .  .  .  a#3 .  .  . ',
+      'a#3 .  .  .  .  .  .  .  -  -  -  -  -  -  -  - ',
+    ],
+    arp: null,
+    // A pedal that shudders a half-step and returns. Nothing walks here.
+    bassLine: [
+      'e2 .  .  .  .  .  .  .  e2 .  .  .  .  .  .  . ',
+      'e2 .  .  .  .  .  .  .  f2 .  .  .  e2 .  .  . ',
+      'e2 .  .  .  .  .  .  .  e2 .  .  .  .  .  .  . ',
+      'e2 .  .  .  .  .  .  .  d#2 .  .  .  e2 .  .  . ',
+      'e2 .  .  .  .  .  .  .  e2 .  .  .  .  .  .  . ',
+      'e2 .  .  .  .  .  .  .  f2 .  .  .  .  .  .  . ',
+      'e2 .  .  .  .  .  .  .  a#1 .  .  .  .  .  .  . ',
+      'e2 .  .  .  .  .  .  .  e2 .  .  .  .  .  .  . ',
+    ],
+    bass: null,
+    drums: [
+      'k...............',
+      'k.......m.......',
+      'k...............',
+      'k.......m.......',
+      'k...............',
+      'k.......m.......',
+      'k.......k.......',
+      'k.......m...m...',
+    ],
+    duty: { lead: 0.5, under: 0.5, arp: 0.5, bass: 0.5 },
+    mix: { lead: 0.24, under: 0.12, arp: 0.05, bass: 0.14, sub: 0.09 },
+  },
+
+  /**
    * BOSS. What plays when the gate falls and the flyout stops being an
    * ending. One track for every warden, and it earns that by being about the
    * *situation* rather than any one of them: E minor leaning hard on F -- the
