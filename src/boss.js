@@ -839,64 +839,72 @@ export const WARDENS = {
   },
 
   /**
-   * The dead district's last war machine, built to the concept sheet: four
-   * tread pods, four gatling turrets, two hex missile pods, and the cannon.
-   * It drives BACKWARDS down its dead road, swerving, crushing the cars and
-   * wreckage still on it, everything aimed at you the whole way.
+   * The dead district's last war machine. The hull carries no guns any more:
+   * it LAUNCHES them. Waves of aerial escorts circle it -- machine-gun
+   * drones, then missile batteries, cycling -- and killed ones are replaced
+   * from the launch bays, so clearing the sky is pressure relief, never
+   * progress. Progress is the hull itself: pour fire into the armor until it
+   * cracks and the core stands exposed for a window, then it seals and asks
+   * again.
    *
-   * The turrets do not shoot bullets at you; they PAINT patterns you fly out
-   * of -- and the pattern is whichever one their number can still perform:
-   * four sweep in from the corners and stop short of center (center is
-   * safe); three run a circle; two draw the X; the last one just hunts you.
-   * The pods volley shotgun spreads of slow pulsing missiles that are
-   * themselves targets: paintable, lockable, shootable.
-   *
-   * The cannon is the ultimate: six lights on the tail count the charge,
-   * then it locks -- one second of warning -- and fires three field-wide
-   * blasts. The eye of the storm is dead center, and the moment of the lock
-   * is when you break for it.
+   * And the cannon: charge on six counting lights, lock with one second of
+   * warning, then the turret SPINS -- a solid, ship-wide beam sweeping the
+   * full arc of the road like a lighthouse. The eye of it is dead center;
+   * everything else is in the weather.
    */
   revenant: {
     init(b) {
-      b.openMsg = 'THE HULL IS OPEN';
-      for (let i = 0; i < 4; i++) mkPart(b, 'TURRET', 6);
-      mkPart(b, 'POD', 8);
-      mkPart(b, 'POD', 8);
+      b.openMsg = 'THE CORE STANDS EXPOSED';
+      b.guardMsg = 'POUR IT INTO THE ARMOR';
+      b.armorMax = 26;
+      b.armor = b.armorMax;
+      b.exposedFor = 0;
       b.cannon = { state: 'idle', tIn: 6, charge: 0 };
-      b.rangeT = 640;          // the stand-off it wants right now
+      b.yaw = 0;
+      b.rangeT = 640;
       b.laneSide = 1;
-      b.yaw = 0;               // the superstructure's bearing: 0 is dead aft
-      b.noSight = 0;
-      b.slewFor = 0;
-      b.slewDir = 1;
-      b.guardMsg = 'THE TURRET BLOCKS THE SHOT';
       b.debris = [];
       b.missilesLive = [];
-      b.burst = null;         // the turret pattern currently being painted
-      b.burstIn = 3;
+      b.escorts = [];
+      b.waveType = 'mg';
+      b.waveIn = 16;
+      b.respawnIn = 2;
       b.swerveIn = 0;
       b.xT = 0;
     },
     update(b, dt, game) {
       const tr = game.track;
-      const st = stageOf(b);
-      b.shielded = partsAlive(b) > 0;
+      const st = b.hp > b.maxHp * 0.66 ? 0 : b.hp > b.maxHp * 0.33 ? 1 : 2;
+      const c = b.cannon;
+
+      // The armor cycle: shielded until cracked, exposed for a window, then
+      // sealed and regrown. The HUD's pips count the armor down.
+      if (b.exposedFor > 0) {
+        b.exposedFor -= dt;
+        b.shielded = false;
+        if (b.exposedFor <= 0) {
+          b.armor = b.armorMax;
+          game.say('IT SEALS', 1.1);
+        }
+      } else {
+        b.shielded = true;
+        if (b.armor <= 0) {
+          b.exposedFor = 5;
+          game.say(b.openMsg, 1.6);
+          game.audio.specialOn();
+          b.flash = 1;
+        }
+      }
       b.lockable = !b.shielded;
 
-      // Distance is its weapon, and it spends it by the attack: it pulls
-      // AWAY before a volley so the missiles have road to hang in, wades IN
-      // for the gun patterns, and falls back long to work the cannon. The
-      // read on its range is the read on what is coming.
-      const c0 = b.cannon;
+      // The stand-off, spent by intent: long for cannon work, long to give a
+      // battery wave its air, closer when the gun drones are on the wing.
       let wantRange = 640;
-      if (c0.state !== 'idle') wantRange = 840;                    // cannon work
-      else if (b.burst || b.burstIn < 1) wantRange = 470;          // gun work
-      else if (b.missilesIn < 1.6) wantRange = 820;                // volley wind-up
+      if (c.state !== 'idle') wantRange = 840;
+      else if (b.waveType === 'battery') wantRange = 780;
+      else wantRange = 560;
       b.rangeT = lerp(b.rangeT, wantRange, dt * 1.1);
 
-      // And it drives like something choosing a line, not holding a lane:
-      // it curves out to one side, carries the arc, then crosses to the
-      // other, biased to alternate so the road actually gets used.
       b.swerveIn -= dt;
       const hw = tr.halfWidth(b.t);
       if (b.swerveIn <= 0) {
@@ -904,75 +912,129 @@ export const WARDENS = {
         b.laneSide = hash2((game.time * 7) | 0, 4) < 0.72 ? -b.laneSide : b.laneSide;
         b.xT = b.laneSide * (0.3 + hash2((game.time * 7) | 0, 2) * 0.65) * (hw - 72);
       }
-      // The chase lerp lags a moving target by speed/rate -- feed the ship's
-      // speed forward so the stand-off it holds is the stand-off we wrote.
       b.t = lerp(b.t, game.t + b.rangeT + game.speed / 1.4, dt * 1.4);
       b.x = lerp(b.x, b.xT, dt * 1.1);
       b.y = 20;
-      b.tShip = game.t;         // the draw paints fire on the ship's plane
       tr.localToWorld(b.t, b.x, b.y, b.world);
       b.los = 1;
+      b.tShip = game.t;
 
-      // The superstructure tracks the player: turret, barbette, and the four
-      // gatlings on its faces all swing together, up to ninety degrees off
-      // dead aft either way -- and with LAG, which is the whole game of it.
-      // Guns carried onto the far side of the square are masked by the mass
-      // of the thing: guarded, silent, and safe until the bearing brings
-      // them back around.
-      let want = clamp(Math.atan2(game.shipX - b.x, -(game.t - b.t)), -Math.PI / 2, Math.PI / 2);
-      // A gun that cannot see you is no use to it: if the mask has hidden
-      // every surviving gatling for a few seconds, the bearing slews a
-      // quarter turn to bring one to bear -- and that swing is your window.
-      if (b.slewFor > 0) {
-        b.slewFor -= dt;
-        want = clamp(want + b.slewDir * Math.PI / 2, -Math.PI / 2, Math.PI / 2);
-      }
-      const dyaw = clamp(want - b.yaw, -1.5 * dt, 1.5 * dt);
-      b.yaw += dyaw;
-      const fT = -Math.cos(b.yaw), fX = Math.sin(b.yaw);   // forward, in (t, x)
-      const sT = Math.sin(b.yaw), sX = Math.cos(b.yaw);    // starboard
-      b.asm = { fT, fX, sT, sX };
-      // Direction to the ship in the (t, x) plane, for the masking test.
+      // The bearing: on you, unless the cannon is spinning it.
       const dpT = game.t - b.t, dpX = game.shipX - b.x;
-      const dpL = Math.hypot(dpT, dpX) || 1;
+      if (c.state !== 'firing') {
+        const want = clamp(Math.atan2(dpX, -dpT), -Math.PI / 2, Math.PI / 2);
+        b.yaw += clamp(want - b.yaw, -1.5 * dt, 1.5 * dt);
+      }
+      b.asm = { fT: -Math.cos(b.yaw), fX: Math.sin(b.yaw), sT: Math.sin(b.yaw), sX: Math.cos(b.yaw) };
 
-      const GUN = [{ a: 26, s: 0 }, { a: 0, s: 26 }, { a: -26, s: 0 }, { a: 0, s: -26 }];
-      b.parts.forEach((part, i) => {
-        if (!part.alive) return;
-        if (part.label === 'TURRET') {
-          const g = GUN[i];
-          part.t = b.t + g.a * fT + g.s * sT;
-          part.x = clamp(b.x + g.a * fX + g.s * sX, -hw + 10, hw - 10);
-          part.y = 46;
-          // The gun's outward normal, against the line to the player.
-          const nT = (g.a * fT + g.s * sT) / 26;
-          const nX = (g.a * fX + g.s * sX) / 26;
-          part.guarded = (nT * dpT + nX * dpX) / dpL < -0.25;
-        } else {
-          const side = i === 4 ? -1 : 1;
-          part.t = b.t - 30;
-          part.x = clamp(b.x + side * 52, -hw + 10, hw - 10);
-          part.y = 58;
+      // --- the escort waves: launched, orbiting, respawned, cycled --------
+      b.waveIn -= dt;
+      if (b.waveIn <= 0) {
+        b.waveIn = 16;
+        b.waveType = b.waveType === 'mg' ? 'battery' : 'mg';
+        b.waveFull = false;
+        for (const e of b.escorts) e.retiring = true;
+        game.say(b.waveType === 'mg' ? 'GUN DRONES OUT' : 'BATTERIES OUT', 1.2);
+      }
+      const target = b.waveType === 'mg' ? 4 : 3;
+      const active = b.escorts.filter((e) => e.alive && !e.retiring);
+      if (active.length >= target) b.waveFull = true;
+      if (active.length < target) {
+        b.respawnIn -= dt;
+        if (b.respawnIn <= 0) {
+          // A fresh wave scrambles fast; replacing losses takes real time.
+          b.respawnIn = b.waveFull ? 5.5 - st : 1.1;
+          const i = active.length;
+          b.escorts.push({
+            kind: 'bossdrone', type: b.waveType, alive: true,
+            hp: 3, maxHp: 3, lockable: true, points: 250,
+            label: b.waveType === 'mg' ? 'GUN DRONE' : 'BATTERY',
+            slot: i, ang: hash2((game.time * 13) | 0, i) * TAU,
+            t: b.t - 30, x: b.x, y: 40, world: [0, 0, 0],
+            flash: 0, paint: 0, los: 1, fireIn: 1 + i * 0.4, retiring: false, age: 0,
+          });
+          const w = [0, 0, 0];
+          tr.localToWorld(b.t - 30, b.x, 58, w);
+          game.particles.burst(w[0], w[1], w[2], 10, 140, 1, 0.5, 0.9, 0.4, 1.5);
+          game.audio.smallBoom();
         }
-        tr.localToWorld(part.t, part.x, part.y, part.world);
-        part.los = 1;
+      }
+      b.escorts = b.escorts.filter((e) => {
+        if (!e.alive) return false;
+        e.age += dt;
+        e.flash = Math.max(0, e.flash - dt * 6);
+        if (e.retiring) {
+          e.y += 70 * dt;
+          tr.localToWorld(e.t, e.x, e.y, e.world);
+          return e.y < 220;
+        }
+        // The orbit: a slow ring around the hull, high enough to be sky.
+        e.ang += dt * (0.7 + e.slot * 0.07);
+        const R = 120;
+        e.t = b.t + Math.cos(e.ang) * R * 0.7;
+        e.x = clamp(b.x + Math.sin(e.ang) * R, -hw + 12, hw - 12);
+        e.y = 62 + Math.sin(game.time * 1.3 + e.slot * 2) * 12;
+        tr.localToWorld(e.t, e.x, e.y, e.world);
+        e.los = 1;
+        e.fireIn -= dt;
+        if (e.fireIn <= 0) {
+          if (e.type === 'mg') {
+            e.fireIn = 1.5 - st * 0.2;
+            for (let k = 0; k < 3; k++) {
+              const fx = game.shipPos[0] - e.world[0];
+              const fy = game.shipPos[1] - e.world[1];
+              const fz = game.shipPos[2] - e.world[2];
+              const l = Math.hypot(fx, fy, fz) || 1;
+              game.weapons.fireBolt(e.world[0] + k * fx / l * 8, e.world[1], e.world[2],
+                fx / l, fy / l, fz / l, 520, false, true);
+            }
+            game.audio.enemyShot();
+          } else {
+            e.fireIn = 7 - st;
+            for (let k = -1; k <= 1; k++) {
+              const aim = [0, 0, 0];
+              tr.localToWorld(game.t + 240, clamp(game.shipX + k * 44, -hw, hw),
+                clamp(game.shipY + (k ? -20 : 22), 10, tr.rim(game.t) + 70), aim);
+              const dx = aim[0] - e.world[0];
+              const dy = aim[1] - e.world[1];
+              const dz = aim[2] - e.world[2];
+              const l = Math.hypot(dx, dy, dz) || 1;
+              b.missilesLive.push({
+                kind: 'bossmissile', alive: true, hp: 1, maxHp: 1,
+                lockable: true, points: 50, label: 'MISSILE',
+                world: [e.world[0], e.world[1], e.world[2]],
+                vel: [dx / l * 205, dy / l * 205, dz / l * 205],
+                t: e.t, x: e.x, y: e.y,
+                flash: 0, paint: 0, los: 1, ttl: 14,
+              });
+            }
+            game.say('VOLLEY', 0.8);
+            game.audio.smallBoom();
+          }
+        }
+        return true;
       });
 
-      // A gun that cannot see you is no use to it: if the mask has hidden
-      // every surviving gatling for a few seconds, arm the quarter-turn slew.
-      const aliveGuns = b.parts.some((x) => x.alive && x.label === 'TURRET');
-      const seen = b.parts.some((x) => x.alive && x.label === 'TURRET' && !x.guarded);
-      if (aliveGuns && !seen) b.noSight += dt;
-      else b.noSight = 0;
-      if (b.noSight > 2.2 && b.slewFor <= 0) {
-        b.noSight = 0;
-        b.slewFor = 4;
-        b.slewDir = b.yaw > 0 ? -1 : 1;
-        game.say('IT SWINGS ITS GUNS AROUND', 1.3);
-        game.audio.hit();
-      }
+      b.missilesLive = b.missilesLive.filter((m) => {
+        if (!m.alive) return false;
+        m.ttl -= dt;
+        if (m.ttl <= 0) return false;
+        m.world[0] += m.vel[0] * dt;
+        m.world[1] += m.vel[1] * dt;
+        m.world[2] += m.vel[2] * dt;
+        m.flash = Math.max(0, m.flash - dt * 6);
+        m.t -= 205 * dt;
+        const d = Math.hypot(game.shipPos[0] - m.world[0],
+          game.shipPos[1] - m.world[1], game.shipPos[2] - m.world[2]);
+        if (d < 16) {
+          game.damage(13);
+          game.boomAt(m.world, 20, 130, 1, 0.5, 0.3, 0.6);
+          return false;
+        }
+        return true;
+      });
 
-      // The road it does not steer around.
+      // --- the road it does not steer around ------------------------------
       b.timers.junk = (b.timers.junk ?? 0.4) - dt;
       if (b.timers.junk <= 0 && b.debris.length < 12) {
         b.timers.junk = 0.55;
@@ -996,148 +1058,10 @@ export const WARDENS = {
         return true;
       });
 
-      // --- the turret patterns: painted fire the player flies out of -------
+      // --- the cannon: charge, lock, and the lighthouse sweep -------------
       const rim = tr.rim(game.t);
-      const box = { W: hw - 18, y0: 12, y1: rim + 62 };
-      const C = { x: 0, y: (box.y0 + box.y1) / 2 };
-      const turrets = b.parts.filter((p) => p.alive && p.label === 'TURRET');
-      if (!b.burst) {
-        b.burstIn -= dt;
-        if (b.burstIn <= 0 && turrets.length) {
-          const n = turrets.length;
-          b.burst = {
-            kind: n >= 4 ? 'corners' : n === 3 ? 'circle' : n === 2 ? 'x' : 'aim',
-            age: 0, dur: n === 1 ? 3.2 : 2.6, fireIn: 0,
-            pts: turrets.map((_, i) => ({ x: 0, y: 0 })),
-          };
-          game.say(n >= 4 ? 'CORNER SWEEP -- CENTER IS SAFE'
-            : n === 3 ? 'CIRCLE FIRE' : n === 2 ? 'CROSSFIRE' : 'IT HUNTS YOU', 1.3);
-          game.audio.hit();
-        }
-      } else {
-        const bu = b.burst;
-        bu.age += dt;
-        const k = Math.min(1, bu.age / bu.dur);
-        const corners = [
-          { x: -box.W, y: box.y0 }, { x: box.W, y: box.y0 },
-          { x: -box.W, y: box.y1 }, { x: box.W, y: box.y1 },
-        ];
-        bu.pts.forEach((pt, i) => {
-          if (bu.kind === 'corners') {
-            const c0 = corners[i % 4];
-            const stop = 0.82;    // short of center: the eye stays open
-            const kk = Math.min(k, stop);
-            pt.x = c0.x + (C.x - c0.x) * kk;
-            pt.y = c0.y + (C.y - c0.y) * kk;
-          } else if (bu.kind === 'circle') {
-            const a = k * 4.6 + (i / 3) * TAU;
-            const r = 74 - k * 26;
-            pt.x = C.x + Math.cos(a) * r;
-            pt.y = C.y + Math.sin(a) * r * 0.7;
-          } else if (bu.kind === 'x') {
-            const c0 = corners[i === 0 ? 0 : 1];
-            const c1 = corners[i === 0 ? 3 : 2];
-            pt.x = c0.x + (c1.x - c0.x) * k;
-            pt.y = c0.y + (c1.y - c0.y) * k;
-          } else {
-            pt.x = lerp(pt.x, game.shipX, dt * 2.6);
-            pt.y = lerp(pt.y, game.shipY, dt * 2.6);
-          }
-        });
-        // The guns themselves do the shooting -- the same tracer streams the
-        // ground gatlings taught, walked along the pattern. The bolts carry
-        // the damage; the pattern only decides where they are walking.
-        bu.fireIn -= dt;
-        // A burst can outlive its last gun -- the pattern ends with the guns.
-        if (!turrets.length) b.burst = null;
-        // The hunt is not a bolt stream; it is a BEAM, swept after you, and
-        // the beam itself is what burns. Stay ahead of it or climb off it.
-        if (b.burst && bu.kind === 'aim') {
-          const pt = bu.pts[0];
-          if (Math.abs(game.shipX - pt.x) < 16 && Math.abs(game.shipY - pt.y) < 16) {
-            game.damage(15 * dt, false);
-          }
-          bu.hum = (bu.hum ?? 0) - dt;
-          if (bu.hum <= 0) { bu.hum = 0.45; game.audio.zap(); }
-        } else if (b.burst && bu.fireIn <= 0) {
-          bu.fireIn = 0.075;
-          // The voice the ground gatlings taught, at a rate that means it.
-          bu.voice = !bu.voice;
-          if (bu.voice) game.audio.enemyShot();
-          const clear = turrets.filter((g) => !g.guarded);
-          const shooters = clear.length ? clear : turrets;
-          const aim = [0, 0, 0];
-          bu.pts.forEach((pt, i) => {
-            const g = shooters[i % shooters.length];
-            tr.localToWorld(game.t, pt.x, pt.y, aim);
-            const dx = aim[0] - g.world[0];
-            const dy = aim[1] - g.world[1];
-            const dz = aim[2] - g.world[2];
-            const l = Math.hypot(dx, dy, dz) || 1;
-            game.weapons.fireBolt(g.world[0], g.world[1], g.world[2],
-              dx / l, dy / l, dz / l, 680, false, true);
-          });
-        }
-        if (b.burst && bu.age >= bu.dur) {
-          b.burst = null;
-          b.burstIn = 4.6 - st * 0.9;
-        }
-      }
-
-      // --- the pods: shotgun volleys of slow, shootable missiles -----------
-      const pods = b.parts.filter((p) => p.alive && p.label === 'POD');
-      if (pods.length) {
-        b.missilesIn -= dt;
-        if (b.missilesIn <= 0) {
-          b.missilesIn = 7.5 - st * 1.5;
-          const pod = pods[(hash2((game.time * 11) | 0, 2) * pods.length) | 0];
-          for (let i = 0; i < 6; i++) {
-            const sx = ((i % 3) - 1) * 46;
-            const sy = ((i / 3) | 0 ? 1 : -1) * 26;
-            const aim = [0, 0, 0];
-            // Hung ahead of you, not lobbed behind: the spread drifts into
-            // the road you are about to use, pulsing, asking to be shot.
-            tr.localToWorld(game.t + 240, clamp(game.shipX + sx, -hw, hw),
-              clamp(game.shipY + sy, 10, rim + 70), aim);
-            const dx = aim[0] - pod.world[0];
-            const dy = aim[1] - pod.world[1];
-            const dz = aim[2] - pod.world[2];
-            const l = Math.hypot(dx, dy, dz) || 1;
-            b.missilesLive.push({
-              kind: 'bossmissile', alive: true, hp: 1, maxHp: 1,
-              lockable: true, points: 50, label: 'MISSILE',
-              world: [pod.world[0], pod.world[1], pod.world[2]],
-              vel: [dx / l * 205, dy / l * 205, dz / l * 205],
-              t: pod.t, x: pod.x, y: pod.y,
-              flash: 0, paint: 0, los: 1, ttl: 14,
-            });
-          }
-          game.say('MISSILE VOLLEY', 1);
-          game.audio.smallBoom();
-        }
-      }
-      b.missilesLive = b.missilesLive.filter((m) => {
-        if (!m.alive) return false;
-        m.ttl -= dt;
-        if (m.ttl <= 0) return false;
-        m.world[0] += m.vel[0] * dt;
-        m.world[1] += m.vel[1] * dt;
-        m.world[2] += m.vel[2] * dt;
-        m.flash = Math.max(0, m.flash - dt * 6);
-        // Trench-local bookkeeping so paint and locks can find it.
-        m.t -= 205 * dt;
-        const d = Math.hypot(game.shipPos[0] - m.world[0],
-          game.shipPos[1] - m.world[1], game.shipPos[2] - m.world[2]);
-        if (d < 16) {
-          game.damage(13);
-          game.boomAt(m.world, 20, 130, 1, 0.5, 0.3, 0.6);
-          return false;
-        }
-        return true;
-      });
-
-      // --- the cannon: charge, lock, three blasts, an eye at the center ----
-      const c = b.cannon;
+      const C = { x: 0, y: (12 + rim + 62) / 2 };
+      b.eye = C;
       if (c.state === 'idle') {
         c.tIn -= dt;
         c.charge = Math.max(0, c.charge - dt * 2);
@@ -1161,22 +1085,34 @@ export const WARDENS = {
         c.tIn -= dt;
         if (c.tIn <= 0) {
           c.state = 'firing';
-          c.tIn = 0;
-          c.shots = 3;
-          c.nextShot = 0;
-        }
-      } else {
-        c.nextShot -= dt;
-        if (c.nextShot <= 0 && c.shots > 0) {
-          c.shots -= 1;
-          c.nextShot = 0.38;
-          c.flashAt = game.time;
-          const off = Math.hypot(game.shipX - C.x, game.shipY - C.y);
-          if (off > 26) game.damage(30);
-          game.shake = Math.min(1.8, game.shake + 0.7);
+          c.dir = b.yaw >= 0 ? -1 : 1;
+          b.yaw = -c.dir * Math.PI / 2;
+          c.spun = 0;
+          c.total = Math.PI;
+          c.hit = false;
+          c.rebeamed = false;
+          game.shake = Math.min(1.8, game.shake + 0.9);
           game.audio.beam();
         }
-        if (c.shots <= 0 && c.nextShot <= -0.3) {
+      } else {
+        // The spin: the whole superstructure whirls, the beam solid the
+        // entire way across. The eye at center is the only dry ground.
+        const rate = c.total / 1.8;
+        c.spun += rate * dt;
+        b.yaw = clamp(-c.dir * Math.PI / 2 + c.dir * c.spun, -Math.PI / 2, Math.PI / 2);
+        if (!c.rebeamed && c.spun > c.total * 0.45) {
+          c.rebeamed = true;
+          game.audio.beam();
+        }
+        const shipBearing = Math.atan2(dpX, -dpT);
+        const off = Math.abs(shipBearing - b.yaw);
+        const inEye = Math.hypot(game.shipX - C.x, game.shipY - C.y) < 26;
+        if (off < 0.055 && !inEye) {
+          if (!c.hit) { c.hit = true; game.damage(30); }
+        } else {
+          c.hit = false;
+        }
+        if (c.spun >= c.total) {
           c.state = 'idle';
           c.tIn = 8 - st * 2;
           c.charge = 0;
@@ -1189,7 +1125,8 @@ export const WARDENS = {
       const c = b.cannon;
       const jx = (hash2((time * 60) | 0, 3) - 0.5) * c.charge * 7;
       const jy = (hash2((time * 60) | 0, 7) - 0.5) * c.charge * 4;
-      const col = b.flash > 0 ? [1, 1, 1] : [0.75, 0.4, 1];
+      const exposed = !b.shielded;
+      const col = b.flash > 0 ? [1, 1, 1] : exposed ? [1, 0.6, 0.3] : [0.75, 0.4, 1];
       const dim = [col[0] * 0.55, col[1] * 0.55, col[2] * 0.62];
       const X = b.x + jx, Y = jy;
       const seg = (t0, x0, y0, t1, x1, y1, w = 2, cl = col, a = 1) => {
@@ -1197,36 +1134,30 @@ export const WARDENS = {
         tr.localToWorld(b.t + t1, X + x1, Y + y1, q);
         rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], w, cl[0], cl[1], cl[2], a);
       };
-      const ring = (t0, cx, cy, r, n, w = 2, cl = col, a = 1, squash = 1) => {
+      const ring = (t0, cx, cy, r, n, w = 2, cl = col, a = 1) => {
         for (let k = 0; k < n; k++) {
           const a0 = (k / n) * TAU, a1 = ((k + 1) / n) * TAU;
-          seg(t0, cx + Math.cos(a0) * r, cy + Math.sin(a0) * r * squash,
-            t0, cx + Math.cos(a1) * r, cy + Math.sin(a1) * r * squash, w, cl, a);
+          seg(t0, cx + Math.cos(a0) * r, cy + Math.sin(a0) * r,
+            t0, cx + Math.cos(a1) * r, cy + Math.sin(a1) * r, w, cl, a);
         }
       };
 
-      // --- the hull: beveled slab, skirts, seams, wedge nose --------------
-      // Deck edge, mid crease, skirt bottom -- three long lines a side, the
-      // sheet's faceting read as creases rather than faces.
+      // --- hull, skirts, nose, deck (the sheet's slab) --------------------
       for (const sx of [-1, 1]) {
-        seg(-170, sx * 48, 34, 140, sx * 48, 34, 2.4);          // deck edge
-        seg(-170, sx * 56, 20, 140, sx * 56, 20, 2, dim);       // mid crease
-        seg(-170, sx * 60, 8, 140, sx * 60, 8, 2, dim);         // skirt bottom
-        // Bevels tying the three together at both ends.
+        seg(-170, sx * 48, 34, 140, sx * 48, 34, 2.4);
+        seg(-170, sx * 56, 20, 140, sx * 56, 20, 2, dim);
+        seg(-170, sx * 60, 8, 140, sx * 60, 8, 2, dim);
         seg(-170, sx * 48, 34, -170, sx * 56, 20, 2, dim);
         seg(-170, sx * 56, 20, -170, sx * 60, 8, 2, dim);
         seg(140, sx * 48, 34, 140, sx * 56, 20, 2, dim);
         seg(140, sx * 56, 20, 140, sx * 60, 8, 2, dim);
-        // Panel seams down the skirt, four a side.
-        for (const st of [-120, -60, 0, 60]) {
-          seg(st, sx * 56, 20, st, sx * 60, 8, 1.3, dim, 0.8);
+        for (const st2 of [-120, -60, 0, 60]) {
+          seg(st2, sx * 56, 20, st2, sx * 60, 8, 1.3, dim, 0.8);
         }
-        // The wedge nose, faceted in.
         seg(140, sx * 48, 34, 200, sx * 18, 24, 2.2);
         seg(140, sx * 56, 20, 200, sx * 20, 16, 2, dim);
         seg(140, sx * 60, 8, 200, sx * 22, 10, 2, dim);
       }
-      // Nose tip edges and deck/tail cross-lines.
       seg(200, -18, 24, 200, 18, 24, 2.2);
       seg(200, -20, 16, 200, 20, 16, 2, dim);
       seg(200, -22, 10, 200, 22, 10, 2, dim);
@@ -1235,29 +1166,10 @@ export const WARDENS = {
       seg(-170, -48, 34, -170, 48, 34, 2.4);
       seg(140, -48, 34, 140, 48, 34, 2.2);
 
-      // --- the raised turret deck -----------------------------------------
-      for (const sx of [-1, 1]) {
-        seg(-100, sx * 34, 50, 85, sx * 34, 50, 2.2);
-        seg(-100, sx * 34, 50, -112, sx * 40, 34, 2, dim);      // sloped back
-        seg(85, sx * 34, 50, 100, sx * 40, 34, 2, dim);         // sloped front
-      }
-      seg(-100, -34, 50, -100, 34, 50, 2.2);
-      seg(85, -34, 50, 85, 34, 50, 2.2);
-
-      // --- four tread pods: housings, racetracks, rolling teeth -----------
+      // --- four tread pods, racetracks rolling ----------------------------
       for (const [pt, sxs] of [[-115, -1], [-115, 1], [95, -1], [95, 1]]) {
         const px = sxs * 74;
-        const face = sxs * 7;    // the outer face of the pod
-        // The housing: an octagonal-profile box, both faces plus ties.
-        for (const off of [-face * 0.4, face]) {
-          seg(pt - 62, px + off, 4, pt + 62, px + off, 4, 1.8, dim, 0.9);
-          seg(pt - 62, px + off, 30, pt + 62, px + off, 30, 1.8, dim, 0.9);
-          seg(pt - 62, px + off, 4, pt - 74, px + off, 17, 1.8, dim, 0.9);
-          seg(pt - 74, px + off, 17, pt - 62, px + off, 30, 1.8, dim, 0.9);
-          seg(pt + 62, px + off, 4, pt + 74, px + off, 17, 1.8, dim, 0.9);
-          seg(pt + 74, px + off, 17, pt + 62, px + off, 30, 1.8, dim, 0.9);
-        }
-        // The racetrack on the outer face -- the sheet's signature.
+        const face = sxs * 7;
         for (const [rl, ry0, ry1] of [[52, 8, 26], [40, 12, 22]]) {
           seg(pt - rl, px + face, ry0, pt + rl, px + face, ry0, 2, col, 0.95);
           seg(pt - rl, px + face, ry1, pt + rl, px + face, ry1, 2, col, 0.95);
@@ -1266,7 +1178,6 @@ export const WARDENS = {
           seg(pt + rl, px + face, ry0, pt + rl + 7, px + face, (ry0 + ry1) / 2, 2, col, 0.95);
           seg(pt + rl + 7, px + face, (ry0 + ry1) / 2, pt + rl, px + face, ry1, 2, col, 0.95);
         }
-        // The teeth, rolling: top run and bottom run, out of phase.
         for (let k = 0; k < 5; k++) {
           const roll = ((b.t * 0.14 + k * 21) % 100) - 50;
           seg(pt + roll, px + face, 26, pt + roll + 8, px + face, 26, 1.7, [1, 0.5, 0.9], 0.85);
@@ -1275,21 +1186,26 @@ export const WARDENS = {
         }
       }
 
-      // --- the superstructure: bearing ring, barbette, drum, cannon -------
-      // Everything here turns together on b.yaw. Assembly space is (a, s, h):
-      // a toward the player when the bearing is on them, s to starboard.
+      // --- the launch bays: the hex pods, now doors the escorts come from -
+      for (const side of [-1, 1]) {
+        for (let k = 0; k < 6; k++) {
+          const a0 = (k / 6) * TAU + TAU / 12, a1 = ((k + 1) / 6) * TAU + TAU / 12;
+          seg(-30 - Math.sin(a0) * 3, side * 52 + Math.cos(a0) * 11, 52 + Math.sin(a0) * 9,
+            -30 - Math.sin(a1) * 3, side * 52 + Math.cos(a1) * 11, 52 + Math.sin(a1) * 9, 1.8, dim, 0.9);
+        }
+      }
+
+      // --- the superstructure on its bearing, spinning when it spins ------
       const A = b.asm || { fT: -1, fX: 0, sT: 0, sX: 1 };
       const asmSeg = (a0, s0, h0, a1, s1, h1, w = 2, cl = col, al = 1) => {
         tr.localToWorld(b.t + a0 * A.fT + s0 * A.sT, X + a0 * A.fX + s0 * A.sX, Y + h0, p);
         tr.localToWorld(b.t + a1 * A.fT + s1 * A.sT, X + a1 * A.fX + s1 * A.sX, Y + h1, q);
         rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], w, cl[0], cl[1], cl[2], al);
       };
-      // The bearing ring the whole thing rides on -- the motion cue.
       for (let k = 0; k < 8; k++) {
         const a0 = (k / 8) * TAU + b.yaw, a1 = ((k + 1) / 8) * TAU + b.yaw;
         seg(Math.cos(a0) * 32, Math.sin(a0) * 32, 35, Math.cos(a1) * 32, Math.sin(a1) * 32, 35, 1.6, dim, 0.9);
       }
-      // The square barbette: four corner posts, top and bottom rings.
       const S = 26;
       const CORN = [[S, S], [S, -S], [-S, -S], [-S, S]];
       for (let k = 0; k < 4; k++) {
@@ -1298,7 +1214,6 @@ export const WARDENS = {
         asmSeg(a0, s0, 52, a1, s1, 52, 2.2, col, 1);
         asmSeg(a0, s0, 36, a0, s0, 52, 2, col, 0.95);
       }
-      // The central drum, and the cannon out of its crown toward you.
       for (const h of [52, 63]) {
         for (let k = 0; k < 8; k++) {
           const a0 = (k / 8) * TAU, a1 = ((k + 1) / 8) * TAU;
@@ -1306,17 +1221,13 @@ export const WARDENS = {
             Math.cos(a1) * 14, Math.sin(a1) * 14, h, h === 63 ? 2.2 : 2, col, 1);
         }
       }
-      for (let k = 0; k < 4; k++) {
-        const a0 = (k / 4) * TAU + TAU / 8;
-        asmSeg(Math.cos(a0) * 14, Math.sin(a0) * 14, 52, Math.cos(a0) * 14, Math.sin(a0) * 14, 63, 1.6, dim, 0.9);
-      }
       for (const ss of [-4, 4]) {
         asmSeg(12, ss, 58, 132, ss * 1.25, 62, 2.4, col, 1);
       }
       asmSeg(132, -5, 62, 132, 5, 62, 2, col, 1);
       for (let k = 0; k < 8; k++) {
         const a0 = (k / 8) * TAU, a1 = ((k + 1) / 8) * TAU;
-        asmSeg(134 + Math.sin(a0) * 0, Math.cos(a0) * 6, 62 + Math.sin(a0) * 6,
+        asmSeg(134, Math.cos(a0) * 6, 62 + Math.sin(a0) * 6,
           134, Math.cos(a1) * 6, 62 + Math.sin(a1) * 6, 2, c.charge > 0.6 ? [1, 0.8, 1] : col, 0.95);
       }
       if (c.charge > 0) {
@@ -1325,60 +1236,15 @@ export const WARDENS = {
           1, 0.6 + c.charge * 0.4, 1, 0.4 + c.charge * 0.6);
       }
 
-      // --- the mounts -----------------------------------------------------
-      for (const part of b.parts) {
-        if (!part.alive) continue;
-        const pc = part.flash > 0 ? [1, 1, 1]
-          : part.label === 'TURRET' ? (part.guarded ? [0.5, 0.3, 0.5] : [1, 0.6, 0.9])
-          : [0.9, 0.5, 1];
-        const px = part.x - b.x - jx, py = part.y - jy;
-        const ptt = part.t - b.t;
-        if (part.label === 'TURRET') {
-          // A drum on the barbette face, barrels along its outward normal --
-          // dimmed while the mass of the turret masks it.
-          const al = part.guarded ? 0.5 : 0.95;
-          ring(ptt, px, py - 5, 7, 8, 1.8, pc, al);
-          // Outward normal in (t, x), and its perpendicular for the cluster.
-          const nT = (part.t - b.t) / 26, nX2 = (part.x - b.x - jx) / 26;
-          const eT = -nX2, eX = nT;
-          for (const off of [-2.5, 2.5]) {
-            for (const oy of [0, 4]) {
-              tr.localToWorld(b.t + ptt + off * eT, X + px + off * eX, Y + py - 3 + oy, p);
-              tr.localToWorld(b.t + ptt + off * eT + nT * 20, X + px + off * eX + nX2 * 20, Y + py - 2 + oy, q);
-              rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], 1.5, pc[0], pc[1], pc[2], al);
-              rd.line3(q[0], q[1], q[2], q[0], q[1], q[2], 2.2, pc[0], pc[1], pc[2], al);
-            }
-          }
-        } else {
-          // The hex pod: a true hexagonal prism, mouth tilted up and back,
-          // with the six tube cells the sheet is known by.
-          const hex = (tOff, r, w, a) => {
-            for (let k = 0; k < 6; k++) {
-              const a0 = (k / 6) * TAU + TAU / 12, a1 = ((k + 1) / 6) * TAU + TAU / 12;
-              seg(ptt + tOff - Math.sin(a0) * 3, px + Math.cos(a0) * r, py + Math.sin(a0) * r * 0.9,
-                ptt + tOff - Math.sin(a1) * 3, px + Math.cos(a1) * r, py + Math.sin(a1) * r * 0.9, w, pc, a);
-            }
-          };
-          hex(-6, 14, 2.2, 1);         // the mouth
-          hex(8, 12, 1.7, 0.75);       // the back
-          for (let k = 0; k < 6; k++) {
-            const a0 = (k / 6) * TAU + TAU / 12;
-            seg(ptt - 6 - Math.sin(a0) * 3, px + Math.cos(a0) * 14, py + Math.sin(a0) * 12.6,
-              ptt + 8 - Math.sin(a0) * 3, px + Math.cos(a0) * 12, py + Math.sin(a0) * 10.8, 1.5, pc, 0.7);
-          }
-          for (let k = 0; k < 6; k++) {
-            const a0 = (k / 6) * TAU;
-            const cx2 = px + Math.cos(a0) * 6.5, cy2 = py + Math.sin(a0) * 5.8;
-            for (let j = 0; j < 6; j++) {
-              const b0 = (j / 6) * TAU, b1 = ((j + 1) / 6) * TAU;
-              seg(ptt - 6, cx2 + Math.cos(b0) * 3, cy2 + Math.sin(b0) * 2.7,
-                ptt - 6, cx2 + Math.cos(b1) * 3, cy2 + Math.sin(b1) * 2.7, 1.2, pc, 0.85);
-            }
-          }
-        }
+      // --- the weak point, when the armor is off it -----------------------
+      if (exposed) {
+        const pulse2 = 0.7 + 0.3 * Math.sin(time * 12);
+        ring(-40, 0, 30, 12, 8, 2.6, [1, 0.7, 0.3], pulse2);
+        tr.localToWorld(b.t - 40, X, Y + 30, p);
+        rd.line3(p[0], p[1], p[2], p[0], p[1], p[2], 14, 1, 0.75, 0.35, pulse2);
       }
 
-      // --- the tail face: twin indicator panels, six lights counting ------
+      // --- the tail lights, counting the charge ---------------------------
       const lit = Math.round(c.charge * 6);
       for (const side of [-1, 1]) {
         seg(-170.5, side * 44, 10, -170.5, side * 10, 10, 1.5, dim, 0.9);
@@ -1395,69 +1261,76 @@ export const WARDENS = {
         rd.line3(p[0], p[1], p[2], p[0], p[1], p[2], on ? 4.6 : 2.6,
           1, blink ? 1 : 0.35, blink ? 1 : 0.8, on ? 1 : 0.25);
       }
-
-      // --- the mast the sheet sketched in ---------------------------------
       seg(-60, -24, 50, -52, -28, 84, 1.2, dim, 0.8);
       tr.localToWorld(b.t - 52, X - 28, Y + 84, p);
       rd.line3(p[0], p[1], p[2], p[0], p[1], p[2], 2.4, col[0], col[1], col[2], 0.8);
 
-      // --- the fire being painted, the volley, the blasts, the road -------
-      if (b.burst && b.burst.kind === 'aim') {
-        // The hunting beam: muzzle to the chase point, halo over core, with
-        // the burn spot blazing where it lands. It sweeps because its target
-        // does -- the lag is the dodge.
-        const hunter = b.parts.find((x) => x.alive && x.label === 'TURRET' && !x.guarded)
-          || b.parts.find((x) => x.alive && x.label === 'TURRET');
-        if (hunter) {
-          const pt = b.burst.pts[0];
-          const flick = 0.8 + 0.2 * Math.sin(time * 31);
-          tr.localToWorld(hunter.t, hunter.x, hunter.y, p);
-          tr.localToWorld(b.tShip ?? b.t - 640, pt.x, pt.y, q);
-          rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], 6.5, 1, 0.35, 0.85, 0.55 * flick);
-          rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], 2.6, 1, 0.75, 1, 0.95 * flick);
-          rd.line3(q[0], q[1], q[2], q[0], q[1], q[2], 12, 1, 0.6, 0.95, 0.8 * flick);
-          rd.line3(q[0], q[1], q[2], q[0], q[1], q[2], 4, 1, 1, 1, flick);
+      // --- the escorts on the wing ----------------------------------------
+      for (const e of b.escorts) {
+        if (!e.alive) continue;
+        const ec = e.flash > 0 ? [1, 1, 1]
+          : e.type === 'mg' ? [1, 0.6, 0.9] : [0.9, 0.5, 1];
+        const w = e.world;
+        if (e.type === 'mg') {
+          for (let k = 0; k < 8; k++) {
+            const a0 = (k / 8) * TAU, a1 = ((k + 1) / 8) * TAU;
+            rd.line3(w[0] + Math.cos(a0) * 8, w[1] + Math.sin(a0) * 6, w[2],
+              w[0] + Math.cos(a1) * 8, w[1] + Math.sin(a1) * 6, w[2], 1.8, ec[0], ec[1], ec[2], 0.95);
+          }
+          rd.line3(w[0], w[1] - 6, w[2], w[0], w[1] - 12, w[2], 1.6, ec[0], ec[1], ec[2], 0.9);
+        } else {
+          for (let k = 0; k < 6; k++) {
+            const a0 = (k / 6) * TAU + TAU / 12, a1 = ((k + 1) / 6) * TAU + TAU / 12;
+            rd.line3(w[0] + Math.cos(a0) * 9, w[1] + Math.sin(a0) * 8, w[2],
+              w[0] + Math.cos(a1) * 9, w[1] + Math.sin(a1) * 8, w[2], 2, ec[0], ec[1], ec[2], 0.95);
+          }
+          rd.line3(w[0], w[1], w[2], w[0], w[1], w[2], 4, ec[0], ec[1], ec[2], 0.9);
         }
-      } else if (b.burst) {
-        // The tracers are the attack; this is only the aim-point glow, so the
-        // pattern's shape stays readable through the stream.
-        for (const pt of b.burst.pts) {
-          tr.localToWorld(b.tShip ?? b.t - 640, pt.x, pt.y, q);
-          rd.line3(q[0], q[1], q[2], q[0], q[1], q[2], 5, 1, 0.7, 1, 0.7);
-        }
+        // The rotor shimmer that says "aircraft".
+        const ra = time * 9 + e.slot;
+        rd.line3(w[0] - Math.cos(ra) * 11, w[1] + 8, w[2] - Math.sin(ra) * 11,
+          w[0] + Math.cos(ra) * 11, w[1] + 8, w[2] + Math.sin(ra) * 11, 1, ec[0], ec[1], ec[2], 0.35);
       }
+
+      // --- the volley in the air ------------------------------------------
       for (const m of b.missilesLive) {
         const r = 5 + Math.sin(time * 8 + m.world[2] * 0.01) * 2;
         for (let k = 0; k < 6; k++) {
           const a0 = (k / 6) * TAU, a1 = ((k + 1) / 6) * TAU;
           rd.line3(m.world[0] + Math.cos(a0) * r, m.world[1] + Math.sin(a0) * r, m.world[2],
             m.world[0] + Math.cos(a1) * r, m.world[1] + Math.sin(a1) * r, m.world[2],
-            1.8, m.flash > 0 ? 1 : 1, m.flash > 0 ? 1 : 0.45, m.flash > 0 ? 1 : 0.75, 0.95);
+            1.8, 1, m.flash > 0 ? 1 : 0.45, m.flash > 0 ? 1 : 0.75, 0.95);
         }
       }
-      if (c.state === 'firing' && c.flashAt && time - c.flashAt < 0.26) {
-        // The beams themselves, muzzle to field: fat, hot, and unmistakably
-        // COMING AT YOU -- the ring's sunbeam language, spoken by a cannon.
-        const a = 1 - (time - c.flashAt) / 0.26;
-        const tS = b.tShip ?? b.t - 430;
-        const rim = tr.rim(tS);
-        const Cy = (12 + rim + 62) / 2;
+
+      // --- the lighthouse, while it spins ---------------------------------
+      if (c.state === 'firing') {
         const mz = [0, 0, 0];
         tr.localToWorld(b.t + 136 * A.fT, X + 136 * A.fX, Y + 62, mz);
-        for (let k = 0; k < 10; k++) {
-          const ang = (k / 10) * TAU + 0.31;
-          tr.localToWorld(tS, Math.cos(ang) * 92, Cy + Math.sin(ang) * 70, q);
-          rd.line3(mz[0], mz[1], mz[2], q[0], q[1], q[2], 4.4, 1, 0.72, 0.3, a);
-          rd.line3(mz[0], mz[1], mz[2], q[0], q[1], q[2], 1.6, 1, 1, 0.85, a);
+        const flick = 0.85 + 0.15 * Math.sin(time * 40);
+        // Five parallel rails of beam, ship-wide, floor to weather ceiling.
+        for (let k = -2; k <= 2; k++) {
+          const off = k * 11;
+          tr.localToWorld(b.t + 950 * A.fT + off * A.sT, X + 950 * A.fX + off * A.sX, 8, p);
+          tr.localToWorld(b.t + 950 * A.fT + off * A.sT, X + 950 * A.fX + off * A.sX, 118, q);
+          rd.line3(mz[0], mz[1], mz[2], p[0], p[1], p[2], k === 0 ? 3 : 6.5,
+            1, k === 0 ? 1 : 0.45, k === 0 ? 0.9 : 0.9, (k === 0 ? 1 : 0.5) * flick);
+          rd.line3(mz[0], mz[1], mz[2], q[0], q[1], q[2], k === 0 ? 2 : 4.5,
+            1, k === 0 ? 1 : 0.5, 0.95, (k === 0 ? 0.9 : 0.4) * flick);
         }
-        // The impact ring at your plane, with the eye left dark.
-        for (let k = 0; k < 12; k++) {
-          const a0 = (k / 12) * TAU, a1 = ((k + 1) / 12) * TAU;
-          tr.localToWorld(tS, Math.cos(a0) * 30, Cy + Math.sin(a0) * 24, p);
-          tr.localToWorld(tS, Math.cos(a1) * 30, Cy + Math.sin(a1) * 24, q);
-          rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], 3, 1, 0.85, 0.5, a);
+        // The dry eye, ringed so the refuge reads while the weather rages.
+        if (b.eye) {
+          const tS = b.tShip ?? b.t - 640;
+          for (let k = 0; k < 12; k++) {
+            const a0 = (k / 12) * TAU, a1 = ((k + 1) / 12) * TAU;
+            tr.localToWorld(tS, b.eye.x + Math.cos(a0) * 26, b.eye.y + Math.sin(a0) * 22, p);
+            tr.localToWorld(tS, b.eye.x + Math.cos(a1) * 26, b.eye.y + Math.sin(a1) * 22, q);
+            rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], 2, 0.5, 1, 0.8, 0.8);
+          }
         }
       }
+
+      // --- the road ---------------------------------------------------------
       for (const d of b.debris) {
         square(rd, tr, d.t, d.x, 8, d.size, [0.85, 0.45, 0.8], 1.3, 0.7);
         if (d.car) {

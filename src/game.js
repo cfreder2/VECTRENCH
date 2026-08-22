@@ -244,7 +244,7 @@ const RING_BEAM_DAMAGE = 20;
 // from, and counting down from it sweeps clockwise: twelve, three, six, nine.
 const RING_TOP_ARM = 2;
 
-const RADIUS = { turret: 13, wallgun: 11, emplacement: 21, drone: 11, port: 20, boss: 26, bosspart: 9, bossmissile: 8 };
+const RADIUS = { turret: 13, wallgun: 11, emplacement: 21, drone: 11, port: 20, boss: 26, bosspart: 9, bossmissile: 8, bossdrone: 10 };
 
 export class Game {
   constructor(rd, input, audio) {
@@ -1133,7 +1133,7 @@ export class Game {
     // Project every candidate once. onScreen/sx/sy are read again by the
     // overlay, so this doubles as the frame's visibility pass.
     const cands = [this.level.enemies, this.drones];
-    if (this.boss && this.boss.alive) cands.push(this.boss.parts, this.boss.missilesLive || [], [this.boss]);
+    if (this.boss && this.boss.alive) cands.push(this.boss.parts, this.boss.missilesLive || [], this.boss.escorts || [], [this.boss]);
     if (this.level.port) cands.push([this.level.port]);
     for (const arr of cands) {
       for (const e of arr) {
@@ -1685,7 +1685,7 @@ export class Game {
     // Whatever is in reach at all.
     const cands = [];
     const pools = [this.level.enemies, this.drones];
-    if (this.boss && this.boss.alive) pools.push(this.boss.parts, this.boss.missilesLive || [], [this.boss]);
+    if (this.boss && this.boss.alive) pools.push(this.boss.parts, this.boss.missilesLive || [], this.boss.escorts || [], [this.boss]);
     for (const arr of pools) {
       for (const e of arr) {
         if (!e.alive || !e.world || e.kind === 'port') continue;
@@ -1769,6 +1769,7 @@ export class Game {
         return;
       }
       if (e.kind === 'boss' && e.shielded) {
+        if (e.armorMax) e.armor = Math.max(0, e.armor - 1);
         this.particles.burst(e.world[0], e.world[1], e.world[2], 4, 110, 0.5, 0.8, 1, 0.3, 1.2);
         return;
       }
@@ -1829,7 +1830,7 @@ export class Game {
     const tr = this.track;
     const targets = [this.level.enemies, this.drones];
     if (this.level.port) targets.push([this.level.port]);
-    if (this.boss && this.boss.alive) targets.push(this.boss.parts, this.boss.missilesLive || [], [this.boss]);
+    if (this.boss && this.boss.alive) targets.push(this.boss.parts, this.boss.missilesLive || [], this.boss.escorts || [], [this.boss]);
 
     // Player lasers.
     for (let i = W.lasers.length - 1; i >= 0; i--) {
@@ -1841,7 +1842,10 @@ export class Game {
           // A shielded core blocks with a sliver, not its whole hull: at full
           // radius it shadows the very parts mounted against it, and shots
           // aimed at those parts die on the lattice instead.
-          const R = e.kind === 'boss' && e.shielded ? 8 : RADIUS[e.kind] || 12;
+          // Shielded-with-parts blocks with a sliver so it cannot shadow its
+          // own mounts; shielded-with-ARMOR blocks with its whole hull,
+          // because hitting the hull is the entire game of cracking it.
+          const R = e.kind === 'boss' && e.shielded && !e.armorMax ? 8 : RADIUS[e.kind] || 12;
           if (Math.abs(e.world[2] - s.z) > R + 120) continue;
           if (!segSphere(s.px, s.py, s.pz, s.x, s.y, s.z,
             e.world[0], e.world[1], e.world[2], R)) continue;
@@ -1853,9 +1857,18 @@ export class Game {
             break;
           }
           // The core holds while its pods do: hits splash off the lattice.
+          // A warden with ARMOR instead takes the hit on the plate -- the
+          // armor is the shape, and cracking it is the progress.
           if (e.kind === 'boss' && e.shielded) {
-            this.particles.burst(s.x, s.y, s.z, 6, 110, 0.5, 0.8, 1, 0.3, 1.4);
-            this.sayShield();
+            if (e.armorMax) {
+              e.armor = Math.max(0, e.armor - 1);
+              e.flash = 0.5;
+              this.particles.burst(s.x, s.y, s.z, 5, 110, 1, 0.7, 0.3, 0.3, 1.4);
+              this.audio.hit();
+            } else {
+              this.particles.burst(s.x, s.y, s.z, 6, 110, 0.5, 0.8, 1, 0.3, 1.4);
+              this.sayShield();
+            }
             break;
           }
           // A guarded part -- armored until its turn -- sheds fire the same way.
@@ -1930,7 +1943,7 @@ export class Game {
       const tg = m.target;
       let boom = false;
       if (tg && tg.alive && tg.world) {
-        const R = tg.kind === 'boss' && tg.shielded ? 8 : RADIUS[tg.kind] || 14;
+        const R = tg.kind === 'boss' && tg.shielded && !tg.armorMax ? 8 : RADIUS[tg.kind] || 14;
         if (segSphere(m.px, m.py, m.pz, m.x, m.y, m.z,
           tg.world[0], tg.world[1], tg.world[2], R + 6)) {
           boom = true;
@@ -1941,8 +1954,14 @@ export class Game {
           // range and landed none of them. It was not a threat because it was
           // never alive while you were close.
           if ((tg.kind === 'boss' && tg.shielded) || (tg.kind === 'bosspart' && tg.guarded)) {
-            this.boomAt([m.x, m.y, m.z], 20, 130, 0.5, 0.8, 1, 0.5);
-            this.sayShield();
+            if (tg.kind === 'boss' && tg.armorMax) {
+              tg.armor = Math.max(0, tg.armor - MISSILE_DAMAGE);
+              tg.flash = 1;
+              this.boomAt([m.x, m.y, m.z], 26, 150, 1, 0.7, 0.3, 0.7);
+            } else {
+              this.boomAt([m.x, m.y, m.z], 20, 130, 0.5, 0.8, 1, 0.5);
+              this.sayShield();
+            }
             W.missiles.splice(i, 1);
             break;
           }
@@ -2184,7 +2203,7 @@ export class Game {
       // crosshair so a salvo of eight still reads as one decision.
       const arrs = [this.level.enemies, this.drones];
       if (port) arrs.push([port]);
-      if (this.boss && this.boss.alive) arrs.push(this.boss.parts, this.boss.missilesLive || [], [this.boss]);
+      if (this.boss && this.boss.alive) arrs.push(this.boss.parts, this.boss.missilesLive || [], this.boss.escorts || [], [this.boss]);
       const cx = this.aimSX ?? rd.cx;
       const cy = this.aimSY ?? rd.cy;
       for (const arr of arrs) {
@@ -2251,8 +2270,10 @@ export class Game {
       boss: this.boss && this.boss.alive && this.phase === 'boss'
         ? { name: this.boss.name, frac: this.boss.hp / this.boss.maxHp,
           flash: this.boss.flash, shielded: this.boss.shielded,
-          parts: this.boss.parts.filter((x) => x.alive).length,
-          partsMax: this.boss.parts.length }
+          parts: this.boss.armorMax
+            ? Math.ceil((this.boss.armor / this.boss.armorMax) * 6)
+            : this.boss.parts.filter((x) => x.alive).length,
+          partsMax: this.boss.armorMax ? 6 : this.boss.parts.length }
         : null,
     });
 

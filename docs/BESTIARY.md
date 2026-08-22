@@ -548,10 +548,10 @@ FURNACE pouring magma clouds that stay where poured, MANTIS throwing blades
 that come back and regrowing its arms once, PORTCULLIS closing the arena
 into a slot while you strip its panels, AVALANCHE racing your fire with
 regrowing ice, BROADSIDE's deck going silent a battery at a time, REVENANT the
-juggernaut tank driving backwards down its dead road, turret patterns that
-change with every mount you destroy, shotgun volleys of missiles that are
-themselves lockable targets, and six tail-lights counting up to a triple
-blast whose only safe place is dead center. Two mechanics worth knowing everywhere: a
+juggernaut tank driving backwards down its dead road, launching waves of
+respawning gun drones and missile batteries while its own armor is the
+shape you crack, and a spinning lighthouse beam whose only dry ground is
+the ringed eye at dead center. Two mechanics worth knowing everywhere: a
 **shielded core blocks with a sliver of its hull**, so shots aimed at parts
 mounted against it reach them; and parts are checked **before** the core, so
 an overlapping hitbox never eats the shot you lined up.

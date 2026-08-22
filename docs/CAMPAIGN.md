@@ -169,40 +169,23 @@ deck is silent the magazine opens. FREEZE stops a cycling battery mid-cycle,
 which is why it melts.
 
 ### REVENANT — Void · yields GHOST · melted by RAIL
-The dead district's last war machine, built to the concept sheet: four tread
-pods with the lines rolling, four gatling turrets, two hex missile pods, and
-the cannon. It drives **backwards** down its dead road, swerving lane to
-lane, crushing the cars and wreckage still parked on it — about one crush a
-second, each one going up under the treads.
+The dead district's last war machine, driving backwards down a road it
+crushes as it goes. The hull carries no guns any more: it **launches** them —
+waves of aerial escorts circling it, machine-gun drones then missile
+batteries, cycling every sixteen seconds, killed ones replaced from the
+launch bays. Clearing the sky is pressure relief, never progress.
 
-**The whole superstructure tracks you.** The central turret rides a square
-barbette on a bearing ring, the four gatlings mounted on the barbette's
-faces, and the assembly swings up to ninety degrees off dead-aft either way
-to keep the cannon on you — with lag, which is the whole game of it. Guns
-carried onto the far side are masked by the turret's own mass: guarded,
-silent, and safe until the bearing brings them back around, so which guns
-you can fight is decided by where you fly.
+**Progress is the hull.** Pour fire into the armor — the HUD's pips count it
+down — until it cracks and the core stands exposed for a five-second window,
+then it seals and regrows and asks again. Missiles crack armor eight times
+faster than guns.
 
-**The turrets paint patterns, and the pattern is their number.** Four sweep
-in from the corners and stop short of center — the middle is safe, sit in
-it. Three run a circle. Two draw the X. The last survivor just hunts you.
-Kill turrets and the fight literally changes shape under you.
-
-**The pods volley shotgun spreads** of six slow, pulsing missiles — not
-seekers, just a wall coming at you — and every one of them is a real
-target: paintable, lockable, shootable. A salvo spent on the volley is a
-salvo well spent.
-
-**The cannon is the ultimate.** Six lights on the tail count the charge —
-the "…" from the sheet — while the hull shakes harder the longer it holds.
-Then LOCKED: one second of warning, and the only dodge that saves you is
-the break for dead center, because the three consecutive blasts that follow
-light the whole field except the eye. Thirty a blast, ninety for standing
-anywhere else.
-
-Every mount has its own life bar; the hull opens only when the deck is
-stripped. RAIL pierces the armor no other gun argues with, which is why it
-melts.
+**The cannon is the lighthouse.** Six tail-lights count the charge while the
+hull shakes; LOCKED buys you one second; then the whole superstructure
+SPINS, pouring a solid ship-wide beam through the full arc of the road.
+Thirty if it crosses you; the dry eye at dead center is ringed in green
+while the weather rages. RAIL pierces the armor without asking, which is
+why it melts.
 
 ### The ninth fight
 The Citadel's boss is the eight escape pods, assembled. Parked in the
