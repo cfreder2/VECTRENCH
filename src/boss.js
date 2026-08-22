@@ -882,7 +882,7 @@ export const WARDENS = {
         b.swerveIn = 1.2 + hash2((game.time * 7) | 0, 1) * 1.6;
         b.xT = (hash2((game.time * 7) | 0, 2) * 2 - 1) * (hw - 76);
       }
-      b.t = lerp(b.t, game.t + 430, dt * 1.4);
+      b.t = lerp(b.t, game.t + 470, dt * 1.4);
       b.x = lerp(b.x, b.xT, dt * 1.6);
       b.y = 20;
       b.tShip = game.t;         // the draw paints fire on the ship's plane
@@ -892,9 +892,9 @@ export const WARDENS = {
       // The mounts, on the hull the concept drew: turrets at the quadrants,
       // pods high on the rear shoulders, tilted at the sky.
       const M = [
-        { dt: -70, dx: -30, dy: 48 }, { dt: -70, dx: 30, dy: 48 },
-        { dt: 55, dx: -34, dy: 50 }, { dt: 55, dx: 34, dy: 50 },
-        { dt: 20, dx: -40, dy: 62 }, { dt: 20, dx: 40, dy: 62 },
+        { dt: -85, dx: -30, dy: 52 }, { dt: -85, dx: 30, dy: 52 },
+        { dt: 65, dx: -42, dy: 40 }, { dt: 65, dx: 42, dy: 40 },
+        { dt: -30, dx: -52, dy: 58 }, { dt: -30, dx: 52, dy: 58 },
       ];
       b.parts.forEach((part, i) => {
         if (!part.alive) return;
@@ -919,7 +919,7 @@ export const WARDENS = {
       }
       b.debris = b.debris.filter((d) => {
         if (d.t < game.t - 120) return false;
-        if (Math.abs(b.t - d.t) < 130 && Math.abs(b.x - d.x) < 52) {
+        if (Math.abs(b.t - d.t) < 175 && Math.abs(b.x - d.x) < 66) {
           const w = [0, 0, 0];
           tr.localToWorld(d.t, d.x, 8, w);
           game.boomAt(w, d.car ? 34 : 20, d.car ? 190 : 140, 1, 0.6, 0.25, 0.8);
@@ -1090,91 +1090,191 @@ export const WARDENS = {
       const jx = (hash2((time * 60) | 0, 3) - 0.5) * c.charge * 7;
       const jy = (hash2((time * 60) | 0, 7) - 0.5) * c.charge * 4;
       const col = b.flash > 0 ? [1, 1, 1] : [0.75, 0.4, 1];
-      const X = b.x + jx, Y = b.y + jy;
-      const seg = (t0, x0, y0, t1, x1, y1, w = 2.2, cl = col, a = 1) => {
+      const dim = [col[0] * 0.55, col[1] * 0.55, col[2] * 0.62];
+      const X = b.x + jx, Y = jy;
+      const seg = (t0, x0, y0, t1, x1, y1, w = 2, cl = col, a = 1) => {
         tr.localToWorld(b.t + t0, X + x0, Y + y0, p);
         tr.localToWorld(b.t + t1, X + x1, Y + y1, q);
         rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], w, cl[0], cl[1], cl[2], a);
       };
-
-      // The hull: a faceted slab with the wedge nose away from you -- it is
-      // driving backwards -- and the tail face square-on to the fight.
-      for (const sx of [-44, 44]) {
-        seg(-130, sx, -6, 110, sx, -6);
-        seg(-130, sx, 26, 110, sx, 26);
-        seg(-130, sx, -6, -130, sx, 26);
-        seg(110, sx, -6, 150, sx * 0.4, 10);
-        seg(110, sx, 26, 150, sx * 0.4, 10);
-      }
-      for (const dy of [-6, 26]) {
-        seg(-130, -44, dy, -130, 44, dy);
-      }
-      // The turret deck.
-      for (const sx of [-30, 30]) seg(-80, sx, 26, 70, sx, 40);
-      seg(-80, -30, 26, -80, 30, 26);
-      seg(70, -30, 40, 70, 30, 40);
-
-      // Four tread pods, racetracks rolling. The lines inside move.
-      for (const [pt, px] of [[-85, -58], [-85, 58], [70, -58], [70, 58]]) {
-        for (const [rl, rw] of [[46, 15], [34, 9]]) {
-          seg(pt - rl, px, 2 - (rw > 10 ? 0 : 3), pt + rl, px, 2 - (rw > 10 ? 0 : 3), 2, col, 0.9);
-          seg(pt - rl, px, 2 + rw, pt + rl, px, 2 + rw, 2, col, 0.9);
-          seg(pt - rl, px, 2, pt - rl - 8, px, 2 + rw * 0.5, 2, col, 0.9);
-          seg(pt + rl, px, 2, pt + rl + 8, px, 2 + rw * 0.5, 2, col, 0.9);
+      const ring = (t0, cx, cy, r, n, w = 2, cl = col, a = 1, squash = 1) => {
+        for (let k = 0; k < n; k++) {
+          const a0 = (k / n) * TAU, a1 = ((k + 1) / n) * TAU;
+          seg(t0, cx + Math.cos(a0) * r, cy + Math.sin(a0) * r * squash,
+            t0, cx + Math.cos(a1) * r, cy + Math.sin(a1) * r * squash, w, cl, a);
         }
-        for (let k = 0; k < 4; k++) {
-          const roll = ((b.t * 0.14 + k * 23) % 80) - 40;
-          seg(pt + roll, px, 3, pt + roll + 9, px, 3, 1.8, [1, 0.5, 0.9], 0.8);
+      };
+
+      // --- the hull: beveled slab, skirts, seams, wedge nose --------------
+      // Deck edge, mid crease, skirt bottom -- three long lines a side, the
+      // sheet's faceting read as creases rather than faces.
+      for (const sx of [-1, 1]) {
+        seg(-170, sx * 48, 34, 140, sx * 48, 34, 2.4);          // deck edge
+        seg(-170, sx * 56, 20, 140, sx * 56, 20, 2, dim);       // mid crease
+        seg(-170, sx * 60, 8, 140, sx * 60, 8, 2, dim);         // skirt bottom
+        // Bevels tying the three together at both ends.
+        seg(-170, sx * 48, 34, -170, sx * 56, 20, 2, dim);
+        seg(-170, sx * 56, 20, -170, sx * 60, 8, 2, dim);
+        seg(140, sx * 48, 34, 140, sx * 56, 20, 2, dim);
+        seg(140, sx * 56, 20, 140, sx * 60, 8, 2, dim);
+        // Panel seams down the skirt, four a side.
+        for (const st of [-120, -60, 0, 60]) {
+          seg(st, sx * 56, 20, st, sx * 60, 8, 1.3, dim, 0.8);
+        }
+        // The wedge nose, faceted in.
+        seg(140, sx * 48, 34, 200, sx * 18, 24, 2.2);
+        seg(140, sx * 56, 20, 200, sx * 20, 16, 2, dim);
+        seg(140, sx * 60, 8, 200, sx * 22, 10, 2, dim);
+      }
+      // Nose tip edges and deck/tail cross-lines.
+      seg(200, -18, 24, 200, 18, 24, 2.2);
+      seg(200, -20, 16, 200, 20, 16, 2, dim);
+      seg(200, -22, 10, 200, 22, 10, 2, dim);
+      seg(200, -18, 24, 200, -22, 10, 2, dim);
+      seg(200, 18, 24, 200, 22, 10, 2, dim);
+      seg(-170, -48, 34, -170, 48, 34, 2.4);
+      seg(140, -48, 34, 140, 48, 34, 2.2);
+
+      // --- the raised turret deck -----------------------------------------
+      for (const sx of [-1, 1]) {
+        seg(-100, sx * 34, 50, 85, sx * 34, 50, 2.2);
+        seg(-100, sx * 34, 50, -112, sx * 40, 34, 2, dim);      // sloped back
+        seg(85, sx * 34, 50, 100, sx * 40, 34, 2, dim);         // sloped front
+      }
+      seg(-100, -34, 50, -100, 34, 50, 2.2);
+      seg(85, -34, 50, 85, 34, 50, 2.2);
+
+      // --- four tread pods: housings, racetracks, rolling teeth -----------
+      for (const [pt, sxs] of [[-115, -1], [-115, 1], [95, -1], [95, 1]]) {
+        const px = sxs * 74;
+        const face = sxs * 7;    // the outer face of the pod
+        // The housing: an octagonal-profile box, both faces plus ties.
+        for (const off of [-face * 0.4, face]) {
+          seg(pt - 62, px + off, 4, pt + 62, px + off, 4, 1.8, dim, 0.9);
+          seg(pt - 62, px + off, 30, pt + 62, px + off, 30, 1.8, dim, 0.9);
+          seg(pt - 62, px + off, 4, pt - 74, px + off, 17, 1.8, dim, 0.9);
+          seg(pt - 74, px + off, 17, pt - 62, px + off, 30, 1.8, dim, 0.9);
+          seg(pt + 62, px + off, 4, pt + 74, px + off, 17, 1.8, dim, 0.9);
+          seg(pt + 74, px + off, 17, pt + 62, px + off, 30, 1.8, dim, 0.9);
+        }
+        // The racetrack on the outer face -- the sheet's signature.
+        for (const [rl, ry0, ry1] of [[52, 8, 26], [40, 12, 22]]) {
+          seg(pt - rl, px + face, ry0, pt + rl, px + face, ry0, 2, col, 0.95);
+          seg(pt - rl, px + face, ry1, pt + rl, px + face, ry1, 2, col, 0.95);
+          seg(pt - rl, px + face, ry0, pt - rl - 7, px + face, (ry0 + ry1) / 2, 2, col, 0.95);
+          seg(pt - rl - 7, px + face, (ry0 + ry1) / 2, pt - rl, px + face, ry1, 2, col, 0.95);
+          seg(pt + rl, px + face, ry0, pt + rl + 7, px + face, (ry0 + ry1) / 2, 2, col, 0.95);
+          seg(pt + rl + 7, px + face, (ry0 + ry1) / 2, pt + rl, px + face, ry1, 2, col, 0.95);
+        }
+        // The teeth, rolling: top run and bottom run, out of phase.
+        for (let k = 0; k < 5; k++) {
+          const roll = ((b.t * 0.14 + k * 21) % 100) - 50;
+          seg(pt + roll, px + face, 26, pt + roll + 8, px + face, 26, 1.7, [1, 0.5, 0.9], 0.85);
+          const roll2 = ((-b.t * 0.14 + k * 21) % 100) - 50;
+          seg(pt + roll2, px + face, 8, pt + roll2 + 8, px + face, 8, 1.7, [1, 0.5, 0.9], 0.85);
         }
       }
 
-      // The mounts: gatling clusters on octagon bases, hex pods tilted up.
+      // --- the mounts -----------------------------------------------------
       for (const part of b.parts) {
         if (!part.alive) continue;
         const pc = part.flash > 0 ? [1, 1, 1]
           : part.label === 'TURRET' ? [1, 0.6, 0.9] : [0.9, 0.5, 1];
+        const px = part.x - b.x - jx, py = part.y - jy;
+        const ptt = part.t - b.t;
         if (part.label === 'TURRET') {
-          octagon(rd, tr, part.t, part.x, part.y, 7, pc, 1.8);
-          for (const bx of [-3, 0, 3]) {
-            tr.localToWorld(part.t, part.x + bx, part.y + 3, p);
-            tr.localToWorld(part.t - 16, part.x + bx * 1.6, part.y + 8, q);
-            rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], 1.6, pc[0], pc[1], pc[2], 0.95);
+          // Octagon base, boxed housing, and the 2x2 gatling cluster.
+          ring(ptt, px, py - 6, 8, 8, 1.8, dim, 0.9);
+          for (const sx of [-5, 5]) {
+            seg(ptt - 5, px + sx, py - 6, ptt - 5, px + sx, py + 5, 1.6, pc, 0.9);
+            seg(ptt + 5, px + sx, py - 6, ptt + 5, px + sx, py + 5, 1.6, pc, 0.9);
+            seg(ptt - 5, px + sx, py + 5, ptt + 5, px + sx, py + 5, 1.6, pc, 0.9);
+          }
+          seg(ptt - 5, px - 5, py + 5, ptt - 5, px + 5, py + 5, 1.6, pc, 0.9);
+          for (const bx of [-2.5, 2.5]) {
+            for (const by of [0, 4]) {
+              seg(ptt - 5, px + bx, py - 3 + by, ptt - 24, px + bx * 1.5, py + 1 + by, 1.5, pc, 0.95);
+              tr.localToWorld(b.t + ptt - 24, X + px + bx * 1.5, Y + py + 1 + by, p);
+              rd.line3(p[0], p[1], p[2], p[0], p[1], p[2], 2.4, pc[0], pc[1], pc[2], 0.9);
+            }
           }
         } else {
-          // The hex pod, mouth tilted up and back the way the sheet has it.
+          // The hex pod: a true hexagonal prism, mouth tilted up and back,
+          // with the six tube cells the sheet is known by.
+          const hex = (tOff, r, w, a) => {
+            for (let k = 0; k < 6; k++) {
+              const a0 = (k / 6) * TAU + TAU / 12, a1 = ((k + 1) / 6) * TAU + TAU / 12;
+              seg(ptt + tOff - Math.sin(a0) * 3, px + Math.cos(a0) * r, py + Math.sin(a0) * r * 0.9,
+                ptt + tOff - Math.sin(a1) * 3, px + Math.cos(a1) * r, py + Math.sin(a1) * r * 0.9, w, pc, a);
+            }
+          };
+          hex(-6, 14, 2.2, 1);         // the mouth
+          hex(8, 12, 1.7, 0.75);       // the back
           for (let k = 0; k < 6; k++) {
-            const a0 = (k / 6) * TAU, a1 = ((k + 1) / 6) * TAU;
-            tr.localToWorld(part.t - Math.sin(a0) * 4, part.x + Math.cos(a0) * 11,
-              part.y + Math.sin(a0) * 9, p);
-            tr.localToWorld(part.t - Math.sin(a1) * 4, part.x + Math.cos(a1) * 11,
-              part.y + Math.sin(a1) * 9, q);
-            rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], 2, pc[0], pc[1], pc[2], 1);
+            const a0 = (k / 6) * TAU + TAU / 12;
+            seg(ptt - 6 - Math.sin(a0) * 3, px + Math.cos(a0) * 14, py + Math.sin(a0) * 12.6,
+              ptt + 8 - Math.sin(a0) * 3, px + Math.cos(a0) * 12, py + Math.sin(a0) * 10.8, 1.5, pc, 0.7);
           }
-          diamond(rd, tr, part.t, part.x, part.y, 4, pc, 1.2, 0.8);
+          for (let k = 0; k < 6; k++) {
+            const a0 = (k / 6) * TAU;
+            const cx2 = px + Math.cos(a0) * 6.5, cy2 = py + Math.sin(a0) * 5.8;
+            for (let j = 0; j < 6; j++) {
+              const b0 = (j / 6) * TAU, b1 = ((j + 1) / 6) * TAU;
+              seg(ptt - 6, cx2 + Math.cos(b0) * 3, cy2 + Math.sin(b0) * 2.7,
+                ptt - 6, cx2 + Math.cos(b1) * 3, cy2 + Math.sin(b1) * 2.7, 1.2, pc, 0.85);
+            }
+          }
         }
       }
 
-      // The cannon: the huge octagonal barrel, tracking you.
-      seg(-130, -5, 12, -226, -7, 20, 2.6);
-      seg(-130, 5, 12, -226, 7, 20, 2.6);
-      octagon(rd, tr, b.t - 226, X, Y + 20, 8, c.charge > 0.6 ? [1, 0.8, 1] : col, 2.2);
+      // --- the cannon: a true octagonal prism, tracking you ---------------
+      // The mantlet it emerges from.
+      for (const sx of [-10, 10]) {
+        seg(-170, sx, 14, -186, sx, 14, 2, dim);
+        seg(-170, sx, 30, -186, sx, 30, 2, dim);
+        seg(-186, sx, 14, -186, sx, 30, 2, dim);
+      }
+      seg(-186, -10, 14, -186, 10, 14, 2, dim);
+      seg(-186, -10, 30, -186, 10, 30, 2, dim);
+      // Eight long edges between the breech ring and the muzzle ring.
+      ring(-186, 0, 22, 7.5, 8, 2);
+      ring(-300, 0, 24, 8.5, 8, 2.2);
+      for (let k = 0; k < 8; k++) {
+        const a0 = (k / 8) * TAU;
+        seg(-186, Math.cos(a0) * 7.5, 22 + Math.sin(a0) * 7.5,
+          -300, Math.cos(a0) * 8.5, 24 + Math.sin(a0) * 8.5, 1.7, k % 2 ? dim : col, 0.9);
+      }
+      ring(-302, 0, 24, 4.5, 8, 2, c.charge > 0.6 ? [1, 0.8, 1] : col);
       if (c.charge > 0) {
-        tr.localToWorld(b.t - 226, X, Y + 20, p);
-        rd.line3(p[0], p[1], p[2], p[0], p[1], p[2], 5 + c.charge * 24,
+        tr.localToWorld(b.t - 302, X, Y + 24, p);
+        rd.line3(p[0], p[1], p[2], p[0], p[1], p[2], 5 + c.charge * 22,
           1, 0.6 + c.charge * 0.4, 1, 0.4 + c.charge * 0.6);
       }
 
-      // The six counting lights on the tail: the "..." the sheet promised.
+      // --- the tail face: twin indicator panels, six lights counting ------
       const lit = Math.round(c.charge * 6);
+      for (const side of [-1, 1]) {
+        seg(-170.5, side * 44, 10, -170.5, side * 10, 10, 1.5, dim, 0.9);
+        seg(-170.5, side * 44, 22, -170.5, side * 10, 22, 1.5, dim, 0.9);
+        seg(-170.5, side * 44, 10, -170.5, side * 44, 22, 1.5, dim, 0.9);
+        seg(-170.5, side * 10, 10, -170.5, side * 10, 22, 1.5, dim, 0.9);
+      }
       for (let i = 0; i < 6; i++) {
+        const side = i < 3 ? -1 : 1;
+        const slot = i % 3;
         const on = i < lit || c.state === 'locked' || c.state === 'firing';
         const blink = c.state === 'locked' && Math.sin(time * 26) > 0;
-        tr.localToWorld(b.t - 129, X - 25 + i * 10, Y + 4, p);
-        rd.line3(p[0], p[1], p[2], p[0], p[1], p[2], on ? 4.4 : 2.6,
+        tr.localToWorld(b.t - 171, X + side * (17 + slot * 10), Y + 16, p);
+        rd.line3(p[0], p[1], p[2], p[0], p[1], p[2], on ? 4.6 : 2.6,
           1, blink ? 1 : 0.35, blink ? 1 : 0.8, on ? 1 : 0.25);
       }
 
-      // The turret fire, painted: streams from the muzzles to the points.
+      // --- the mast the sheet sketched in ---------------------------------
+      seg(-60, -24, 50, -52, -28, 84, 1.2, dim, 0.8);
+      tr.localToWorld(b.t - 52, X - 28, Y + 84, p);
+      rd.line3(p[0], p[1], p[2], p[0], p[1], p[2], 2.4, col[0], col[1], col[2], 0.8);
+
+      // --- the fire being painted, the volley, the blasts, the road -------
       if (b.burst) {
         const turrets = b.parts.filter((x) => x.alive && x.label === 'TURRET');
         b.burst.pts.forEach((pt, i) => {
@@ -1186,8 +1286,6 @@ export const WARDENS = {
           rd.line3(q[0], q[1], q[2], q[0], q[1], q[2], 6, 1, 0.7, 1, 0.9);
         });
       }
-
-      // The volley in the air: slow pulsing rings, each one a target.
       for (const m of b.missilesLive) {
         const r = 5 + Math.sin(time * 8 + m.world[2] * 0.01) * 2;
         for (let k = 0; k < 6; k++) {
@@ -1197,8 +1295,6 @@ export const WARDENS = {
             1.8, m.flash > 0 ? 1 : 1, m.flash > 0 ? 1 : 0.45, m.flash > 0 ? 1 : 0.75, 0.95);
         }
       }
-
-      // The blasts: the field lit to the walls, with the eye left dark.
       if (c.state === 'firing' && c.flashAt && time - c.flashAt < 0.22) {
         const a = 1 - (time - c.flashAt) / 0.22;
         const tS = b.tShip ?? b.t - 430;
@@ -1211,7 +1307,6 @@ export const WARDENS = {
           rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], 3.4, 1, 0.55, 1, a);
         }
       }
-      // The wreckage and the cars, waiting for the treads.
       for (const d of b.debris) {
         square(rd, tr, d.t, d.x, 8, d.size, [0.85, 0.45, 0.8], 1.3, 0.7);
         if (d.car) {
