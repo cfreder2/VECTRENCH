@@ -1048,7 +1048,9 @@ export const WARDENS = {
         // ground gatlings taught, walked along the pattern. The bolts carry
         // the damage; the pattern only decides where they are walking.
         bu.fireIn -= dt;
-        if (bu.fireIn <= 0) {
+        // A burst can outlive its last gun -- the pattern ends with the guns.
+        if (!turrets.length) b.burst = null;
+        if (b.burst && bu.fireIn <= 0) {
           bu.fireIn = 0.12;
           const clear = turrets.filter((g) => !g.guarded);
           const shooters = clear.length ? clear : turrets;
@@ -1064,7 +1066,7 @@ export const WARDENS = {
               dx / l, dy / l, dz / l, 680, false, true);
           });
         }
-        if (bu.age >= bu.dur) {
+        if (b.burst && bu.age >= bu.dur) {
           b.burst = null;
           b.burstIn = 4.6 - st * 0.9;
         }
