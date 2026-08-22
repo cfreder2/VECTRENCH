@@ -200,10 +200,17 @@
     font: inherit; text-align: left; padding: 9px 10px; border-radius: 8px;
     background: rgba(10, 24, 34, .45); border: 1px solid #1d3a4c; color: #9fc2d0;
     cursor: pointer; letter-spacing: .08em; min-height: 58px;
+    position: relative; overflow: hidden;
     -webkit-tap-highlight-color: transparent;
   }
+  .cell canvas.preview {
+    position: absolute; inset: 0; width: 100%; height: 100%;
+    pointer-events: none; border-radius: 8px;
+  }
+  .cell .dname, .cell .dsub { position: relative; text-shadow: 0 1px 4px #000, 0 0 8px #000; }
   .cell .dname { display: block; font-size: 11px; letter-spacing: .14em; }
   .cell .dsub { display: block; font-size: 9px; margin-top: 4px; opacity: .65; }
+  .cell.on { min-height: 108px; }
   .cell.locked { opacity: .38; cursor: default; }
   .cell.on { background: rgba(111, 230, 255, .14); box-shadow: 0 0 10px rgba(111, 230, 255, .25) inset; }
   .cell.cleared .dname::after { content: ' \2713'; color: #6dffa8; }
@@ -245,14 +252,14 @@
         <label>THE DISTRICTS</label>
         <div id="grid"></div>
       </div>
+      <div class="foldable">
+        <label>INTERCEPTOR &mdash; SPECIAL WEAPON</label>
+        <div id="rack"></div>
+        <div class="note" id="racknote">beat a warden to take its weapon</div>
+      </div>
       <div class="row">
         <button id="fly" class="primary" disabled>FLY</button>
         <button id="full" class="chip">FULL SCREEN</button>
-      </div>
-      <div class="foldable">
-        <label>SPECIAL WEAPON</label>
-        <div id="rack"></div>
-        <div class="note" id="racknote">beat a warden to take its weapon</div>
       </div>
       <details class="foldable">
         <summary>TRAINING &amp; YOUR LEVELS</summary>

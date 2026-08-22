@@ -200,10 +200,17 @@
     font: inherit; text-align: left; padding: 9px 10px; border-radius: 8px;
     background: rgba(10, 24, 34, .45); border: 1px solid #1d3a4c; color: #9fc2d0;
     cursor: pointer; letter-spacing: .08em; min-height: 58px;
+    position: relative; overflow: hidden;
     -webkit-tap-highlight-color: transparent;
   }
+  .cell canvas.preview {
+    position: absolute; inset: 0; width: 100%; height: 100%;
+    pointer-events: none; border-radius: 8px;
+  }
+  .cell .dname, .cell .dsub { position: relative; text-shadow: 0 1px 4px #000, 0 0 8px #000; }
   .cell .dname { display: block; font-size: 11px; letter-spacing: .14em; }
   .cell .dsub { display: block; font-size: 9px; margin-top: 4px; opacity: .65; }
+  .cell.on { min-height: 108px; }
   .cell.locked { opacity: .38; cursor: default; }
   .cell.on { background: rgba(111, 230, 255, .14); box-shadow: 0 0 10px rgba(111, 230, 255, .25) inset; }
   .cell.cleared .dname::after { content: ' \2713'; color: #6dffa8; }
@@ -245,14 +252,14 @@
         <label>THE DISTRICTS</label>
         <div id="grid"></div>
       </div>
+      <div class="foldable">
+        <label>INTERCEPTOR &mdash; SPECIAL WEAPON</label>
+        <div id="rack"></div>
+        <div class="note" id="racknote">beat a warden to take its weapon</div>
+      </div>
       <div class="row">
         <button id="fly" class="primary" disabled>FLY</button>
         <button id="full" class="chip">FULL SCREEN</button>
-      </div>
-      <div class="foldable">
-        <label>SPECIAL WEAPON</label>
-        <div id="rack"></div>
-        <div class="note" id="racknote">beat a warden to take its weapon</div>
       </div>
       <details class="foldable">
         <summary>TRAINING &amp; YOUR LEVELS</summary>
@@ -9702,12 +9709,84 @@ class Game {
 
 
 
+
+
 const $ = (id) => document.getElementById(id);
 
 /** '#b06fff' -> [0.69, 0.44, 1], for drawing DOM-side colors on the canvas. */
 function hexRgb(css) {
   const n = parseInt(css.slice(1), 16);
   return [(n >> 16 & 255) / 255, (n >> 8 & 255) / 255, (n & 255) / 255];
+}
+
+/**
+ * The fly-through inside the selected square: the level's own canyon, its own
+ * colors, no obstacles and nothing shooting -- terrain and motion, which is
+ * what a glance can actually read. Its own little renderer on its own little
+ * canvas, mounted into whichever cell is chosen.
+ */
+class Preview {
+  constructor() {
+    this.canvas = document.createElement('canvas');
+    this.canvas.className = 'preview';
+    this.rd = new Renderer(this.canvas);
+    this.frame = makeFrame();
+    this.lookFrame = makeFrame();
+    this.eye = [0, 0, 0];
+    this.look = [0, 0, 0];
+    this.track = null;
+    this.last = 0;
+  }
+
+  setSpec(spec) {
+    this.track = new Track(spec);
+    this.terrain = new TerrainRenderer(this.track);
+    this.t = 150;
+    this.speed = spec.speed.start;
+  }
+
+  mount(cell) {
+    cell.prepend(this.canvas);
+    this.sized = false;
+  }
+
+  tick() {
+    if (!this.track || !this.canvas.isConnected) return;
+    const now = performance.now() / 1000;
+    const dt = Math.min(0.1, now - this.last) || 0.016;
+    this.last = now;
+
+    if (!this.sized) {
+      const r = this.canvas.getBoundingClientRect();
+      if (r.width < 4) return;
+      this.rd.resize(r.width, r.height, 260_000);
+      this.sized = true;
+    }
+
+    const tr = this.track;
+    this.t += this.speed * dt;
+    if (this.t > tr.total - 700) this.t = 150;
+
+    const y = tr.railY(this.t) + 14;
+    tr.frameAt(Math.max(1, this.t - 26), this.frame);
+    tr.localToWorldF(this.frame, 0, y + 12, this.eye);
+    tr.frameAt(Math.min(tr.total, this.t + 130), this.lookFrame);
+    tr.localToWorldF(this.lookFrame, 0, tr.railY(this.t + 130) + 8, this.look);
+
+    const f = [this.look[0] - this.eye[0], this.look[1] - this.eye[1], this.look[2] - this.eye[2]];
+    const fl = Math.hypot(f[0], f[1], f[2]) || 1;
+    f[0] /= fl; f[1] /= fl; f[2] /= fl;
+    const up = this.frame.u;
+    const r = [up[1] * f[2] - up[2] * f[1], up[2] * f[0] - up[0] * f[2], up[0] * f[1] - up[1] * f[0]];
+    const rl = Math.hypot(r[0], r[1], r[2]) || 1;
+    r[0] /= rl; r[1] /= rl; r[2] /= rl;
+    const u = [f[1] * r[2] - f[2] * r[1], f[2] * r[0] - f[0] * r[2], f[0] * r[1] - f[1] * r[0]];
+
+    this.rd.beginFrame(0.7);
+    this.rd.setCamera(this.eye, r, u, f, 1.1, 2600);
+    this.terrain.draw(this.rd, this.t, false, now, 1);
+    this.rd.endFrame();
+  }
 }
 
 const BURN_PIPS = 5;   // chevrons on the boost gauge
@@ -10011,10 +10090,9 @@ class UI {
     for (const d of DISTRICTS) {
       const b = document.createElement('button');
       b.className = 'cell' + (d.center ? ' center' : '');
-      b.style.borderColor = d.css + '55';
       const lv = d.level ? PREBUILT.find((l) => l.spec.name === d.level) : null;
       if (d.center) {
-        b.innerHTML = `<span class="dname" style="color:${d.css}">${d.name}</span>
+        b.innerHTML = `<span class="dname">${d.name}</span>
           <span class="dsub" id="citadelsub"></span>`;
         b.addEventListener('click', () => {
           this.status(this.campaign.wardensDown()
@@ -10022,16 +10100,17 @@ class UI {
             : `sealed -- ${this.campaign.clearedCount()} of ${DISTRICTS.filter((x) => x.level && !x.center).length} wardens down`);
         });
       } else if (lv) {
-        b.innerHTML = `<span class="dname" style="color:${d.css}">${d.name}</span>
+        b.innerHTML = `<span class="dname">${d.name}</span>
           <span class="dsub">${lv.label}</span>`;
         b.addEventListener('click', () => {
           for (const o of this.buttons) o.classList.toggle('on', o === b);
           this.setSpec(lv.spec, [d.name, lv.blurb].filter(Boolean));
+          this.showPreview(b);
         });
         this.buttons.push(b);
       } else {
         b.classList.add('locked');
-        b.innerHTML = `<span class="dname" style="color:${d.css}">${d.name}</span>
+        b.innerHTML = `<span class="dname">${d.name}</span>
           <span class="dsub">offline</span>`;
         b.addEventListener('click', () => this.status(`${d.name.toLowerCase()} is not built yet`));
       }
@@ -10039,6 +10118,17 @@ class UI {
       grid.appendChild(b);
     }
     this.refreshCampaign();
+  }
+
+  /** The chosen square starts flying its level. One preview, moved around. */
+  showPreview(cell) {
+    try {
+      if (!this.preview) this.preview = new Preview();
+    } catch {
+      return;   // no second WebGL context: the menu works fine without it
+    }
+    this.preview.setSpec(this.spec);
+    this.preview.mount(cell);
   }
 
   /** The eight weapon slots: earned ones equip, the rest say how to earn. */
@@ -10226,78 +10316,15 @@ class UI {
    */
   drawBackdrop() {
     const rd = this.rd;
-    // The design screen redraws every frame now: the ship on it is alive.
-    if (this.screen === 'design') this.dirty = false;
-    else if (!this.dirty) return;
-    else this.dirty = false;
+    if (this.screen === 'design' && this.preview) this.preview.tick();
+    this.dirty = false;
     rd.beginFrame(1);
-    if (this.screen === 'design' && this.game.track) {
-      const band = this.freeBand();
-      const strip = 64 * rd.scale;
-      if (band.y1 - band.y0 > 190 * rd.scale) {
-        this.drawShipCard(band.y0, strip);
-        band.y0 += strip;
-      }
-      drawSchematic(rd, this.game.track, this.game.level, 1, band);
-    } else if (this.screen === 'boot') {
+    // Both idle screens get the slow grid; the level itself is previewed
+    // inside the selected square, where a glance can actually read it.
+    if (this.screen === 'design' || this.screen === 'boot') {
       this.drawBootGrid();
     }
     rd.endFrame();
-  }
-
-  /**
-   * Your ship, on the shelf above the map: the interceptor in top view, the
-   * fitted special worn as its trim. A hangar, four lines wide.
-   */
-  drawShipCard(y0, h) {
-    const rd = this.rd;
-    const s = rd.scale;
-    const cx = rd.width * 0.5;
-    const cy = y0 + h * 0.52;
-    const t = performance.now() / 1000;
-    const sway = Math.sin(t * 1.4) * 3 * s;
-    const wkey = this.campaign.equipped;
-    const wc = wkey ? hexRgb(WEAPONS[wkey].css) : [0.35, 0.6, 0.7];
-
-    const S = 1.35 * s;
-    const N = [cx + sway, cy - 15 * S];
-    const L = [cx + sway - 13 * S, cy + 11 * S];
-    const R = [cx + sway + 13 * S, cy + 11 * S];
-    const T = [cx + sway, cy + 6 * S];
-    for (const [a, b] of [[N, L], [L, T], [T, R], [R, N]]) {
-      rd.line2(a[0], a[1], b[0], b[1], 1.8 * s, 0.45, 0.95, 1, 0.95, 0.95);
-    }
-    // The engine, flickering; the wingtips, in the weapon's color.
-    const jet = (6 + Math.sin(t * 23) * 2.5) * S;
-    rd.line2(T[0] - 3 * S, T[1] + 2 * S, T[0] - 3 * S, T[1] + jet, 1.4 * s, 1, 0.72, 0.2, 0.8, 0.1);
-    rd.line2(T[0] + 3 * S, T[1] + 2 * S, T[0] + 3 * S, T[1] + jet, 1.4 * s, 1, 0.72, 0.2, 0.8, 0.1);
-    for (const W of [L, R]) {
-      rd.line2(W[0], W[1], W[0], W[1] - 5 * S, 2.4 * s, wc[0], wc[1], wc[2], wkey ? 1 : 0.35, wkey ? 1 : 0.35);
-    }
-
-    drawText(rd, 'INTERCEPTOR', cx - 100 * s, cy + 3 * s, 9 * s, 1.1 * s, 0.35, 0.6, 0.7, 0.9, 1);
-    const label = wkey ? WEAPONS[wkey].name : 'NO SPECIAL';
-    drawText(rd, label, cx + 100 * s, cy + 3 * s, 9 * s, 1.1 * s, wc[0], wc[1], wc[2], wkey ? 1 : 0.5);
-  }
-
-  /**
-   * The canvas region the design panel is not covering, in device pixels. The
-   * schematic fits itself to this so it is never drawn behind the sheet.
-   */
-  freeBand() {
-    const rd = this.rd;
-    const r = rd.canvas.getBoundingClientRect();
-    const k = rd.height / Math.max(1, r.height);
-    const sheet = document.getElementById('sheet').getBoundingClientRect();
-    const top = document.getElementById('topbar').getBoundingClientRect();
-    const y0 = (top.bottom - r.top) * k + 8 * rd.scale;
-    const y1 = (sheet.top - r.top) * k - 6 * rd.scale;
-    if (y1 - y0 < 80 * rd.scale) {
-      // Panel is too tall to leave a usable band; use the whole canvas and let
-      // the sheet sit over it rather than squeezing the plots into nothing.
-      return { y0: rd.height * 0.06, y1: rd.height * 0.94 };
-    }
-    return { y0, y1 };
   }
 
   /** A slow perspective grid under the title, so the boot screen is not dead. */
