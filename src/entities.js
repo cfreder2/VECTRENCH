@@ -85,12 +85,16 @@ export function drawShip(rd, pos, basis, thrust, time, hurt, weapon) {
   // A fitted special, live: the gun line doubles into twin rails in the
   // weapon's own color, shooting out past the nose from both wing guns.
   if (weapon) {
+    // Two short rails, one on each wing gun, strictly parallel -- tapering
+    // them inward made the pair read as one long lance from most angles,
+    // and the tip glow was a zero-length line, which a quad expander turns
+    // into garbage. Side-by-side pods, glowing at the muzzle end.
     for (const m of MUZZLES) {
-      shipLocalToWorld(pos, basis, m[0], m[1], m[2], _a);
-      shipLocalToWorld(pos, basis, m[0] * 0.85, m[1], m[2] + 22, _b);
-      rd.line3(_a[0], _a[1], _a[2], _b[0], _b[1], _b[2], 1.7,
+      shipLocalToWorld(pos, basis, m[0], m[1], m[2] - 4, _a);
+      shipLocalToWorld(pos, basis, m[0], m[1], m[2] + 7, _b);
+      rd.line3(_a[0], _a[1], _a[2], _b[0], _b[1], _b[2], 1.9,
         weapon[0], weapon[1], weapon[2], 0.95);
-      rd.line3(_b[0], _b[1], _b[2], _b[0], _b[1], _b[2], 3.2,
+      rd.dot3(_b[0], _b[1], _b[2], 3.2,
         weapon[0], weapon[1], weapon[2], 0.8 + 0.2 * Math.sin(time * 12));
     }
   }

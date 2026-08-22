@@ -219,8 +219,14 @@ class Range {
     rd.beginFrame(1);
     // Broadside of the firing line: the ship enters at frame left, the
     // targets march away to the right, and the whole lane fills the width.
-    const eye = [-125 + Math.sin(this.t * 0.3) * 6, 40, 68];
+    // FOV is vertical, so a narrow portrait canvas sees a fraction of the
+    // horizontal span a wide one does -- the camera backs off by exactly
+    // that fraction, and the whole lane fits at every aspect.
     const at = [0, 11, 128];
+    const aspect = this._w / this._h;
+    const k = Math.min(2.4, Math.max(1, 2.6 / aspect));
+    const off = [-125 + Math.sin(this.t * 0.3) * 6, 29, -60];
+    const eye = [at[0] + off[0] * k, at[1] + off[1] * k, at[2] + off[2] * k];
     const f = [at[0] - eye[0], at[1] - eye[1], at[2] - eye[2]];
     const fl = Math.hypot(f[0], f[1], f[2]) || 1;
     f[0] /= fl; f[1] /= fl; f[2] /= fl;
