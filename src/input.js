@@ -65,6 +65,11 @@ export class Input {
     this.rolling = false;          // the ship is turning onto its side
     this.rollDir = 1;              // which way it goes over: -1 left, 1 right
     this.barrelReq = 0;            // a double tap let go of, waiting to be taken
+    this.rollBtnDir = 0;           // the LR or RR button, held: -1, 0, 1
+    // How rolls are asked for. 'buttons' is the default: hold LR or RR for
+    // the knife edge, double-tap one for the barrel roll. 'gestures' is the
+    // old way -- double-tap the canyon itself -- kept for anyone who liked it.
+    this.rollMode = 'buttons';
     this._double = null;           // the second tap of a pair, still down
     this._lastPress = null;
     this.boosting = false;         // the burn is open
@@ -292,6 +297,7 @@ export class Input {
    * never counted. It worked with 40ms taps in a test and not under a thumb.
    */
   _press(x, w, id, at) {
+    if (this.rollMode !== 'gestures') return;
     // One convention, stated once: -1 is left, 1 is right, matching shipX.
     // Whether that means a positive or a negative roll angle is the game's
     // business, not this file's -- flipping it here as well as there is how
@@ -401,6 +407,10 @@ export class Input {
       this.rolling = true;
       this.rollDir = this._double.dir;
     }
+    if (this.rollBtnDir) {
+      this.rolling = true;
+      this.rollDir = this.rollBtnDir;
+    }
 
     let sx = 0;
     let sy = 0;
@@ -492,6 +502,16 @@ export class Input {
     const v = this.missilePressed;
     this.missilePressed = false;
     return v;
+  }
+
+  /** The LR or RR button: held is the knife edge, on that side. */
+  rollBtn(dir, on) {
+    this.rollBtnDir = on ? dir : (this.rollBtnDir === dir ? 0 : this.rollBtnDir);
+  }
+
+  /** A barrel roll asked for outright -- the buttons' double-tap lands here. */
+  requestBarrel(dir) {
+    this.barrelReq = dir;
   }
 
   /** A double tap, once. Returns -1 or 1 for the side, or 0 for nothing. */

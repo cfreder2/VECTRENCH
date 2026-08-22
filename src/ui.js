@@ -219,6 +219,31 @@ export class UI {
     hold('burn', (on) => { this.input.boostHeld = on; });
     // The special is held exactly like the burn: down is firing, up is saved.
     hold('spec', (on) => { this.input.specialBtn(on); });
+    // The roll buttons: hold one and the ship goes over on that side; a quick
+    // second press within the window is the barrel roll, that way. The press
+    // starts the knife immediately either way -- both moves begin identically,
+    // so nothing is lost by not waiting to find out which one it is.
+    const rollTaps = { '-1': 0, '1': 0 };
+    const rollBtn = (id, dir) => {
+      const el = $(id);
+      el.addEventListener('pointerdown', (e) => {
+        e.preventDefault();
+        el.setPointerCapture?.(e.pointerId);
+        const now = performance.now();
+        if (now - rollTaps[dir] < 340) this.input.requestBarrel(dir);
+        rollTaps[dir] = now;
+        this.input.rollBtn(dir, true);
+      });
+      for (const ev of ['pointerup', 'pointercancel', 'pointerleave']) {
+        el.addEventListener(ev, (e) => { e.preventDefault(); this.input.rollBtn(dir, false); });
+      }
+    };
+    rollBtn('lr', -1);
+    rollBtn('rr', 1);
+    $('rollmode').addEventListener('change', (e) => {
+      this.input.rollMode = e.target.checked ? 'buttons' : 'gestures';
+      $('rollrow').hidden = !e.target.checked;
+    });
 
     $('calibrate').addEventListener('click', async () => {
       if (this.input.motion !== 'granted') await this.input.requestMotion();

@@ -154,9 +154,16 @@
     display: grid; grid-template-columns: 1fr; gap: 8px;
     width: min(46vw, 260px);
   }
-  #padrow { display: flex; gap: 8px; }
-  #padrow > button { flex: 1; min-width: 0; }
-  #pad button {
+  #padleft {
+    position: absolute;
+    left: max(10px, env(safe-area-inset-left));
+    bottom: max(10px, env(safe-area-inset-bottom));
+    display: grid; grid-template-columns: 1fr; gap: 8px;
+    width: min(40vw, 220px);
+  }
+  #rollrow { display: flex; gap: 8px; }
+  #rollrow > button { flex: 1; min-width: 0; }
+  #padleft button, #pad button {
     pointer-events: auto; touch-action: none;
     /* Held buttons on iOS: without the webkit spellings, a long press starts
        selecting the label and puts the magnifier and the selection handles over
@@ -345,6 +352,15 @@
           <label>TILT SENSITIVITY</label>
           <div class="row"><input type="range" id="sens" min="0.5" max="2.2" step="0.1" value="1"><span class="note" id="sensval">1.0</span></div>
           <div class="row">
+            <span class="toggle"><input type="checkbox" id="rollmode" checked> ROLL BUTTONS</span>
+          </div>
+          <div class="note">
+            On, the LR and RR buttons roll the ship: hold one for the knife
+            edge, tap it twice for a barrel roll that way. Off, the old
+            gesture instead -- double-tap the screen on the side you want,
+            and hold the second tap to stay on edge.
+          </div>
+          <div class="row">
             <span class="toggle"><input type="checkbox" id="paintlock" checked> PAINT TO LOCK</span>
           </div>
           <div class="note">
@@ -380,12 +396,16 @@
 
   <div id="flight" class="layer">
     <button id="pause" class="chip">MENU</button>
+    <div id="padleft">
+      <div id="rollrow">
+        <button id="lr">&#10554; LR</button>
+        <button id="rr">RR &#10555;</button>
+      </div>
+      <button id="spec" aria-label="special weapon"></button>
+    </div>
     <div id="pad">
       <button id="msl">MISSILES</button>
-      <div id="padrow">
-        <button id="spec" aria-label="special weapon"></button>
-        <button id="burn" aria-label="boost"></button>
-      </div>
+      <button id="burn" aria-label="boost"></button>
     </div>
   </div>
 </div>
