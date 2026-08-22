@@ -253,6 +253,28 @@
   #wbtn:disabled { opacity: .45; }
   #extras[hidden] { display: none; }
   #jukebox[hidden] { display: none; }
+  #armory[hidden] { display: none; }
+  #armory {
+    position: absolute; left: 0; right: 0; bottom: 0;
+    top: calc(max(14px, env(safe-area-inset-top)) + 34px);
+    background: rgba(3, 10, 16, .97); border-top: 1px solid var(--line);
+    padding: 14px; overflow-y: auto; z-index: 6;
+    display: flex; flex-direction: column; gap: 10px; pointer-events: auto;
+  }
+  #armweapons { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+  #armweapons button.on { filter: brightness(1.5); outline: 1px solid currentColor; }
+  /* The range canvas lives absolutely inside a sizing wrapper -- a canvas that
+     sizes its own container feeds back into layout and inflates forever. */
+  #armrangewrap {
+    position: relative; flex: 0 0 auto; height: 30vh; min-height: 150px;
+    border: 1px solid var(--line); background: #000;
+  }
+  #armrangewrap canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+  #armdetail { display: flex; flex-direction: column; gap: 6px; font-size: 11px; }
+  #armdetail .armname { font-size: 18px; letter-spacing: 3px; }
+  #armdetail .armstatus { color: var(--cyan); }
+  #armdetail .armline { color: #cfe6de; line-height: 1.5; }
+  #armdetail .armmelts { color: #ffd24f; }
   #jukebox {
     position: absolute; left: 0; right: 0; bottom: 0;
     top: calc(max(14px, env(safe-area-inset-top)) + 34px);
@@ -381,9 +403,19 @@
       <label>MIX</label>
       <div id="jukemix"></div>
     </div>
+    <div id="armory" hidden>
+      <div class="row">
+        <button id="armclose" class="chip">CLOSE</button>
+        <span class="note">the rack, safety off -- every weapon on the wheel, and the range to watch it fire.</span>
+      </div>
+      <div id="armweapons"></div>
+      <div id="armrangewrap"><canvas id="armrange"></canvas></div>
+      <div id="armdetail"></div>
+    </div>
     <div id="extras" hidden>
       <div class="row">
         <button id="jukeopen" class="chip">JUKEBOX</button>
+        <button id="armopen" class="chip">ARMORY</button>
       </div>
       <details class="foldable" id="customfold" hidden>
         <summary>YOUR LEVELS</summary>

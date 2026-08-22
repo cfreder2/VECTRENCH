@@ -21,6 +21,7 @@ import {
   SHIP_HX, SHIP_HY, KNIFE_HX, KNIFE_HY,
 } from './collide.js';
 import { drawText } from './font.js';
+import { WEAPONS } from './campaign.js';
 
 // The ship's motion limits. Exported because tools/audit.mjs proves levels are
 // flyable against them -- a copy of these numbers that drifted would make the
@@ -2324,6 +2325,12 @@ export class Game {
       const pulse = 0.8 + 0.2 * Math.sin(this.time * 6);
       drawText(rd, this.acquired.toUpperCase(), W * 0.5, H * 0.36, 44 * s, 4.5 * s,
         wc[0], wc[1], wc[2], a * pulse, 0);
+      // What you just took, in one line -- the armory holds the rest.
+      const wdef = WEAPONS[this.acquired];
+      if (wdef && wdef.does) {
+        drawText(rd, wdef.does, W * 0.5, H * 0.435, 10.5 * s, 1.1 * s,
+          wc[0], wc[1], wc[2], a * 0.85, 0);
+      }
       // Your ship, turning on the stand, already wearing it: the twin rails
       // in the weapon's color are the whole reveal.
       const fr = { r: [...this.camR], u: [...this.camU], f: [...this.camF] };

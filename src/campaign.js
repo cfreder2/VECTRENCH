@@ -12,16 +12,69 @@
 // weapons are earned, which one is fitted. Clearing is forever; replaying a
 // cleared district is allowed and changes nothing you already have.
 
-/** The wheel, in its own order. `built` is which shots exist in code today. */
+/**
+ * The wheel, in its own order. `built` is which shots exist in code today.
+ * The copy is the armory's truth: `does` is the weapon in one line, `how` is
+ * the mechanics in the player's hands, `from` names the warden who wields it
+ * against you before you take it, and `melts` is the wheel relation -- the
+ * next warden over, to whom this weapon is the answer.
+ */
 export const WEAPONS = {
-  wave:   { name: 'WAVE',   css: '#4fd8ff', built: false },
-  magma:  { name: 'MAGMA',  css: '#ff7a3c', built: false },
-  saw:    { name: 'SAW',    css: '#7dff6a', built: false },
-  arc:    { name: 'ARC',    css: '#b06fff', built: true },
-  breach: { name: 'BREACH', css: '#a8b8c8', built: false },
-  freeze: { name: 'FREEZE', css: '#bfe8ff', built: false },
-  rail:   { name: 'RAIL',   css: '#ffd24f', built: false },
-  ghost:  { name: 'GHOST',  css: '#ff6fd8', built: false },
+  wave: {
+    name: 'WAVE', css: '#4fd8ff', built: false,
+    from: 'HYDRA', district: 'RIVERWORKS', melts: 'FURNACE',
+    does: 'A RISING WALL OF LIGHT THAT SWEEPS THE TRENCH',
+    how: 'HOLD SPECIAL: THE WALL CLIMBS FROM THE FLOOR AND ROLLS FORWARD, TAKING EVERYTHING WIDE. AIM IS THE TRENCH ITSELF.',
+  },
+  magma: {
+    name: 'MAGMA', css: '#ff7a3c', built: false,
+    from: 'FURNACE', district: 'REACTOR', melts: 'MANTIS',
+    does: 'SHORT-RANGE BURNING FLAK THAT HANGS AND KEEPS BURNING',
+    how: 'HOLD SPECIAL: SHELLS BURST INTO CLOUDS THAT STAY WHERE THEY POPPED. WHAT FLIES THROUGH ONE COOKS. ARMOR HATES IT.',
+  },
+  saw: {
+    name: 'SAW', css: '#7dff6a', built: false,
+    from: 'MANTIS', district: 'OVERGROWTH', melts: 'MARIONETTE',
+    does: 'A THROWN BLADE THAT COMES BACK',
+    how: 'HOLD SPECIAL: THE BLADE FLIES OUT, CARVES WHAT IT CROSSES, AND RETURNS ALONG A SECOND LINE. TWO PASSES PER THROW.',
+  },
+  arc: {
+    name: 'ARC', css: '#b06fff', built: true,
+    from: 'MARIONETTE', district: 'NEON', melts: 'PORTCULLIS',
+    does: 'CHAIN LIGHTNING THAT JUMPS BETWEEN YOUR LOCKS',
+    how: 'HOLD SPECIAL: THE BOLT STARTS AT THE TARGET NEAREST THE CROSSHAIR AND JUMPS UP TO THREE TIMES, EACH LANDING SOFTER. PAINT MORE LOCKS, FEED THE CHAIN.',
+  },
+  breach: {
+    name: 'BREACH', css: '#a8b8c8', built: false,
+    from: 'PORTCULLIS', district: 'BULKHEAD', melts: 'AVALANCHE',
+    does: 'A CHARGE SHOT THAT DETONATES BEHIND WHAT IT HITS',
+    how: 'HOLD SPECIAL: ONE HEAVY ROUND. THE BLAST THROWS FORWARD THROUGH THE POINT OF IMPACT -- DOORS OPEN EARLY, PRESSES STAGGER.',
+  },
+  freeze: {
+    name: 'FREEZE', css: '#bfe8ff', built: false,
+    from: 'AVALANCHE', district: 'GLACIER', melts: 'BROADSIDE',
+    does: 'A BEAM THAT STOPS MACHINERY MID-MOTION',
+    how: 'HOLD SPECIAL: WHATEVER THE BEAM TOUCHES WINDS DOWN -- PINWHEELS STALL, PRESSES HALT MID-CYCLE, GUNS FORGET THEIR TIMING.',
+  },
+  rail: {
+    name: 'RAIL', css: '#ffd24f', built: false,
+    from: 'BROADSIDE', district: 'GAUNTLET', melts: 'REVENANT',
+    does: 'A PIERCING LANCE THROUGH EVERYTHING IN A LINE',
+    how: 'HOLD SPECIAL: ONE INSTANT LINE, NO TRAVEL TIME, THROUGH EVERY TARGET IT CROSSES. LINE THEM UP AND SPEND IT ONCE.',
+  },
+  ghost: {
+    name: 'GHOST', css: '#ff6fd8', built: false,
+    from: 'REVENANT', district: 'VOID', melts: 'HYDRA',
+    does: 'A SHOT THAT PASSES THROUGH WALLS',
+    how: 'HOLD SPECIAL: THE ROUND IGNORES TERRAIN AND HULL ALIKE AND HITS WHAT HIDES BEHIND THEM. COVER STOPS MEANING ANYTHING.',
+  },
+};
+
+/** The standard fit, for the armory's first page. Not on the wheel: always loaded. */
+export const MACHINE_GUN = {
+  name: 'MACHINE GUN', css: '#9be8c8',
+  does: 'TWIN GUNS. INFINITE AMMO, FINITE PATIENCE.',
+  how: 'HOLD FIRE: SHOTS GO THROUGH THE CROSSHAIR, HEAT BUILDS, OVERHEAT COOLS OFF. EVERYTHING IN THE CAMPAIGN FALLS TO IT -- SPECIALS MULTIPLY, THE GUN FINISHES.',
 };
 
 /**

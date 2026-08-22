@@ -82,6 +82,14 @@ warden it melts.*
 | **RAIL** | The Gauntlet | a piercing lance through everything in a line | REVENANT (the only thing that catches VOID's phasing warden) |
 | **GHOST** | Void | passes through walls and hits what hides behind them | HYDRA (reaches the Riverworks warden inside its river) |
 
+In the game this table lives in **the armory** (SETUP → ARMORY): every weapon
+on the wheel with its status — held by its warden, taken, or fitted — and a
+firing range where the selected weapon demonstrably fires. The gun and ARC
+fire exactly as they fire in flight; the unbuilt shots fire as designed, and
+their status line says the shot is still in the forge. The armory's copy is
+`WEAPONS` in `src/campaign.js`, which is also where the weapon-acquired
+screen gets its one-line description.
+
 ## The wardens
 
 You fly *alongside* each one, 1943-style, in a dedicated arena past the gate.

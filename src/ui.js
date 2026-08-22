@@ -12,10 +12,11 @@
 import { decodeSpec, normalizeSpec } from './spec.js';
 import { PREBUILT } from './levels.js';
 import { drawText } from './font.js';
-import { Campaign, DISTRICTS, WEAPONS } from './campaign.js';
+import { Campaign, DISTRICTS, WEAPONS, MACHINE_GUN } from './campaign.js';
 import { SONGS } from './songs.js';
 import { Renderer } from './renderer.js';
 import { drawShip } from './entities.js';
+import { boltPath, SPECIAL_COLORS } from './game.js';
 import { Track, makeFrame } from './track.js';
 import { TerrainRenderer } from './terrain.js';
 
@@ -133,6 +134,413 @@ class ShipView {
     this.rd.setCamera(eye, r, u, f, 0.9, 400);
     drawShip(this.rd, [0, 0, 0], this.basis, 0.35 + 0.15 * Math.sin(t * 3), t, 0);
     this.rd.endFrame();
+  }
+}
+
+
+/**
+ * The firing range: the armory's live demonstration. Its own renderer on its
+ * own canvas, a ship on the line, targets downrange, and the selected weapon
+ * doing what its page says it does. The two shots that exist in the game --
+ * the gun and ARC -- fire exactly as they fire in flight; the six still in
+ * the forge fire as designed, which is what this range is FOR: seeing them.
+ */
+class Range {
+  constructor(canvas) {
+    this.canvas = canvas;
+    this.rd = new Renderer(canvas);
+    this.sized = false;
+    this.key = null;
+    this.last = 0;
+    this.basis = { r: [1, 0, 0], u: [0, 1, 0], f: [0, 0, 1] };  // nose downrange
+    this.ship = [0, 9, 0];
+  }
+
+  muzzle(side, out) {
+    out[0] = this.ship[0] + side * 14.4;
+    out[1] = this.ship[1] - 1.4;
+    out[2] = this.ship[2] + 6;
+    return out;
+  }
+
+  show(key) {
+    if (key === this.key) return;
+    this.key = key;
+    this.t = 0;
+    this.timer = 0;
+    this.shots = [];
+    this.sparks = [];
+    this.clouds = [];
+    this.walls = [];
+    this.lance = 0;
+    this.frags = [];
+    this.sawU = -0.4;
+    this.arcAt = 0;
+    this.arcHeat = 0;
+    // GHOST gets a bunker to shoot through; RAIL gets its targets in a line.
+    const lineUp = key === 'rail';
+    const hide = key === 'ghost';
+    this.targets = [
+      { x: lineUp ? -8 : -20, y: lineUp ? 12 : 12, z: 115, r: 11 },
+      { x: lineUp ? 0 : 16, y: lineUp ? 13 : 20, z: 170, r: 11 },
+      { x: lineUp ? 8 : hide ? 0 : -8, y: lineUp ? 14 : 14, z: hide ? 205 : 225, r: 11 },
+    ].map((o, i) => ({ ...o, alive: true, spin: i * 0.8, rate: 3, flash: 0, respawn: 0, frozen: 0 }));
+  }
+
+  kill(tg, delay = 2.4) {
+    if (!tg.alive) return;
+    tg.alive = false;
+    tg.respawn = delay;
+    tg.frozen = 0;
+    for (let i = 0; i < 14; i++) {
+      const a = (i / 14) * Math.PI * 2, v = 60 + (i % 5) * 22;
+      this.sparks.push({ x: tg.x, y: tg.y, z: tg.z,
+        vx: Math.cos(a) * v, vy: Math.sin(a) * v * 0.7, vz: (i % 3 - 1) * 40, life: 0.7 });
+    }
+  }
+
+  /** One tick: advance the sim by real time, then draw the whole scene. */
+  tick() {
+    if (!this.canvas.isConnected || !this.key) return;
+    const rect = this.canvas.getBoundingClientRect();
+    if (rect.width < 4 || rect.height < 4) return;
+    if (!this.sized || Math.abs(rect.width - this._w) > 2 || Math.abs(rect.height - this._h) > 2) {
+      this.rd.resize(rect.width, rect.height, 500_000);
+      this._w = rect.width; this._h = rect.height;
+      this.sized = true;
+    }
+    const now = performance.now() / 1000;
+    const dt = Math.min(0.05, this.last ? now - this.last : 1 / 60);
+    this.last = now;
+    this.t += dt;
+    this.step(dt);
+
+    const rd = this.rd;
+    rd.beginFrame(1);
+    // Broadside of the firing line: the ship enters at frame left, the
+    // targets march away to the right, and the whole lane fills the width.
+    const eye = [-125 + Math.sin(this.t * 0.3) * 6, 40, 68];
+    const at = [0, 11, 128];
+    const f = [at[0] - eye[0], at[1] - eye[1], at[2] - eye[2]];
+    const fl = Math.hypot(f[0], f[1], f[2]) || 1;
+    f[0] /= fl; f[1] /= fl; f[2] /= fl;
+    const r = [f[2], 0, -f[0]];
+    const rl = Math.hypot(r[0], r[2]) || 1;
+    r[0] /= rl; r[2] /= rl;
+    const u = [f[1] * r[2] - f[2] * r[1], f[2] * r[0] - f[0] * r[2], f[0] * r[1] - f[1] * r[0]];
+    rd.setCamera(eye, r, u, f, 1.0, 900);
+    this.drawScene(rd);
+    rd.endFrame();
+  }
+
+  step(dt) {
+    const k = this.key;
+    for (const tg of this.targets) {
+      tg.flash = Math.max(0, tg.flash - dt * 5);
+      tg.spin += dt * tg.rate * (1 - tg.frozen);
+      if (!tg.alive) {
+        tg.respawn -= dt;
+        if (tg.respawn <= 0) { tg.alive = true; tg.flash = 0; tg.frozen = 0; }
+      }
+    }
+    let w = 0;
+    for (const sp of this.sparks) {
+      sp.life -= dt;
+      if (sp.life <= 0) continue;
+      sp.x += sp.vx * dt; sp.y += sp.vy * dt; sp.z += sp.vz * dt;
+      sp.vy -= 130 * dt;
+      this.sparks[w++] = sp;
+    }
+    this.sparks.length = w;
+    this.timer -= dt;
+    const live = this.targets.filter((t) => t.alive);
+    const m = [0, 0, 0];
+
+    if (k === 'mg') {
+      // The real gun: twin muzzles, real cadence, real streak.
+      if (this.timer <= 0 && live.length) {
+        this.timer = 0.085;
+        const tg = live[0];
+        for (const side of [-1, 1]) {
+          this.muzzle(side, m);
+          const d = [tg.x - m[0], tg.y - m[1], tg.z - m[2]];
+          const L = Math.hypot(d[0], d[1], d[2]) || 1;
+          this.shots.push({ x: m[0], y: m[1], z: m[2],
+            dx: d[0] / L, dy: d[1] / L, dz: d[2] / L, speed: 1100, hp: 1 });
+        }
+      }
+      this.stepShots(dt, (tg) => { tg.flash = 1; tg.hp = (tg.hp ?? 9) - 1; if (tg.hp <= 0) { tg.hp = 9; this.kill(tg); } });
+    } else if (k === 'arc') {
+      // The real ARC: the chain crackles from lock to lock, heat kills the head.
+      if (live.length) {
+        this.arcHeat += dt;
+        if (this.arcHeat > 1.3) { this.arcHeat = 0; this.kill(live[0]); }
+      }
+    } else if (k === 'wave') {
+      if (this.timer <= 0) { this.timer = 2.6; this.walls.push({ z: 30 }); }
+      let ww = 0;
+      for (const wl of this.walls) {
+        const z0 = wl.z;
+        wl.z += 150 * dt;
+        for (const tg of this.targets) if (tg.alive && tg.z > z0 && tg.z <= wl.z) this.kill(tg, 2.0);
+        if (wl.z < 340) this.walls[ww++] = wl;
+      }
+      this.walls.length = ww;
+    } else if (k === 'magma') {
+      if (this.timer <= 0 && live.length) {
+        this.timer = 1.5;
+        const tg = live[(this.t | 0) % live.length];
+        this.muzzle(1, m);
+        this.shots.push({ x: m[0], y: m[1], z: m[2], tx: tg.x, ty: tg.y, tz: tg.z, speed: 190, lob: 1 });
+      }
+      let sw = 0;
+      for (const sh of this.shots) {
+        const d = [sh.tx - sh.x, sh.ty - sh.y, sh.tz - sh.z];
+        const L = Math.hypot(d[0], d[1], d[2]);
+        if (L < 14) { this.clouds.push({ x: sh.tx, y: sh.ty, z: sh.tz, life: 2.6, r: 4 }); continue; }
+        sh.x += (d[0] / L) * sh.speed * dt;
+        sh.y += (d[1] / L) * sh.speed * dt + Math.max(0, 26 - L * 0.2) * dt;
+        sh.z += (d[2] / L) * sh.speed * dt;
+        this.shots[sw++] = sh;
+      }
+      this.shots.length = sw;
+      let cw = 0;
+      for (const c of this.clouds) {
+        c.life -= dt;
+        c.r = Math.min(24, c.r + 60 * dt);
+        for (const tg of this.targets) {
+          if (tg.alive && Math.hypot(tg.x - c.x, tg.y - c.y, tg.z - c.z) < c.r + 4) {
+            tg.flash = Math.max(tg.flash, 0.5);
+            tg.burn = (tg.burn || 0) + dt;
+            if (tg.burn > 0.9) { tg.burn = 0; this.kill(tg); }
+          }
+        }
+        if (c.life > 0) this.clouds[cw++] = c;
+      }
+      this.clouds.length = cw;
+    } else if (k === 'saw') {
+      this.sawU += dt / 2.8;
+      if (this.sawU >= 1) this.sawU = -0.15;   // a beat between throws
+      const u = Math.max(0, this.sawU);
+      const out = u < 0.5;
+      const p = out ? u * 2 : (1 - u) * 2;     // 0 -> 1 -> 0
+      this.sawPos = [Math.sin(p * Math.PI) * (out ? 34 : -30), 12 + p * 6, 20 + p * 260];
+      for (const tg of this.targets) {
+        if (tg.alive && Math.hypot(tg.x - this.sawPos[0], tg.y - this.sawPos[1], tg.z - this.sawPos[2]) < 18) this.kill(tg, 2.2);
+      }
+    } else if (k === 'breach') {
+      if (this.timer <= 0 && live.length) {
+        this.timer = 2.4;
+        const tg = live[0];
+        this.muzzle(-1, m);
+        const d = [tg.x - m[0], tg.y - m[1], tg.z - m[2]];
+        const L = Math.hypot(d[0], d[1], d[2]) || 1;
+        this.shots.push({ x: m[0], y: m[1], z: m[2], dx: d[0] / L, dy: d[1] / L, dz: d[2] / L, speed: 210, heavy: 1 });
+      }
+      this.stepShots(dt, (tg) => {
+        this.kill(tg, 2.6);
+        // The blast throws FORWARD: a cone of fragments through the impact.
+        for (let i = 0; i < 9; i++) {
+          const a = (i / 9) * Math.PI * 2;
+          this.frags.push({ x: tg.x, y: tg.y, z: tg.z,
+            dx: Math.cos(a) * 0.32, dy: Math.sin(a) * 0.2, dz: 1, life: 0.6 });
+        }
+      });
+      let fw = 0;
+      for (const fr of this.frags) {
+        fr.life -= dt;
+        if (fr.life <= 0) continue;
+        fr.x += fr.dx * 240 * dt; fr.y += fr.dy * 240 * dt; fr.z += fr.dz * 240 * dt;
+        for (const tg of this.targets) {
+          if (tg.alive && Math.hypot(tg.x - fr.x, tg.y - fr.y, tg.z - fr.z) < tg.r + 4) this.kill(tg, 2.6);
+        }
+        this.frags[fw++] = fr;
+      }
+      this.frags.length = fw;
+    } else if (k === 'freeze') {
+      const tg = this.targets.find((t) => t.alive && t.frozen < 1);
+      this.beamAt = tg || null;
+      if (tg) {
+        tg.frozen = Math.min(1, tg.frozen + dt / 1.5);
+        if (tg.frozen >= 1) tg.iced = this.t;
+      } else if (this.targets.every((t) => !t.alive || t.frozen >= 1)) {
+        this.timer -= 0;
+        if (this.timer <= -1.4) { this.timer = 0; for (const t2 of this.targets) this.kill(t2, 1.6); }
+      }
+    } else if (k === 'rail') {
+      this.lance = Math.max(0, this.lance - dt);
+      if (this.timer <= 0) {
+        this.timer = 2.2;
+        this.lance = 0.4;
+        for (const tg of this.targets) if (tg.alive) this.kill(tg, 1.7);
+      }
+    } else if (k === 'ghost') {
+      if (this.timer <= 0) {
+        this.timer = 1.9;
+        this.muzzle(1, m);
+        const tg = this.targets[2];
+        const d = [tg.x - m[0], tg.y - m[1], tg.z - m[2]];
+        const L = Math.hypot(d[0], d[1], d[2]) || 1;
+        this.shots.push({ x: m[0], y: m[1], z: m[2], dx: d[0] / L, dy: d[1] / L, dz: d[2] / L, speed: 260, ghost: 1 });
+      }
+      this.stepShots(dt, (tg) => this.kill(tg, 1.6), [this.targets[2]]);
+    }
+  }
+
+  /** Straight-flying shots against targets; `onHit` decides what a hit means. */
+  stepShots(dt, onHit, only) {
+    let w = 0;
+    for (const sh of this.shots) {
+      sh.x += sh.dx * sh.speed * dt; sh.y += sh.dy * sh.speed * dt; sh.z += sh.dz * sh.speed * dt;
+      let dead = sh.z > 330;
+      for (const tg of only || this.targets) {
+        if (tg && tg.alive && Math.hypot(tg.x - sh.x, tg.y - sh.y, tg.z - sh.z) < tg.r + 3) {
+          onHit(tg);
+          dead = true;
+          break;
+        }
+      }
+      if (!dead) this.shots[w++] = sh;
+    }
+    this.shots.length = w;
+  }
+
+  drawScene(rd) {
+    const k = this.key;
+    const col = k === 'mg' ? [0.61, 0.91, 0.78] : SPECIAL_COLORS[k] || [0.8, 0.8, 0.8];
+    // The floor: a scrolling grid, so the line is a line and not a void.
+    const roll = (this.t * 90) % 30;
+    for (let z = -20; z < 340; z += 30) {
+      const zz = z - roll + 30;
+      rd.line3(-52, 0, zz, 52, 0, zz, 1, 0.2, 0.5, 0.55, 0.35);
+    }
+    for (const x of [-52, 0, 52]) rd.line3(x, 0, -20, x, 0, 340, 1, 0.2, 0.5, 0.55, 0.3);
+
+    drawShip(rd, this.ship, this.basis, 0.45 + 0.1 * Math.sin(this.t * 4), this.t, 0,
+      k === 'mg' ? null : col);
+
+    for (const tg of this.targets) {
+      if (!tg.alive) continue;
+      const fl = tg.flash;
+      const cr = Math.min(1, 0.95 + fl), cg = Math.min(1, 0.5 + fl), cb = Math.min(1, 0.4 + fl);
+      for (let i = 0; i < 8; i++) {
+        const a0 = tg.spin + (i / 8) * Math.PI * 2, a1 = tg.spin + ((i + 1) / 8) * Math.PI * 2;
+        rd.line3(tg.x + Math.cos(a0) * tg.r, tg.y + Math.sin(a0) * tg.r, tg.z,
+          tg.x + Math.cos(a1) * tg.r, tg.y + Math.sin(a1) * tg.r, tg.z, 1.8, cr, cg, cb, 0.95);
+      }
+      rd.line3(tg.x - tg.r, tg.y, tg.z, tg.x + tg.r, tg.y, tg.z, 1, cr, cg, cb, 0.4);
+      if (tg.frozen > 0) {
+        // Ice takes it: a lattice closing over the shape as it winds down.
+        const ir = tg.r + 4;
+        for (let i = 0; i < 6; i++) {
+          if (i / 6 > tg.frozen) break;
+          const a0 = (i / 6) * Math.PI * 2, a1 = ((i + 1) / 6) * Math.PI * 2;
+          rd.line3(tg.x + Math.cos(a0) * ir, tg.y + Math.sin(a0) * ir, tg.z - 2,
+            tg.x + Math.cos(a1) * ir, tg.y + Math.sin(a1) * ir, tg.z - 2, 1.4, 0.75, 0.91, 1, 0.9);
+        }
+      }
+    }
+    for (const sp of this.sparks) {
+      rd.dot3(sp.x, sp.y, sp.z, 2, Math.min(1, col[0] + 0.3), Math.min(1, col[1] + 0.3), col[2], sp.life);
+    }
+
+    const m = [0, 0, 0];
+    if (k === 'mg') {
+      for (const sh of this.shots) {
+        rd.line3(sh.x, sh.y, sh.z, sh.x - sh.dx * 30, sh.y - sh.dy * 30, sh.z - sh.dz * 30, 2.2, 0.6, 1, 0.75, 1);
+      }
+    } else if (k === 'arc') {
+      const live = this.targets.filter((t) => t.alive);
+      let from = this.muzzle(1, m).slice();
+      const seed = (this.t * 53) | 0;
+      for (let i = 0; i < live.length && i < 3; i++) {
+        const tg = live[i];
+        const { pts, branches } = boltPath(from, [tg.x, tg.y, tg.z], seed + i * 7);
+        const wdt = [2.4, 1.7, 1.1][i];
+        const al = [1, 0.75, 0.55][i];
+        for (let j = 0; j + 1 < pts.length; j++) {
+          rd.line3(pts[j][0], pts[j][1], pts[j][2], pts[j + 1][0], pts[j + 1][1], pts[j + 1][2],
+            wdt, col[0], col[1], col[2], al);
+        }
+        for (const [u2, v2] of branches) {
+          rd.line3(u2[0], u2[1], u2[2], v2[0], v2[1], v2[2], wdt * 0.55, col[0], col[1], col[2], al * 0.7);
+        }
+        rd.dot3(tg.x, tg.y, tg.z, 4, 1, 1, 1, 0.8);
+        from = [tg.x, tg.y, tg.z];
+      }
+    } else if (k === 'wave') {
+      for (const wl of this.walls) {
+        const h = Math.min(44, Math.max(4, (wl.z - 30) * 0.5));
+        const fade = 1 - wl.z / 380;
+        for (let x = -44; x <= 44; x += 8) {
+          rd.line3(x, 0, wl.z, x, h, wl.z, 1.7, col[0], col[1], col[2], 0.8 * fade);
+        }
+        rd.line3(-44, h, wl.z, 44, h, wl.z, 2.4, 1, 1, 1, 0.9 * fade);
+      }
+    } else if (k === 'magma') {
+      for (const sh of this.shots) rd.dot3(sh.x, sh.y, sh.z, 3.5, 1, 0.55, 0.2, 1);
+      for (const c of this.clouds) {
+        const al = Math.min(1, c.life);
+        for (let ring = 0; ring < 2; ring++) {
+          const rr = c.r - ring * 6;
+          if (rr <= 2) continue;
+          for (let i = 0; i < 8; i++) {
+            const j0 = Math.sin(this.t * 7 + i * 3 + ring) * 2;
+            const a0 = (i / 8) * Math.PI * 2, a1 = ((i + 1) / 8) * Math.PI * 2;
+            rd.line3(c.x + Math.cos(a0) * (rr + j0), c.y + Math.sin(a0) * (rr + j0) * 0.7, c.z,
+              c.x + Math.cos(a1) * rr, c.y + Math.sin(a1) * rr * 0.7, c.z, 1.5, 1, 0.45, 0.15, 0.6 * al);
+          }
+        }
+        rd.dot3(c.x, c.y, c.z, 3, 1, 0.6, 0.2, 0.5 * al);
+      }
+    } else if (k === 'saw' && this.sawU >= 0) {
+      const [sx, sy, sz] = this.sawPos;
+      const spin = this.t * 14;
+      for (let i = 0; i < 6; i++) {
+        const a0 = spin + (i / 6) * Math.PI * 2, a1 = spin + ((i + 1) / 6) * Math.PI * 2;
+        rd.line3(sx + Math.cos(a0) * 9, sy + Math.sin(a0) * 9, sz,
+          sx + Math.cos(a1) * 13, sy + Math.sin(a1) * 13, sz, 2, col[0], col[1], col[2], 1);
+      }
+      rd.dot3(sx, sy, sz, 3, 1, 1, 1, 0.7);
+    } else if (k === 'breach') {
+      for (const sh of this.shots) {
+        rd.dot3(sh.x, sh.y, sh.z, 4.5, col[0], col[1], col[2], 1);
+        rd.line3(sh.x, sh.y, sh.z, sh.x - sh.dx * 22, sh.y - sh.dy * 22, sh.z - sh.dz * 22, 2.6, col[0], col[1], col[2], 0.7);
+      }
+      for (const fr of this.frags) {
+        rd.line3(fr.x, fr.y, fr.z, fr.x - fr.dx * 10, fr.y - fr.dy * 10, fr.z - fr.dz * 10, 1.6, 1, 1, 1, fr.life * 1.4);
+      }
+    } else if (k === 'freeze' && this.beamAt) {
+      const tg = this.beamAt;
+      this.muzzle(-1, m);
+      // A cone that narrows to the touch point, sparkling along its length.
+      for (const off of [-3, 0, 3]) {
+        rd.line3(m[0] + off, m[1] + Math.abs(off) * 0.4, m[2], tg.x, tg.y, tg.z, 1.6, col[0], col[1], col[2], 0.7);
+      }
+      for (let i = 0; i < 5; i++) {
+        const u = ((this.t * 2 + i * 0.2) % 1);
+        rd.dot3(m[0] + (tg.x - m[0]) * u, m[1] + (tg.y - m[1]) * u, m[2] + (tg.z - m[2]) * u, 2, 1, 1, 1, 0.8 - u * 0.4);
+      }
+    } else if (k === 'rail' && this.lance > 0) {
+      this.muzzle(-1, m);
+      const al = this.lance / 0.4;
+      rd.line3(m[0], m[1], m[2], 6, 14, 290, 3.4 * al, col[0], col[1], col[2], al);
+      rd.line3(m[0], m[1], m[2], 6, 14, 290, 1.2, 1, 1, 1, al);
+      for (const tg of this.targets) rd.dot3(tg.x, tg.y, tg.z, 6 * al, 1, 1, 1, al);
+    } else if (k === 'ghost') {
+      // The bunker wall the round refuses to notice.
+      const wz = 155;
+      rd.line3(-26, 0, wz, -26, 34, wz, 2, 0.6, 0.65, 0.7, 0.9);
+      rd.line3(26, 0, wz, 26, 34, wz, 2, 0.6, 0.65, 0.7, 0.9);
+      rd.line3(-26, 34, wz, 26, 34, wz, 2, 0.6, 0.65, 0.7, 0.9);
+      rd.line3(-26, 17, wz, 26, 17, wz, 1, 0.6, 0.65, 0.7, 0.4);
+      for (const sh of this.shots) {
+        const inside = sh.z > wz - 12 && sh.z < wz + 12;
+        rd.line3(sh.x, sh.y, sh.z, sh.x - sh.dx * 24, sh.y - sh.dy * 24, sh.z - sh.dz * 24,
+          2.2, col[0], col[1], col[2], inside ? 0.3 : 1);
+        rd.dot3(sh.x, sh.y, sh.z, 3, 1, 1, 1, inside ? 0.35 : 0.9);
+      }
+    }
   }
 }
 
@@ -677,9 +1085,11 @@ export class UI {
       const x = $('extras');
       x.hidden = !x.hidden;
       $('jukebox').hidden = true;
+      $('armory').hidden = true;
       $('setup').textContent = x.hidden ? 'SETUP' : 'CLOSE';
     });
     this.buildJukebox();
+    this.buildArmory();
   }
 
   /**
@@ -704,6 +1114,63 @@ export class UI {
     }
   }
 
+
+  /**
+   * The armory: every weapon on the wheel, what it does, how it works, whose
+   * hands it is in -- and the range, where the selected one demonstrably
+   * fires. The two built shots fire as they fire in flight; the rest fire as
+   * designed, and their status line says so plainly.
+   */
+  buildArmory() {
+    $('armopen').addEventListener('click', () => {
+      $('extras').hidden = true;
+      $('setup').textContent = 'SETUP';
+      $('jukebox').hidden = true;
+      $('armory').hidden = false;
+      this.syncArmory(this._armKey || this.campaign.equipped || 'mg');
+    });
+    $('armclose').addEventListener('click', () => { $('armory').hidden = true; });
+    const entries = [['mg', MACHINE_GUN], ...Object.entries(WEAPONS)];
+    for (const [key, w] of entries) {
+      const b = document.createElement('button');
+      b.className = 'chip';
+      b.dataset.w = key;
+      b.textContent = w.name;
+      b.style.color = w.css;
+      b.style.borderColor = w.css;
+      b.addEventListener('click', () => this.syncArmory(key));
+      $('armweapons').appendChild(b);
+    }
+  }
+
+  syncArmory(key) {
+    this._armKey = key;
+    for (const b of $('armweapons').children) b.classList.toggle('on', b.dataset.w === key);
+    const w = key === 'mg' ? MACHINE_GUN : WEAPONS[key];
+    const c = this.campaign;
+    const status = key === 'mg' ? 'STANDARD FIT -- ALWAYS LOADED'
+      : c.equipped === key ? 'FITTED'
+      : c.weapons.includes(key)
+        ? (w.built ? 'TAKEN -- READY TO FIT' : `TAKEN FROM ${w.from} -- THE SHOT IS STILL IN THE FORGE`)
+        : `HELD BY ${w.from}, ${w.district} -- BEAT IT TO TAKE IT`;
+    const div = $('armdetail');
+    div.innerHTML = '';
+    const line = (cls, text, color) => {
+      const el = document.createElement('div');
+      el.className = cls;
+      el.textContent = text;
+      if (color) el.style.color = color;
+      div.appendChild(el);
+    };
+    line('armname', w.name, w.css);
+    line('armstatus', status);
+    line('armline', w.does);
+    line('armline', w.how);
+    if (w.melts) line('armmelts', `ON THE WHEEL: ${w.melts} CANNOT STAND IT`);
+    if (this.range) this.range.show(key);
+    else this._rangeKey = key;
+  }
+
   /**
    * The jukebox, in the game: the score book with its hands on the live
    * mixer. Every song a button, every voice a slider writing straight into
@@ -713,6 +1180,7 @@ export class UI {
     $('jukeopen').addEventListener('click', () => {
       $('extras').hidden = true;
       $('setup').textContent = 'SETUP';
+      $('armory').hidden = true;
       $('jukebox').hidden = false;
       this.syncJukebox();
     });
@@ -930,6 +1398,13 @@ export class UI {
         if (qc) this.qmarks = new QMarks(qc);
       }
       if (this.qmarks) this.qmarks.tick();
+      if (!$('armory').hidden) {
+        if (this.range === undefined) {
+          try { this.range = new Range($('armrange')); } catch { this.range = false; }
+          if (this.range && this._rangeKey) this.range.show(this._rangeKey);
+        }
+        if (this.range) this.range.tick();
+      }
     }
     this.dirty = false;
     rd.beginFrame(1);
