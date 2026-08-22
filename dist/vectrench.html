@@ -1855,7 +1855,14 @@ const PREBUILT = [
       "finale": "port",
       "armedPort": false,
       "music": "bumblebee",
-      "boss": null,
+      "boss": {
+        "kind": "portcullis",
+        "name": "PORTCULLIS",
+        "hp": 60,
+        "weapon": "breach",
+        "weakTo": "arc",
+        "arena": "surface"
+      },
       "sections": [
         {
           "name": "wide mouth",
@@ -2051,7 +2058,14 @@ const PREBUILT = [
       "finale": "port",
       "armedPort": false,
       "music": "fire",
-      "boss": null,
+      "boss": {
+        "kind": "furnace",
+        "name": "FURNACE",
+        "hp": 60,
+        "weapon": "magma",
+        "weakTo": "wave",
+        "arena": "surface"
+      },
       "sections": [
         {
           "name": "the descent",
@@ -2271,7 +2285,14 @@ const PREBUILT = [
       "finale": "port",
       "armedPort": false,
       "music": "bumblebee",
-      "boss": null,
+      "boss": {
+        "kind": "broadside",
+        "name": "BROADSIDE",
+        "hp": 55,
+        "weapon": "rail",
+        "weakTo": "freeze",
+        "arena": "surface"
+      },
       "sections": [
         {
           "name": "the drop",
@@ -2438,7 +2459,14 @@ const PREBUILT = [
       "finale": "port",
       "armedPort": false,
       "music": "water",
-      "boss": null,
+      "boss": {
+        "kind": "hydra",
+        "name": "HYDRA",
+        "hp": 50,
+        "weapon": "wave",
+        "weakTo": "ghost",
+        "arena": "trench"
+      },
       "sections": [
         {
           "name": "open water",
@@ -2727,7 +2755,14 @@ const PREBUILT = [
       "finale": "port",
       "armedPort": false,
       "music": "overgrowth",
-      "boss": null,
+      "boss": {
+        "kind": "mantis",
+        "name": "MANTIS",
+        "hp": 70,
+        "weapon": "saw",
+        "weakTo": "magma",
+        "arena": "surface"
+      },
       "sections": [
         {
           "name": "the eaves",
@@ -2954,7 +2989,14 @@ const PREBUILT = [
       "finale": "port",
       "armedPort": false,
       "music": "void",
-      "boss": null,
+      "boss": {
+        "kind": "revenant",
+        "name": "REVENANT",
+        "hp": 70,
+        "weapon": "ghost",
+        "weakTo": "rail",
+        "arena": "surface"
+      },
       "sections": [
         {
           "name": "flatline",
@@ -3408,7 +3450,14 @@ const PREBUILT = [
       "finale": "port",
       "armedPort": false,
       "music": "glacier",
-      "boss": null,
+      "boss": {
+        "kind": "avalanche",
+        "name": "AVALANCHE",
+        "hp": 70,
+        "weapon": "freeze",
+        "weakTo": "breach",
+        "arena": "surface"
+      },
       "sections": [
         {
           "name": "the intake",
@@ -3702,7 +3751,7 @@ class Campaign {
     const held = spec.boss && spec.boss.weapon;
     if (held && WEAPONS[held] && !this.weapons.includes(held)) {
       this.weapons.push(held);
-      if (!this.equipped) this.equipped = held;
+      if (!this.equipped && WEAPONS[held].built) this.equipped = held;
       weapon = held;
     }
     this.save();
@@ -3801,6 +3850,10 @@ class Track {
       this.arenaStart = this.total;
       this.arenaLen = 6000;
       this.total += this.arenaLen;
+      // Most fights are flown over open ground; HYDRA's stays in its river.
+      this.arenaShape = spec.boss.arena === 'trench'
+        ? { width: 95, depth: 110 }
+        : { width: 150, depth: 44 };
     }
 
     // Section boundaries, so a t can be resolved back to authored intent.
@@ -3848,8 +3901,8 @@ class Track {
         const t = i * GRID;
         const k = smoothstep(this.arenaStart - 400, this.arenaStart + 700, t);
         if (k <= 0) continue;
-        width[i] = lerp(width[i], 150, k);
-        depth[i] = lerp(depth[i], 44, k);
+        width[i] = lerp(width[i], this.arenaShape.width, k);
+        depth[i] = lerp(depth[i], this.arenaShape.depth, k);
         rough[i] = lerp(rough[i], 0.12, k);
         curv[i] = lerp(curv[i], 0, k);
         snake[i] = lerp(snake[i], 0, k);
@@ -8888,6 +8941,7 @@ class Game {
     this.speedMul = 1;
     this.boss = null;
     this.pod = null;
+    this.iced = 0;
     this.ascentTimer = 0;
     this.escapeTimer = 0;
     this.lightTimer = 0;
@@ -9066,8 +9120,12 @@ class Game {
     // the steer and is clamped by the same walls.
     if (this.barreling) this.shipX += this.barrelDir * BARREL_SLIDE * dt;
 
-    this.velX = approach(this.velX, inp.steerX * MAX_VX, STEER_RATE, dt);
-    this.velY = approach(this.velY, inp.steerY * MAX_VY, STEER_RATE, dt);
+    // Iced controls answer at a third of their rate for a heartbeat -- the
+    // freeze beam's mark. Telegraphed, dodgeable, and always brief.
+    this.iced = Math.max(0, (this.iced || 0) - dt);
+    const grip = this.iced > 0 ? 0.35 : 1;
+    this.velX = approach(this.velX, inp.steerX * MAX_VX * grip, STEER_RATE * grip, dt);
+    this.velY = approach(this.velY, inp.steerY * MAX_VY * grip, STEER_RATE * grip, dt);
     this.shipX += this.velX * dt;
     this.shipY += this.velY * dt;
 
@@ -9169,7 +9227,13 @@ class Game {
   sayShield() {
     if (this.time - (this._shieldSaid || 0) < 3) return;
     this._shieldSaid = this.time;
-    this.say('THE TENTACLES SHIELD THE CORE', 1.4);
+    this.say('ITS PARTS SHIELD THE CORE', 1.4);
+  }
+
+  sayGuard() {
+    if (this.time - (this._guardSaid || 0) < 3) return;
+    this._guardSaid = this.time;
+    this.say('HIT THE ONE THAT GLOWS', 1.4);
   }
 
   /**
@@ -9592,7 +9656,7 @@ class Game {
     // Project every candidate once. onScreen/sx/sy are read again by the
     // overlay, so this doubles as the frame's visibility pass.
     const cands = [this.level.enemies, this.drones];
-    if (this.boss && this.boss.alive) cands.push([this.boss], this.boss.parts);
+    if (this.boss && this.boss.alive) cands.push(this.boss.parts, [this.boss]);
     if (this.level.port) cands.push([this.level.port]);
     for (const arr of cands) {
       for (const e of arr) {
@@ -10144,7 +10208,7 @@ class Game {
     // Whatever is in reach at all.
     const cands = [];
     const pools = [this.level.enemies, this.drones];
-    if (this.boss && this.boss.alive) pools.push([this.boss], this.boss.parts);
+    if (this.boss && this.boss.alive) pools.push(this.boss.parts, [this.boss]);
     for (const arr of pools) {
       for (const e of arr) {
         if (!e.alive || !e.world || e.kind === 'port') continue;
@@ -10223,6 +10287,10 @@ class Game {
     if (this.zapTimer > 0 || !chain.length) return;
     this.zapTimer = ARC_TICK;
     chain.forEach((e, k) => {
+      if (e.kind === 'bosspart' && e.guarded) {
+        this.particles.burst(e.world[0], e.world[1], e.world[2], 3, 100, 0.5, 0.8, 1, 0.3, 1.2);
+        return;
+      }
       if (e.kind === 'boss' && e.shielded) {
         this.particles.burst(e.world[0], e.world[1], e.world[2], 4, 110, 0.5, 0.8, 1, 0.3, 1.2);
         return;
@@ -10284,7 +10352,7 @@ class Game {
     const tr = this.track;
     const targets = [this.level.enemies, this.drones];
     if (this.level.port) targets.push([this.level.port]);
-    if (this.boss && this.boss.alive) targets.push([this.boss], this.boss.parts);
+    if (this.boss && this.boss.alive) targets.push(this.boss.parts, [this.boss]);
 
     // Player lasers.
     for (let i = W.lasers.length - 1; i >= 0; i--) {
@@ -10293,7 +10361,10 @@ class Game {
       for (const arr of targets) {
         for (const e of arr) {
           if (!e.alive || !e.world) continue;
-          const R = RADIUS[e.kind] || 12;
+          // A shielded core blocks with a sliver, not its whole hull: at full
+          // radius it shadows the very parts mounted against it, and shots
+          // aimed at those parts die on the lattice instead.
+          const R = e.kind === 'boss' && e.shielded ? 8 : RADIUS[e.kind] || 12;
           if (Math.abs(e.world[2] - s.z) > R + 120) continue;
           if (!segSphere(s.px, s.py, s.pz, s.x, s.y, s.z,
             e.world[0], e.world[1], e.world[2], R)) continue;
@@ -10308,6 +10379,12 @@ class Game {
           if (e.kind === 'boss' && e.shielded) {
             this.particles.burst(s.x, s.y, s.z, 6, 110, 0.5, 0.8, 1, 0.3, 1.4);
             this.sayShield();
+            break;
+          }
+          // A guarded part -- armored until its turn -- sheds fire the same way.
+          if (e.kind === 'bosspart' && e.guarded) {
+            this.particles.burst(s.x, s.y, s.z, 4, 100, 0.5, 0.8, 1, 0.3, 1.2);
+            this.sayGuard();
             break;
           }
           e.hp -= 1;
@@ -10376,7 +10453,7 @@ class Game {
       const tg = m.target;
       let boom = false;
       if (tg && tg.alive && tg.world) {
-        const R = RADIUS[tg.kind] || 14;
+        const R = tg.kind === 'boss' && tg.shielded ? 8 : RADIUS[tg.kind] || 14;
         if (segSphere(m.px, m.py, m.pz, m.x, m.y, m.z,
           tg.world[0], tg.world[1], tg.world[2], R + 6)) {
           boom = true;
@@ -10386,7 +10463,7 @@ class Game {
           // was dead 697 units out, having fired eight shells from maximum
           // range and landed none of them. It was not a threat because it was
           // never alive while you were close.
-          if (tg.kind === 'boss' && tg.shielded) {
+          if ((tg.kind === 'boss' && tg.shielded) || (tg.kind === 'bosspart' && tg.guarded)) {
             this.boomAt([m.x, m.y, m.z], 20, 130, 0.5, 0.8, 1, 0.5);
             this.sayShield();
             W.missiles.splice(i, 1);
@@ -10511,7 +10588,8 @@ class Game {
       }
     } else if (e.kind === 'bosspart') {
       const left = this.boss ? this.boss.parts.filter((x) => x.alive).length : 0;
-      this.say(left > 0 ? `TENTACLE DOWN -- ${left} LEFT` : 'THE CORE IS OPEN', 1.4);
+      this.say(left > 0 ? `${e.label} DOWN -- ${left} LEFT`
+        : (this.boss && this.boss.openMsg) || 'THE CORE IS OPEN', 1.4);
       if (left === 0 && this.boss) {
         this.boss.flash = 1;
         this.audio.specialOn();
@@ -10629,7 +10707,7 @@ class Game {
       // crosshair so a salvo of eight still reads as one decision.
       const arrs = [this.level.enemies, this.drones];
       if (port) arrs.push([port]);
-      if (this.boss && this.boss.alive) arrs.push([this.boss], this.boss.parts);
+      if (this.boss && this.boss.alive) arrs.push(this.boss.parts, [this.boss]);
       const cx = this.aimSX ?? rd.cx;
       const cy = this.aimSY ?? rd.cy;
       for (const arr of arrs) {
@@ -11373,7 +11451,9 @@ class UI {
     // The loadout button: the machine gun, until a warden hands over better.
     // With one or more specials earned it steps through them, gun included.
     $('wbtn').addEventListener('click', () => {
-      const cycle = [null, ...this.campaign.weapons];
+      // Only weapons that exist as shots can be fitted. An earned one whose
+      // shot is not built yet waits in the cycle's future, not in its present.
+      const cycle = [null, ...this.campaign.weapons.filter((w) => WEAPONS[w].built)];
       const at = cycle.indexOf(this.campaign.equipped);
       this.campaign.equip(cycle[(at + 1) % cycle.length]);
       this.refreshCampaign();

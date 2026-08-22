@@ -1,34 +1,26 @@
-// The warden: the boss machinery, and the first warden to use it.
+// The wardens: the boss machinery, and the eight ships that use it.
 //
-// A warden is opt-in per level ("boss" in the spec). Kill the port and instead
-// of the result screen the flyout carries you up out of the canyon and into
-// the arena -- open ground above the district, where the warden is waiting.
-// It is a ship like the ones in 1943: you fly alongside it, it takes locks and
-// missiles and gunfire like anything else, and it fights back with the special
-// weapon its district would hand you for beating it.
+// A warden is opt-in per level ("boss" in the spec). Kill the port and the
+// flyout carries you into the arena, where the district's warden is waiting.
+// Every warden fights with the special weapon its district yields, and every
+// fight has a SHAPE -- a visible structure broken before the kill shot exists
+// -- because a boss with legible progress is a fight, and one without is a
+// health bar.
 //
-// The fight has a shape, so it has progress: six tentacle pods orbit the core,
-// they are what spawns the escorts, and while any of them lives the core is
-// shielded. Break the pods -- each one is a small, lockable target -- and the
-// core opens. That is the fight: the crowd first, then the duel.
-//
-// Everything generic lives in the entity and the attack timers; everything
-// MARIONETTE lives in how they are set. A second warden is a second block of
-// numbers and a draw function, not a second system.
+// The registry at the bottom is the whole architecture: a warden is an init
+// that lays out its parts, an update that runs its attacks, and a draw. The
+// entity underneath is shaped like an enemy, so paint, locks, lasers,
+// missiles and the arc all already understand it.
 
 import { clamp, lerp, TAU, hash2 } from './math.js';
 
-// How hard its attacks hit. Tuned so the fight is the run's final exam, not a
-// damage sponge: unbroken attention beats it with shields to spare.
-const BOLT_DAMAGE = 16;       // the arc strike, if you are where it aimed
-const BOLT_RADIUS = 30;       // how close counts as hit
-const SWEEP_DAMAGE = 24;      // flying into the hull during a sweep
-const TELEGRAPH = 0.85;       // seconds of charge glow before a strike lands
-const BOLT_LOCK = 0.3;        // the aim TRACKS you until this long before the
-                              // strike, then freezes -- so the dodge is a late
-                              // reaction, not a stroll taken during the charge
-const PART_HP = 6;            // one tentacle pod
-const PART_ORBIT = 58;        // how far the pods ride from the core
+const TELEGRAPH = 0.85;       // seconds of charge before a strike lands
+const BOLT_LOCK = 0.3;        // the aim tracks until this long before impact
+const BOLT_DAMAGE = 16;
+const BOLT_RADIUS = 30;
+const SWEEP_DAMAGE = 24;
+
+// --- the shared body -------------------------------------------------------
 
 /** The warden entity: shaped like an enemy so every existing system works. */
 export function makeWarden(def, t) {
@@ -49,83 +41,89 @@ export function makeWarden(def, t) {
     paint: 0,
     los: 1,
     shielded: true,
-    // Motion: it floats and swings. Phase-driven, so it is readable and fair.
+    openMsg: 'THE CORE IS OPEN',
     sway: 0,
     swayRate: 0.9,
     bob: 0,
-    // Attack clocks. Each fires when it hits zero and re-arms by boss phase.
     boltIn: 3.2,
-    boltAt: 0,          // when > 0, a strike lands at that moment
+    boltAt: 0,
     boltAim: { x: 0, y: 0 },
     missilesIn: 8,
     dronesIn: 4,
     sweepIn: 8,
     sweeping: 0,
     parts: [],
+    walls: [],
+    clouds: [],
+    blades: [],
+    lanes: [],
+    timers: {},
   };
-  // The six pods. Each is its own small target with its own paint and locks.
-  for (let i = 0; i < 6; i++) {
-    b.parts.push({
-      kind: 'bosspart', boss: b, idx: i, alive: true,
-      hp: PART_HP, maxHp: PART_HP, lockable: true, points: 400,
-      t: b.t, x: 0, y: 0, world: [0, 0, 0],
-      flash: 0, paint: 0, los: 1,
-    });
-  }
+  (WARDENS[def.kind] || WARDENS.marionette).init(b);
   return b;
+}
+
+function mkPart(b, label, hp, over = {}) {
+  const part = {
+    kind: 'bosspart', boss: b, idx: b.parts.length, alive: true, label,
+    hp, maxHp: hp, lockable: true, points: 400,
+    t: b.t, x: 0, y: 0, world: [0, 0, 0],
+    flash: 0, paint: 0, los: 1, guarded: false, regrows: 0, regrowIn: 0,
+    ...over,
+  };
+  b.parts.push(part);
+  return part;
 }
 
 const partsAlive = (b) => b.parts.filter((p) => p.alive).length;
 
-/** 0, 1, 2 as the fight escalates: pods mostly up, pods falling, core open. */
-const stage = (b) => {
+/** 0, 1, 2 as the fight escalates. Default: by parts, then the open core. */
+const stageOf = (b) => {
+  if (!b.parts.length) return b.hp > b.maxHp * 0.5 ? 1 : 2;
   const n = partsAlive(b);
-  return n > 3 ? 0 : n > 0 ? 1 : 2;
+  return n > b.parts.length / 2 ? 0 : n > 0 ? 1 : 2;
 };
 
-/**
- * One tick of the warden. `game` is the whole game on purpose: a boss is a
- * choreographer, and it reaches for the ship, the track, the weapons and the
- * drones the way the level compiler never needs to.
- */
-export function updateWarden(b, dt, game) {
+/** Station ahead of the ship, swinging. The base motion most wardens share. */
+function ride(b, dt, game, ahead = 420, swayFrac = 0.7, height = 52) {
   const tr = game.track;
-  b.flash = Math.max(0, b.flash - dt * 6);
-  const st = stage(b);
-  b.shielded = st < 2;
-  // A shielded core refuses locks: a salvo that cannot land is a lie the HUD
-  // should not tell. The pods take the locks instead -- that is the fight.
-  b.lockable = !b.shielded;
-
-  // Position: ahead of the ship, swinging across the arena. The swing is the
-  // dodge problem; it accelerates as the fight goes.
-  b.t = lerp(b.t, game.t + 420 - st * 40, dt * 1.4);
+  const st = stageOf(b);
+  b.t = lerp(b.t, game.t + ahead - st * 40, dt * 1.4);
   b.sway += dt * (b.swayRate + st * 0.45) * (b.sweeping > 0 ? 2.6 : 1);
   b.bob += dt * 1.3;
   const hw = tr.halfWidth(b.t);
-  b.x = Math.sin(b.sway) * (hw - 40 - PART_ORBIT * 0.5);
-  b.y = tr.rim(b.t) + 52 + Math.sin(b.bob) * 9;
+  b.x = Math.sin(b.sway) * (hw * swayFrac - 20);
+  b.y = tr.rim(b.t) + height + Math.sin(b.bob) * 9;
   tr.localToWorld(b.t, b.x, b.y, b.world);
   b.los = 1;
+}
 
-  // The pods ride an ellipse around the core, each with a slow wobble in
-  // depth so the ring reads as a volume rather than a decal.
-  for (const part of b.parts) {
-    if (!part.alive) continue;
-    part.flash = Math.max(0, part.flash - dt * 6);
-    const a = game.time * 0.7 + (part.idx / 6) * TAU;
-    part.t = b.t + Math.sin(a * 0.5 + part.idx) * 14;
-    part.x = clamp(b.x + Math.cos(a) * PART_ORBIT, -hw + 14, hw - 14);
-    part.y = Math.max(tr.rim(part.t) + 14, b.y + Math.sin(a) * PART_ORBIT * 0.55);
-    tr.localToWorld(part.t, part.x, part.y, part.world);
-    part.los = 1;
+/**
+ * Dead parts tick toward regrowth, if their warden allows them any. The timer
+ * arms fresh at each death -- without that, a part's second death finds the
+ * old expired timer and revives it the same frame, which is not a race, it is
+ * an unkillable boss.
+ */
+function regrow(b, dt, game, fraction = 0.5) {
+  for (const p of b.parts) {
+    if (p.alive) { p.down = false; continue; }
+    if (p.regrows <= 0) continue;
+    if (!p.down) { p.down = true; p.regrowIn = p.regrowDelay || 7; }
+    p.regrowIn -= dt;
+    if (p.regrowIn <= 0) {
+      p.regrows -= 1;
+      p.down = false;
+      p.alive = true;
+      p.hp = Math.max(1, Math.round(p.maxHp * fraction));
+      p.flash = 1;
+      game.say(`ITS ${p.label} GROWS BACK`, 1.2);
+    }
   }
+}
 
-  if (b.sweeping > 0) b.sweeping -= dt;
-
-  // The arc volley. The aim follows the ship through most of the charge and
-  // freezes for the last window: dodging early buys nothing, dodging late is
-  // the skill. The core burns white the moment the aim locks.
+/** The tracked-aim arc strike MARIONETTE proved out; several wardens use it. */
+function boltVolley(b, dt, game, st, cadence = 3.4) {
+  const tr = game.track;
   if (b.boltAt > 0) {
     if (b.boltAt - game.time > BOLT_LOCK) {
       b.boltAim.x = game.shipX;
@@ -142,136 +140,858 @@ export function updateWarden(b, dt, game) {
   } else {
     b.boltIn -= dt;
     if (b.boltIn <= 0) {
-      b.boltIn = 3.4 - st * 0.8;
+      b.boltIn = cadence - st * 0.8;
       b.boltAt = game.time + TELEGRAPH;
       game.audio.zap();
     }
   }
+}
 
-  // Seeker missiles, once the ring starts thinning.
-  if (st >= 1) {
-    b.missilesIn -= dt;
-    if (b.missilesIn <= 0) {
-      b.missilesIn = 9 - st * 2;
-      for (const side of [-1, 1]) {
+function seekerPair(b, game) {
+  for (const side of [-1, 1]) {
+    const fx = game.shipPos[0] - b.world[0];
+    const fy = game.shipPos[1] - b.world[1];
+    const fz = game.shipPos[2] - b.world[2];
+    const l = Math.hypot(fx, fy, fz) || 1;
+    game.weapons.fireSeeker(b.world[0] + side * 22, b.world[1], b.world[2],
+      fx / l + side * 0.3, fy / l, fz / l);
+  }
+  game.say('MISSILES', 0.8);
+}
+
+function spawnEscorts(b, game, at, n) {
+  const tr = game.track;
+  const hw = tr.halfWidth(at.t);
+  for (let i = 0; i < n; i++) {
+    game.drones.push({
+      kind: 'drone', t: at.t - 30 - i * 36, alive: true,
+      x: clamp(at.x + (i ? 18 : -18), -hw + 14, hw - 14),
+      y: at.y,
+      hp: 2, maxHp: 2, lockable: true, points: 200,
+      cool: 0.8 + hash2((game.time * 7) | 0, i + 9),
+      phase: hash2((game.time * 7) | 0, i + 13) * TAU,
+      pace: 0.97,
+      spin: 0, aim: 0, flash: 0, world: [0, 0, 0],
+    });
+  }
+}
+
+// --- walls of light: HYDRA's waves, PORTCULLIS's closing doors -------------
+
+/** A cross-trench sheet with one gap, telegraphed, then armed until crossed. */
+function wallSpawn(b, game, { gx, gy, gr, dmg = 18, lead = 380, color }) {
+  b.walls.push({
+    t: game.t + lead + 240, gx, gy, gr, dmg,
+    armAt: game.time + 0.6, until: game.time + 12, hit: false,
+    color: color || [0.4, 0.8, 1],
+  });
+}
+
+function wallsUpdate(b, dt, game) {
+  const prevT = game.t - game.speed * dt;
+  b.walls = b.walls.filter((w) => {
+    if (game.time > w.until || w.t < game.t - 80) return false;
+    if (!w.hit && game.time >= w.armAt && prevT < w.t && game.t >= w.t) {
+      w.hit = true;
+      const d = Math.hypot(game.shipX - w.gx, game.shipY - w.gy);
+      if (d > w.gr) {
+        game.damage(w.dmg);
+        game.say('THROUGH THE GAP', 1);
+      }
+    }
+    return true;
+  });
+}
+
+function wallsDraw(rd, tr, b, time) {
+  const p = [0, 0, 0];
+  const q = [0, 0, 0];
+  for (const w of b.walls) {
+    const hw = tr.halfWidth(w.t);
+    const rim = tr.rim(w.t);
+    const armed = time >= w.armAt;
+    const a = armed ? 0.75 + 0.25 * Math.sin(time * 18) : 0.25;
+    const [cr, cg, cb] = w.color;
+    for (let i = 0; i <= 8; i++) {
+      const x = -hw + (i / 8) * hw * 2;
+      if (Math.abs(x - w.gx) < w.gr * 0.8) continue;
+      tr.localToWorld(w.t, x, 2, p);
+      tr.localToWorld(w.t, x, rim + 40, q);
+      rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], armed ? 2 : 1, cr, cg, cb, a);
+    }
+    // The gap, ringed so it reads as the way through rather than a hole.
+    for (let k = 0; k < 8; k++) {
+      const a0 = (k / 8) * TAU, a1 = ((k + 1) / 8) * TAU;
+      tr.localToWorld(w.t, w.gx + Math.cos(a0) * w.gr, w.gy + Math.sin(a0) * w.gr, p);
+      tr.localToWorld(w.t, w.gx + Math.cos(a1) * w.gr, w.gy + Math.sin(a1) * w.gr, q);
+      rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], 1.6, 1, 1, 1, a);
+    }
+  }
+}
+
+// --- hanging fire: FURNACE's magma ----------------------------------------
+
+function cloudSpawn(b, game, r = 30, ttl = 8, dps = 12) {
+  b.clouds.push({ w: [b.world[0], b.world[1], b.world[2]], r, ttl, dps });
+}
+
+function cloudsUpdate(b, dt, game) {
+  b.clouds = b.clouds.filter((c) => {
+    c.ttl -= dt;
+    if (c.ttl <= 0) return false;
+    const d = Math.hypot(game.shipPos[0] - c.w[0], game.shipPos[1] - c.w[1],
+      game.shipPos[2] - c.w[2]);
+    if (d < c.r) game.damage(c.dps * dt, false);
+    return true;
+  });
+}
+
+function cloudsDraw(rd, b, time) {
+  for (const c of b.clouds) {
+    const fade = Math.min(1, c.ttl / 2);
+    for (const [rad, sp] of [[c.r, 2.1], [c.r * 0.6, -3.2]]) {
+      for (let k = 0; k < 6; k++) {
+        const a0 = (k / 6) * TAU + time * sp;
+        const a1 = ((k + 0.7) / 6) * TAU + time * sp;
+        rd.line3(c.w[0] + Math.cos(a0) * rad, c.w[1] + Math.sin(a0) * rad * 0.5, c.w[2],
+          c.w[0] + Math.cos(a1) * rad, c.w[1] + Math.sin(a1) * rad * 0.5, c.w[2],
+          1.6, 1, 0.45, 0.15, (0.35 + 0.2 * Math.sin(time * 9 + k)) * fade);
+      }
+    }
+  }
+}
+
+// --- returning blades: MANTIS ---------------------------------------------
+
+function bladeThrow(b, game) {
+  const tr = game.track;
+  const hw = tr.halfWidth(b.t);
+  b.blades.push({
+    from: b.x, dir: b.x > 0 ? -1 : 1, span: hw * 1.6,
+    y: clamp(game.shipY, 14, tr.rim(b.t) + 60),
+    yBack: clamp(game.shipY + (hash2((game.time * 9) | 0, 3) - 0.5) * 60, 14, tr.rim(b.t) + 60),
+    age: 0, dur: 2.6, hit: false, spin: 0,
+  });
+  game.audio.hit();
+}
+
+function bladesUpdate(b, dt, game) {
+  const tr = game.track;
+  b.blades = b.blades.filter((bl) => {
+    bl.age += dt;
+    bl.spin += dt * 14;
+    if (bl.age > bl.dur) return false;
+    const k = bl.age / bl.dur;
+    const out = k < 0.5 ? k * 2 : (1 - k) * 2;    // out, then back
+    const x = bl.from + bl.dir * bl.span * out;
+    const y = k < 0.5 ? bl.y : bl.yBack;
+    const bt = b.t - 140;
+    const w = [0, 0, 0];
+    tr.localToWorld(bt, x, y, w);
+    bl.wx = w[0]; bl.wy = w[1]; bl.wz = w[2]; bl.lx = x; bl.ly = y; bl.lt = bt;
+    const d = Math.hypot(game.shipPos[0] - w[0], game.shipPos[1] - w[1], game.shipPos[2] - w[2]);
+    if (d < 15 && !bl.hit) { bl.hit = true; game.damage(14); }
+    if (k > 0.6) bl.hit = false;                  // the return pass hits again
+    return true;
+  });
+}
+
+function bladesDraw(rd, b, time) {
+  for (const bl of b.blades) {
+    if (bl.wx === undefined) continue;
+    for (let k = 0; k < 3; k++) {
+      const a = bl.spin + (k / 3) * TAU;
+      rd.line3(bl.wx, bl.wy, bl.wz,
+        bl.wx + Math.cos(a) * 13, bl.wy + Math.sin(a) * 13, bl.wz,
+        2, 0.55, 1, 0.45, 0.95);
+    }
+  }
+}
+
+// --- lanes: BROADSIDE's rail, AVALANCHE's rams and freeze beams ------------
+
+/** A flashing line across the arena, then the strike along it. */
+function laneFire(b, game, { axis, v, dmg = 20, width = 16, effect = null, color }) {
+  b.lanes.push({
+    axis, v, dmg, width, effect,
+    armAt: game.time + 0.7, fireAt: game.time + 0.7 + 0.35,
+    until: game.time + 0.7 + 0.55, done: false,
+    color: color || [1, 0.85, 0.3],
+  });
+  game.audio.zap();
+}
+
+function lanesUpdate(b, dt, game) {
+  b.lanes = b.lanes.filter((ln) => {
+    if (game.time > ln.until) return false;
+    if (!ln.done && game.time >= ln.fireAt) {
+      ln.done = true;
+      const at = ln.axis === 'y' ? game.shipY : game.shipX;
+      if (Math.abs(at - ln.v) < ln.width) {
+        game.damage(ln.dmg);
+        if (ln.effect === 'ice') {
+          game.iced = 1.2;
+          game.say('CONTROLS ICED', 1.2);
+        }
+      }
+    }
+    return true;
+  });
+}
+
+function lanesDraw(rd, tr, b, game, time) {
+  const p = [0, 0, 0];
+  const q = [0, 0, 0];
+  for (const ln of b.lanes) {
+    const firing = time >= ln.fireAt && time <= ln.until;
+    const a = firing ? 1 : 0.3 + 0.25 * Math.sin(time * 22);
+    const [cr, cg, cb] = ln.color;
+    for (let seg = 0; seg < 5; seg++) {
+      const t0 = game.t - 60 + seg * 120;
+      const t1 = t0 + 100;
+      if (ln.axis === 'y') {
+        const hw = tr.halfWidth(t0);
+        tr.localToWorld(t0, -hw, ln.v, p);
+        tr.localToWorld(t1, hw, ln.v, q);
+      } else {
+        tr.localToWorld(t0, ln.v, 6, p);
+        tr.localToWorld(t1, ln.v, tr.rim(t0) + 50, q);
+      }
+      rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], firing ? 3 : 1.2, cr, cg, cb, a);
+    }
+  }
+}
+
+// --- the eight -------------------------------------------------------------
+
+export const WARDENS = {
+  /** Six tentacle pods shield the core; the pods spawn the escorts. */
+  marionette: {
+    init(b) {
+      b.openMsg = 'THE CORE IS OPEN';
+      for (let i = 0; i < 6; i++) mkPart(b, 'TENTACLE', 6);
+    },
+    update(b, dt, game) {
+      const tr = game.track;
+      const st = stageOf(b);
+      b.shielded = st < 2;
+      b.lockable = !b.shielded;
+      ride(b, dt, game);
+      const hw = tr.halfWidth(b.t);
+      for (const part of b.parts) {
+        if (!part.alive) continue;
+        const a = game.time * 0.7 + (part.idx / 6) * TAU;
+        part.t = b.t + Math.sin(a * 0.5 + part.idx) * 14;
+        part.x = clamp(b.x + Math.cos(a) * 58, -hw + 14, hw - 14);
+        part.y = Math.max(tr.rim(part.t) + 14, b.y + Math.sin(a) * 32);
+        tr.localToWorld(part.t, part.x, part.y, part.world);
+        part.los = 1;
+      }
+      if (b.sweeping > 0) b.sweeping -= dt;
+      boltVolley(b, dt, game, st);
+      if (st >= 1) {
+        b.missilesIn -= dt;
+        if (b.missilesIn <= 0) { b.missilesIn = 9 - st * 2; seekerPair(b, game); }
+      }
+      const live = b.parts.filter((p) => p.alive);
+      if (live.length) {
+        b.dronesIn -= dt;
+        if (b.dronesIn <= 0) {
+          b.dronesIn = 9 - (6 - live.length);
+          const src = live[(hash2((game.time * 11) | 0, 2) * live.length) | 0];
+          spawnEscorts(b, game, src, 2);
+          game.particles.burst(src.world[0], src.world[1], src.world[2], 8, 120, 0.78, 0.42, 1, 0.35, 1.4);
+        }
+      }
+      if (st >= 2 && b.sweeping <= 0) {
+        b.sweepIn -= dt;
+        if (b.sweepIn <= 0) { b.sweepIn = 11; b.sweeping = 3.2; game.say('IT SWINGS LOW', 1.2); }
+      }
+      if (b.sweeping > 0) {
+        b.y = lerp(b.y, tr.rim(b.t) + 14, 0.6);
+        tr.localToWorld(b.t, b.x, b.y, b.world);
+        const d = Math.hypot(game.shipPos[0] - b.world[0],
+          game.shipPos[1] - b.world[1], game.shipPos[2] - b.world[2]);
+        if (d < 26) game.damage(SWEEP_DAMAGE * dt * 4);
+      }
+    },
+    draw(rd, b, tr, time) {
+      const p = [0, 0, 0];
+      const q = [0, 0, 0];
+      const col = b.flash > 0 ? [1, 1, 1] : [0.78, 0.42, 1];
+      octagon(rd, tr, b.t, b.x, b.y, 22, col, 2.4);
+      for (const part of b.parts) {
+        if (!part.alive) continue;
+        const midX = (b.x + part.x) / 2 + Math.sin(time * 2.6 + part.idx * 2.1) * 7;
+        const midY = (b.y + part.y) / 2 + Math.cos(time * 2.2 + part.idx * 1.7) * 6;
+        const pc = part.flash > 0 ? [1, 1, 1] : [1, 0.55, 0.25];
+        tr.localToWorld(b.t, b.x, b.y, p);
+        tr.localToWorld((b.t + part.t) / 2, midX, midY, q);
+        rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], 1.6, pc[0], pc[1], pc[2], 0.8);
+        tr.localToWorld(part.t, part.x, part.y, p);
+        rd.line3(q[0], q[1], q[2], p[0], p[1], p[2], 1.6, pc[0], pc[1], pc[2], 0.8);
+        diamond(rd, tr, part.t, part.x, part.y, 7, pc, 2);
+      }
+      lattice(rd, tr, b, time);
+      coreGlow(rd, tr, b, time, col);
+    },
+  },
+
+  /** A river monitor in segments; only the glowing one takes damage. */
+  hydra: {
+    init(b) {
+      b.openMsg = 'THE HEAD IS BARE';
+      for (let i = 0; i < 5; i++) mkPart(b, 'SEGMENT', 7, { guarded: true });
+      b.parts[b.parts.length - 1].guarded = false;   // the tail glows first
+      b.weakIdx = b.parts.length - 1;
+    },
+    update(b, dt, game) {
+      const tr = game.track;
+      const st = stageOf(b);
+      b.shielded = partsAlive(b) > 0;
+      b.lockable = !b.shielded;
+      // The head rides low in its river, weaving hard; the spine trails it.
+      ride(b, dt, game, 400, 0.85, 26 - tr.rim(b.t) * 0);
+      b.y = tr.rim(b.t) * 0.5 + 18 + Math.sin(b.bob) * 6;
+      tr.localToWorld(b.t, b.x, b.y, b.world);
+      // Advance the glow to the rearmost living segment.
+      const living = b.parts.filter((p) => p.alive);
+      for (const p of b.parts) p.guarded = true;
+      if (living.length) living[living.length - 1].guarded = false;
+      let px = b.x, py = b.y, pt = b.t;
+      b.parts.forEach((part, i) => {
+        if (!part.alive) return;
+        const lag = (i + 1) * 34;
+        part.t = b.t - lag;
+        part.x = Math.sin(b.sway - (i + 1) * 0.55) * (tr.halfWidth(part.t) * 0.8 - 18);
+        part.y = tr.rim(part.t) * 0.5 + 16 + Math.sin(b.bob - i * 0.8) * 5;
+        tr.localToWorld(part.t, part.x, part.y, part.world);
+        part.los = 1;
+        px = part.x; py = part.y; pt = part.t;
+      });
+      wallsUpdate(b, dt, game);
+      b.timers.wave = (b.timers.wave ?? 4) - dt;
+      if (b.timers.wave <= 0) {
+        b.timers.wave = 6.5 - st * 1.2;
+        const hw = tr.halfWidth(game.t + 500);
+        wallSpawn(b, game, {
+          gx: (hash2((game.time * 13) | 0, 2) * 2 - 1) * (hw - 30),
+          gy: 20 + hash2((game.time * 13) | 0, 5) * (tr.rim(game.t) - 30),
+          gr: 26 - st * 3,
+          color: [0.35, 0.85, 1],
+        });
+        game.say('WAVE WALL', 0.9);
+      }
+      if (st >= 1) boltVolley(b, dt, game, st, 4.2);
+    },
+    draw(rd, b, tr, time) {
+      const col = b.flash > 0 ? [1, 1, 1] : [0.3, 0.85, 1];
+      // The head: a jawed wedge.
+      const p = [0, 0, 0];
+      const q = [0, 0, 0];
+      for (const [dx0, dy0, dx1, dy1] of [
+        [-16, 0, 0, 12], [0, 12, 16, 0], [16, 0, 0, -10], [0, -10, -16, 0],
+        [16, 0, 26, 5], [16, 0, 26, -5],
+      ]) {
+        tr.localToWorld(b.t, b.x + dx0, b.y + dy0, p);
+        tr.localToWorld(b.t, b.x + dx1, b.y + dy1, q);
+        rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], 2.4, col[0], col[1], col[2], 1);
+      }
+      let prev = { t: b.t, x: b.x, y: b.y };
+      for (const part of b.parts) {
+        if (!part.alive) continue;
+        const glow = !part.guarded;
+        const pc = part.flash > 0 ? [1, 1, 1] : glow ? [1, 0.8, 0.3] : [0.25, 0.6, 0.8];
+        octagon(rd, tr, part.t, part.x, part.y, glow ? 12 : 10, pc, glow ? 2.6 : 1.6,
+          glow ? 0.8 + 0.2 * Math.sin(time * 10) : 0.85);
+        tr.localToWorld(prev.t, prev.x, prev.y, p);
+        tr.localToWorld(part.t, part.x, part.y, q);
+        rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], 1.4, 0.3, 0.7, 0.9, 0.7);
+        prev = part;
+      }
+      wallsDraw(rd, tr, b, time);
+      coreGlow(rd, tr, b, time, col);
+    },
+  },
+
+  /** The core on rails: four regulators, and fire that stays where poured. */
+  furnace: {
+    init(b) {
+      b.openMsg = 'THE CORE RUNS BARE';
+      for (let i = 0; i < 4; i++) mkPart(b, 'REGULATOR', 8);
+    },
+    update(b, dt, game) {
+      const tr = game.track;
+      const st = stageOf(b);
+      b.shielded = partsAlive(b) > 0;
+      b.lockable = !b.shielded;
+      ride(b, dt, game, 430, 0.6);
+      const hw = tr.halfWidth(b.t);
+      b.parts.forEach((part, i) => {
+        if (!part.alive) return;
+        const a = time4(game) * 0.5 + (i / 4) * TAU + Math.PI / 4;
+        part.t = b.t;
+        part.x = clamp(b.x + Math.cos(a) * 44, -hw + 12, hw - 12);
+        part.y = Math.max(tr.rim(part.t) + 12, b.y + Math.sin(a) * 30);
+        tr.localToWorld(part.t, part.x, part.y, part.world);
+        part.los = 1;
+      });
+      cloudsUpdate(b, dt, game);
+      b.timers.vent = (b.timers.vent ?? 3) - dt;
+      if (b.timers.vent <= 0) {
+        b.timers.vent = 5 - st * 1.2 - (4 - partsAlive(b)) * 0.4;
+        cloudSpawn(b, game, 30 + st * 6);
+        game.say('IT VENTS', 0.8);
+        game.audio.smallBoom();
+      }
+      lanesUpdate(b, dt, game);
+      b.timers.ram = (b.timers.ram ?? 6) - dt;
+      if (b.timers.ram <= 0) {
+        b.timers.ram = 8 - st * 1.5;
+        laneFire(b, game, { axis: 'y', v: game.shipY, dmg: 22, width: 18, color: [1, 0.5, 0.2] });
+      }
+      if (st >= 1) boltVolley(b, dt, game, st, 4.6);
+    },
+    draw(rd, b, tr, time) {
+      const col = b.flash > 0 ? [1, 1, 1] : [1, 0.45, 0.2];
+      octagon(rd, tr, b.t, b.x, b.y, 24, col, 2.6);
+      octagon(rd, tr, b.t, b.x, b.y, 14, [1, 0.7, 0.3], 1.4, 0.7 + 0.3 * Math.sin(time * 8));
+      for (const part of b.parts) {
+        if (!part.alive) continue;
+        const pc = part.flash > 0 ? [1, 1, 1] : [1, 0.65, 0.25];
+        diamond(rd, tr, part.t, part.x, part.y, 8, pc, 2);
+      }
+      cloudsDraw(rd, b, time);
+      lanesDraw(rd, tr, b, { t: b.t - 420 }, time);
+      coreGlow(rd, tr, b, time, col);
+    },
+  },
+
+  /** Two scythe arms that regrow once; blades that come back. */
+  mantis: {
+    init(b) {
+      b.openMsg = 'ITS ARMS ARE GONE';
+      for (let i = 0; i < 2; i++) mkPart(b, 'ARM', 12, { regrows: 1, regrowDelay: 9 });
+    },
+    update(b, dt, game) {
+      const tr = game.track;
+      const st = stageOf(b);
+      b.shielded = partsAlive(b) > 0;
+      b.lockable = !b.shielded;
+      ride(b, dt, game, 410, 0.75);
+      const hw = tr.halfWidth(b.t);
+      b.parts.forEach((part, i) => {
+        if (!part.alive) return;
+        const side = i === 0 ? -1 : 1;
+        part.t = b.t - 10;
+        part.x = clamp(b.x + side * (34 + Math.sin(game.time * 2.4) * 8), -hw + 12, hw - 12);
+        part.y = b.y - 6;
+        tr.localToWorld(part.t, part.x, part.y, part.world);
+        part.los = 1;
+      });
+      regrow(b, dt, game);
+      bladesUpdate(b, dt, game);
+      b.timers.blade = (b.timers.blade ?? 3) - dt;
+      if (b.timers.blade <= 0 && partsAlive(b) > 0) {
+        b.timers.blade = 4.4 - partsAlive(b) * 0 - st * 0.8;
+        bladeThrow(b, game);
+      }
+      b.timers.seed = (b.timers.seed ?? 6) - dt;
+      if (b.timers.seed <= 0) {
+        b.timers.seed = 10 - st * 2;
+        spawnEscorts(b, game, b, 2 + st);
+        game.say('SEEDS', 0.8);
+      }
+      // Armless, it rams in crossing figure-eights.
+      if (st >= 2) {
+        b.sway += dt * 1.6;
+        b.y = tr.rim(b.t) + 24 + Math.sin(b.bob * 2.3) * 26;
+        tr.localToWorld(b.t, b.x, b.y, b.world);
+        const d = Math.hypot(game.shipPos[0] - b.world[0],
+          game.shipPos[1] - b.world[1], game.shipPos[2] - b.world[2]);
+        if (d < 24) game.damage(SWEEP_DAMAGE * dt * 4);
+      }
+    },
+    draw(rd, b, tr, time) {
+      const col = b.flash > 0 ? [1, 1, 1] : [0.5, 1, 0.4];
+      const p = [0, 0, 0];
+      const q = [0, 0, 0];
+      // A narrow thorax, head up.
+      for (const [dx0, dy0, dx1, dy1] of [
+        [0, 18, 6, 0], [6, 0, 0, -16], [0, -16, -6, 0], [-6, 0, 0, 18],
+      ]) {
+        tr.localToWorld(b.t, b.x + dx0, b.y + dy0, p);
+        tr.localToWorld(b.t, b.x + dx1, b.y + dy1, q);
+        rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], 2.2, col[0], col[1], col[2], 1);
+      }
+      for (const part of b.parts) {
+        if (!part.alive) continue;
+        const side = part.idx === 0 ? -1 : 1;
+        const pc = part.flash > 0 ? [1, 1, 1] : [0.7, 1, 0.5];
+        // The scythe: shoulder out, then the hook down.
+        tr.localToWorld(b.t, b.x, b.y + 8, p);
+        tr.localToWorld(part.t, part.x, part.y + 10, q);
+        rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], 2, pc[0], pc[1], pc[2], 0.95);
+        tr.localToWorld(part.t, part.x, part.y + 10, p);
+        tr.localToWorld(part.t, part.x + side * 8, part.y - 14, q);
+        rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], 2.4, pc[0], pc[1], pc[2], 1);
+      }
+      bladesDraw(rd, b, time);
+      coreGlow(rd, tr, b, time, col);
+    },
+  },
+
+  /** A bulkhead that got up: strip the panels, thread the doors. */
+  portcullis: {
+    init(b) {
+      b.openMsg = 'THE HINGE IS BARE';
+      for (let i = 0; i < 6; i++) mkPart(b, 'PANEL', 7);
+    },
+    update(b, dt, game) {
+      const tr = game.track;
+      const st = stageOf(b);
+      b.shielded = partsAlive(b) > 0;
+      b.lockable = !b.shielded;
+      ride(b, dt, game, 440, 0.4, 60);
+      const hw = tr.halfWidth(b.t);
+      b.parts.forEach((part, i) => {
+        if (!part.alive) return;
+        const col = i % 3, row = (i / 3) | 0;
+        part.t = b.t;
+        part.x = clamp(b.x + (col - 1) * 26, -hw + 12, hw - 12);
+        part.y = b.y + (row === 0 ? -16 : 16);
+        tr.localToWorld(part.t, part.x, part.y, part.world);
+        part.los = 1;
+      });
+      wallsUpdate(b, dt, game);
+      b.timers.door = (b.timers.door ?? 4) - dt;
+      if (b.timers.door <= 0) {
+        b.timers.door = 7 - st * 1.4;
+        wallSpawn(b, game, {
+          gx: (hash2((game.time * 17) | 0, 2) * 2 - 1) * (hw - 34),
+          gy: 22 + hash2((game.time * 17) | 0, 5) * (tr.rim(game.t) - 34),
+          gr: 24 - st * 3, dmg: 20,
+          color: [0.5, 0.65, 0.9],
+        });
+        game.say('THE DOORS CLOSE', 1);
+      }
+      // Breach shells: a heavy bolt that bursts into fragments short of you.
+      b.timers.shell = (b.timers.shell ?? 3) - dt;
+      if (b.timers.shell <= 0) {
+        b.timers.shell = 4.5 - st;
         const fx = game.shipPos[0] - b.world[0];
         const fy = game.shipPos[1] - b.world[1];
         const fz = game.shipPos[2] - b.world[2];
         const l = Math.hypot(fx, fy, fz) || 1;
-        game.weapons.fireSeeker(b.world[0] + side * 22, b.world[1], b.world[2],
-          fx / l + side * 0.3, fy / l, fz / l);
+        for (const s of [-0.18, 0, 0.18]) {
+          game.weapons.fireBolt(b.world[0], b.world[1], b.world[2],
+            fx / l + s, fy / l + Math.abs(s) * 0.4, fz / l, 470, true);
+        }
       }
-      game.say('MISSILES', 0.8);
-    }
-  }
-
-  // Escorts come FROM the pods: a living tentacle births them at its own
-  // position. Kill the pods and the drones stop coming -- that is the reward
-  // for working the ring, felt before the core even opens.
-  const live = b.parts.filter((p) => p.alive);
-  if (live.length) {
-    b.dronesIn -= dt;
-    if (b.dronesIn <= 0) {
-      b.dronesIn = 9 - (6 - live.length);
-      const src = live[(hash2((game.time * 11) | 0, 2) * live.length) | 0];
-      for (let i = 0; i < 2; i++) {
-        game.drones.push({
-          kind: 'drone', t: src.t - 30 - i * 36, alive: true,
-          x: clamp(src.x + (i ? 18 : -18), -hw + 14, hw - 14),
-          y: src.y,
-          hp: 2, maxHp: 2, lockable: true, points: 200,
-          cool: 0.8 + hash2((game.time * 7) | 0, i + 9),
-          phase: hash2((game.time * 7) | 0, i + 13) * TAU,
-          pace: 0.97,
-          spin: 0, aim: 0, flash: 0, world: [0, 0, 0],
-        });
+    },
+    draw(rd, b, tr, time) {
+      const col = b.flash > 0 ? [1, 1, 1] : [0.55, 0.7, 0.95];
+      const p = [0, 0, 0];
+      const q = [0, 0, 0];
+      for (const [dx0, dy0, dx1, dy1] of [
+        [-42, -30, 42, -30], [42, -30, 42, 30], [42, 30, -42, 30], [-42, 30, -42, -30],
+      ]) {
+        tr.localToWorld(b.t, b.x + dx0, b.y + dy0, p);
+        tr.localToWorld(b.t, b.x + dx1, b.y + dy1, q);
+        rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], 2.6, col[0], col[1], col[2], 1);
       }
-      game.particles.burst(src.world[0], src.world[1], src.world[2], 8, 120, 0.78, 0.42, 1, 0.35, 1.4);
-    }
-  }
+      for (const part of b.parts) {
+        if (!part.alive) continue;
+        const pc = part.flash > 0 ? [1, 1, 1] : [0.7, 0.85, 1];
+        square(rd, tr, part.t, part.x, part.y, 10, pc, 1.8);
+      }
+      wallsDraw(rd, tr, b, time);
+      coreGlow(rd, tr, b, time, col);
+    },
+  },
 
-  // The sweep: with the core open it drops to ship height and swings hard --
-  // the duel phase is the arena itself becoming the thing to dodge.
-  if (st >= 2 && b.sweeping <= 0) {
-    b.sweepIn -= dt;
-    if (b.sweepIn <= 0) {
-      b.sweepIn = 11;
-      b.sweeping = 3.2;
-      game.say('IT SWINGS LOW', 1.2);
-    }
-  }
-  if (b.sweeping > 0) {
-    b.y = lerp(b.y, tr.rim(b.t) + 14, 0.6);
-    tr.localToWorld(b.t, b.x, b.y, b.world);
-    const d = Math.hypot(game.shipPos[0] - b.world[0],
-      game.shipPos[1] - b.world[1], game.shipPos[2] - b.world[2]);
-    if (d < 26) game.damage(SWEEP_DAMAGE * dt * 4);
+  /** Ice that grows back; the race is for the gap you just made. */
+  avalanche: {
+    init(b) {
+      b.openMsg = 'THE ICE IS OFF IT';
+      for (let i = 0; i < 6; i++) mkPart(b, 'PLATE', 6, { regrows: 99, regrowDelay: 7 });
+    },
+    update(b, dt, game) {
+      const tr = game.track;
+      const st = stageOf(b);
+      b.shielded = partsAlive(b) > 0;
+      b.lockable = !b.shielded;
+      ride(b, dt, game, 400, 0.7);
+      const hw = tr.halfWidth(b.t);
+      b.parts.forEach((part, i) => {
+        if (!part.alive) return;
+        const a = (i / 6) * TAU + game.time * 0.4;
+        part.t = b.t;
+        part.x = clamp(b.x + Math.cos(a) * 30, -hw + 10, hw - 10);
+        part.y = Math.max(tr.rim(part.t) + 10, b.y + Math.sin(a) * 26);
+        tr.localToWorld(part.t, part.x, part.y, part.world);
+        part.los = 1;
+      });
+      regrow(b, dt, game, 1);
+      lanesUpdate(b, dt, game);
+      b.timers.ram = (b.timers.ram ?? 5) - dt;
+      if (b.timers.ram <= 0) {
+        b.timers.ram = 7.5 - st * 1.4;
+        laneFire(b, game, { axis: 'y', v: game.shipY, dmg: 22, width: 18, color: [0.8, 0.95, 1] });
+      }
+      b.timers.freeze = (b.timers.freeze ?? 7) - dt;
+      if (b.timers.freeze <= 0) {
+        b.timers.freeze = 9 - st * 1.5;
+        laneFire(b, game, { axis: 'x', v: game.shipX, dmg: 10, width: 16, effect: 'ice', color: [0.7, 0.9, 1] });
+        game.say('FREEZE BEAM', 0.9);
+      }
+    },
+    draw(rd, b, tr, time) {
+      const col = b.flash > 0 ? [1, 1, 1] : [0.75, 0.92, 1];
+      octagon(rd, tr, b.t, b.x, b.y, 13, [0.9, 0.98, 1], 2, 0.95);
+      for (const part of b.parts) {
+        if (!part.alive) continue;
+        const pc = part.flash > 0 ? [1, 1, 1] : [0.6, 0.85, 1];
+        // A jagged shard: an uneven diamond.
+        const j = 2 + (part.idx % 3);
+        diamond(rd, tr, part.t, part.x, part.y, 8 + j, pc, 1.8, 0.85);
+      }
+      lanesDraw(rd, tr, b, { t: b.t - 400 }, time);
+      coreGlow(rd, tr, b, time, col);
+    },
+  },
+
+  /** The wall of fire: silence the deck one battery at a time. */
+  broadside: {
+    init(b) {
+      b.openMsg = 'THE MAGAZINE IS OPEN';
+      for (let i = 0; i < 8; i++) mkPart(b, 'BATTERY', 5);
+    },
+    update(b, dt, game) {
+      const tr = game.track;
+      const st = stageOf(b);
+      b.shielded = partsAlive(b) > 0;
+      b.lockable = !b.shielded;
+      // It keeps station beside you, not ahead: the broadside is the point.
+      const hw = tr.halfWidth(game.t + 260);
+      b.t = lerp(b.t, game.t + 260, dt * 1.6);
+      b.x = lerp(b.x, -hw + 26, dt * 1.2);
+      b.y = tr.rim(b.t) + 44 + Math.sin(game.time * 1.1) * 6;
+      game.track.localToWorld(b.t, b.x, b.y, b.world);
+      b.los = 1;
+      b.parts.forEach((part, i) => {
+        if (!part.alive) return;
+        // Four batteries fore, four aft; the magazine amidships stays clear,
+        // so no shot at the deck has to thread the core to land.
+        part.t = b.t - 120 + i * 24 + (i >= 4 ? 48 : 0);
+        part.x = b.x;
+        part.y = b.y + (i % 2 ? 12 : -6);
+        tr.localToWorld(part.t, part.x, part.y, part.world);
+        part.los = 1;
+      });
+      // The deck fires in ranks: each living battery takes its turn.
+      b.timers.rank = (b.timers.rank ?? 1.6) - dt;
+      if (b.timers.rank <= 0) {
+        const live = b.parts.filter((p) => p.alive);
+        b.timers.rank = Math.max(0.5, 1.7 - st * 0.35);
+        if (live.length) {
+          const gun = live[((b.timers.gun = (b.timers.gun || 0) + 1)) % live.length];
+          const fx = game.shipPos[0] - gun.world[0];
+          const fy = game.shipPos[1] - gun.world[1];
+          const fz = game.shipPos[2] - gun.world[2];
+          const l = Math.hypot(fx, fy, fz) || 1;
+          game.weapons.fireBolt(gun.world[0], gun.world[1], gun.world[2],
+            fx / l, fy / l, fz / l, 500);
+        }
+      }
+      lanesUpdate(b, dt, game);
+      if (st >= 1) {
+        b.timers.rail = (b.timers.rail ?? 5) - dt;
+        if (b.timers.rail <= 0) {
+          b.timers.rail = 6.5 - st * 1.4;
+          laneFire(b, game, { axis: 'y', v: game.shipY, dmg: 20, width: 14, color: [1, 0.85, 0.3] });
+          game.say('RAIL', 0.8);
+        }
+      }
+    },
+    draw(rd, b, tr, time) {
+      const col = b.flash > 0 ? [1, 1, 1] : [1, 0.85, 0.35];
+      const p = [0, 0, 0];
+      const q = [0, 0, 0];
+      // The hull: a long slab beside the lane.
+      for (const [t0, y0, t1, y1] of [
+        [-100, -14, 110, -14], [110, -14, 120, 0], [120, 0, 110, 16],
+        [110, 16, -100, 16], [-100, 16, -100, -14],
+      ]) {
+        tr.localToWorld(b.t + t0, b.x, b.y + y0, p);
+        tr.localToWorld(b.t + t1, b.x, b.y + y1, q);
+        rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], 2.4, col[0], col[1], col[2], 1);
+      }
+      for (const part of b.parts) {
+        if (!part.alive) continue;
+        const pc = part.flash > 0 ? [1, 1, 1] : [1, 0.7, 0.3];
+        square(rd, tr, part.t, part.x, part.y, 6, pc, 1.8);
+      }
+      lanesDraw(rd, tr, b, { t: b.t - 260 }, time);
+      coreGlow(rd, tr, b, time, col);
+    },
+  },
+
+  /** Real only when it strikes; every dodge is a window. */
+  revenant: {
+    init(b) {
+      b.openMsg = '';
+      b.shielded = true;      // phased
+      b.phase = 'gone';
+      b.phaseIn = 3;
+      b.realFor = 0;
+    },
+    update(b, dt, game) {
+      const tr = game.track;
+      const st = b.hp > b.maxHp * 0.5 ? 0 : 1;
+      if (b.phase === 'gone') {
+        // A shimmer under the floor, sliding toward you.
+        b.shielded = true;
+        b.lockable = false;
+        b.t = lerp(b.t, game.t + 240, dt * 2);
+        b.x = lerp(b.x, game.shipX, dt * 1.2);
+        b.y = 6;
+        tr.localToWorld(b.t, b.x, b.y, b.world);
+        b.phaseIn -= dt;
+        if (b.phaseIn <= 0) {
+          b.phase = 'rising';
+          b.riseAt = game.time + 0.8;
+          game.say('IT RISES', 0.9);
+          game.audio.zap();
+        }
+      } else if (b.phase === 'rising') {
+        if (game.time >= b.riseAt) {
+          b.phase = 'real';
+          b.realFor = 2.8 - st * 0.4;
+          b.shielded = false;
+          b.lockable = true;
+          // The volley: bolts up through the floor beneath you.
+          for (const s of [-0.25, 0, 0.25]) {
+            game.weapons.fireBolt(b.world[0] + s * 60, 2, b.world[2],
+              s * 0.4, 0.85, 0.35, 430, true);
+          }
+          game.audio.bigBoom();
+        }
+      } else {
+        // Real: it hangs where it surfaced, takes its beating or gives one.
+        b.y = lerp(b.y, tr.rim(b.t) + 40, dt * 3);
+        tr.localToWorld(b.t, b.x, b.y, b.world);
+        b.los = 1;
+        boltVolley(b, dt, game, st, 2.6);
+        b.realFor -= dt;
+        if (b.realFor <= 0) {
+          b.phase = 'gone';
+          b.phaseIn = 3.4 - st * 0.8;
+          b.boltAt = 0;
+          game.say('GONE', 0.7);
+        }
+      }
+    },
+    draw(rd, b, tr, time) {
+      const p = [0, 0, 0];
+      const q = [0, 0, 0];
+      if (b.phase === 'real') {
+        const col = b.flash > 0 ? [1, 1, 1] : [1, 0.4, 0.85];
+        // An angular wraith: two swept fins and a hollow eye.
+        for (const [dx0, dy0, dx1, dy1] of [
+          [0, 16, -22, -12], [-22, -12, 0, -4], [0, -4, 22, -12], [22, -12, 0, 16],
+        ]) {
+          tr.localToWorld(b.t, b.x + dx0, b.y + dy0, p);
+          tr.localToWorld(b.t, b.x + dx1, b.y + dy1, q);
+          rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], 2.4, col[0], col[1], col[2], 1);
+        }
+        coreGlow(rd, tr, b, time, col);
+      } else {
+        // The shimmer: broken dashes at floor level, converging while it rises.
+        const urgent = b.phase === 'rising';
+        const a = urgent ? 0.5 + 0.4 * Math.sin(time * 24) : 0.22;
+        for (let k = 0; k < 6; k++) {
+          const off = (hash2(k, (time * 6) | 0) - 0.5) * (urgent ? 26 : 70);
+          tr.localToWorld(b.t - 20 + k * 8, b.x + off, 3, p);
+          tr.localToWorld(b.t - 8 + k * 8, b.x + off * 0.6, 5, q);
+          rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], 1.4, 1, 0.4, 0.85, a);
+        }
+      }
+    },
+  },
+};
+
+// --- shared drawing --------------------------------------------------------
+
+function octagon(rd, tr, t, x, y, r, col, w = 2, a = 1) {
+  const p = [0, 0, 0];
+  const q = [0, 0, 0];
+  for (let k = 0; k < 8; k++) {
+    const a0 = (k / 8) * TAU, a1 = ((k + 1) / 8) * TAU;
+    tr.localToWorld(t, x + Math.cos(a0) * r, y + Math.sin(a0) * r, p);
+    tr.localToWorld(t, x + Math.cos(a1) * r, y + Math.sin(a1) * r, q);
+    rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], w, col[0], col[1], col[2], a);
   }
 }
 
-/**
- * The warden drawn: the core, the shield lattice while the pods hold it, and
- * the six tentacles -- each a waving line ending in a pod, alive until it is
- * not. All line primitives, like everything else in the world.
- */
-export function drawWarden(rd, b, track, time) {
+function diamond(rd, tr, t, x, y, r, col, w = 2, a = 1) {
   const p = [0, 0, 0];
   const q = [0, 0, 0];
-  const col = b.flash > 0 ? [1, 1, 1] : [0.78, 0.42, 1];
-  const R = 22;
-
-  // The hull: an octagon in the cross-track plane.
-  for (let k = 0; k < 8; k++) {
-    const a0 = (k / 8) * TAU, a1 = ((k + 1) / 8) * TAU;
-    track.localToWorld(b.t, b.x + Math.cos(a0) * R, b.y + Math.sin(a0) * R, p);
-    track.localToWorld(b.t, b.x + Math.cos(a1) * R, b.y + Math.sin(a1) * R, q);
-    rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], 2.4, col[0], col[1], col[2], 1);
+  const D = [[0, r], [r * 0.75, 0], [0, -r], [-r * 0.75, 0]];
+  for (let k = 0; k < 4; k++) {
+    tr.localToWorld(t, x + D[k][0], y + D[k][1], p);
+    tr.localToWorld(t, x + D[(k + 1) % 4][0], y + D[(k + 1) % 4][1], q);
+    rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], w, col[0], col[1], col[2], a);
   }
+}
 
-  // The tentacles: from the hull out to each living pod, drawn as two bowed
-  // segments so they read as reaching rather than as spokes.
-  for (const part of b.parts) {
-    if (!part.alive) continue;
-    const midX = (b.x + part.x) / 2 + Math.sin(time * 2.6 + part.idx * 2.1) * 7;
-    const midY = (b.y + part.y) / 2 + Math.cos(time * 2.2 + part.idx * 1.7) * 6;
-    const midT = (b.t + part.t) / 2;
-    const pc = part.flash > 0 ? [1, 1, 1] : [1, 0.55, 0.25];
-    track.localToWorld(b.t, b.x, b.y, p);
-    track.localToWorld(midT, midX, midY, q);
-    rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], 1.6, pc[0], pc[1], pc[2], 0.8);
-    track.localToWorld(part.t, part.x, part.y, p);
-    rd.line3(q[0], q[1], q[2], p[0], p[1], p[2], 1.6, pc[0], pc[1], pc[2], 0.8);
-    // The pod: a small diamond, and the part you shoot.
-    const D = [[0, 7], [7, 0], [0, -7], [-7, 0]];
-    for (let k = 0; k < 4; k++) {
-      track.localToWorld(part.t, part.x + D[k][0], part.y + D[k][1], p);
-      track.localToWorld(part.t, part.x + D[(k + 1) % 4][0], part.y + D[(k + 1) % 4][1], q);
-      rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], 2, pc[0], pc[1], pc[2], 1);
-    }
+function square(rd, tr, t, x, y, r, col, w = 2, a = 1) {
+  const p = [0, 0, 0];
+  const q = [0, 0, 0];
+  const D = [[-r, -r], [r, -r], [r, r], [-r, r]];
+  for (let k = 0; k < 4; k++) {
+    tr.localToWorld(t, x + D[k][0], y + D[k][1], p);
+    tr.localToWorld(t, x + D[(k + 1) % 4][0], y + D[(k + 1) % 4][1], q);
+    rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], w, col[0], col[1], col[2], a);
   }
+}
 
-  // The shield lattice: the live pods joined in a ring while they hold the
-  // core -- so the mechanic is drawn, not explained.
+function lattice(rd, tr, b, time) {
   const live = b.parts.filter((x) => x.alive);
-  if (live.length > 1) {
-    const pulse = 0.2 + 0.12 * Math.sin(time * 7);
-    for (let i = 0; i < live.length; i++) {
-      const a = live[i], c = live[(i + 1) % live.length];
-      track.localToWorld(a.t, a.x, a.y, p);
-      track.localToWorld(c.t, c.x, c.y, q);
-      rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], 1, 0.5, 0.8, 1, pulse);
-    }
+  if (live.length < 2) return;
+  const p = [0, 0, 0];
+  const q = [0, 0, 0];
+  const pulse = 0.2 + 0.12 * Math.sin(time * 7);
+  for (let i = 0; i < live.length; i++) {
+    const a = live[i], c = live[(i + 1) % live.length];
+    tr.localToWorld(a.t, a.x, a.y, p);
+    tr.localToWorld(c.t, c.x, c.y, q);
+    rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], 1, 0.5, 0.8, 1, pulse);
   }
+}
 
-  // The core: pulsing violet -- blazing white-hot exactly when the strike's
-  // aim locks, which is the moment to move.
+function coreGlow(rd, tr, b, time, col) {
+  const p = [0, 0, 0];
   const charging = b.boltAt > 0;
-  const locked = charging && (b.boltAt - time < 0.3);
+  const locked = charging && (b.boltAt - time < BOLT_LOCK);
   const pulse = locked ? 1 : charging ? 0.7 + 0.3 * Math.sin(time * 30) : 0.5 + 0.2 * Math.sin(time * 4);
-  track.localToWorld(b.t, b.x, b.y, p);
+  tr.localToWorld(b.t, b.x, b.y, p);
   rd.line3(p[0], p[1], p[2], p[0], p[1], p[2], locked ? 15 : charging ? 11 : 7,
-    locked ? 1 : charging ? 1 : col[0], locked ? 1 : charging ? 0.9 : col[1] * 0.8,
-    locked ? 0.9 : charging ? 0.5 : col[2], pulse);
+    locked ? 1 : col[0], locked ? 1 : col[1] * 0.85, locked ? 0.9 : col[2], pulse);
+}
+
+const time4 = (game) => game.time;
+
+// --- the dispatch ----------------------------------------------------------
+
+export function updateWarden(b, dt, game) {
+  b.flash = Math.max(0, b.flash - dt * 6);
+  for (const p of b.parts) p.flash = Math.max(0, p.flash - dt * 6);
+  (WARDENS[b.def.kind] || WARDENS.marionette).update(b, dt, game);
+}
+
+export function drawWarden(rd, b, track, time) {
+  (WARDENS[b.def.kind] || WARDENS.marionette).draw(rd, b, track, time);
 }
 
 /** The escape pod: what flies away when the warden does not. */
@@ -280,7 +1000,6 @@ export function drawPod(rd, pod) {
   rd.line3(x - 4, y - 3, z, x, y + 6, z, 1.8, 1, 0.85, 0.5, 1);
   rd.line3(x, y + 6, z, x + 4, y - 3, z, 1.8, 1, 0.85, 0.5, 1);
   rd.line3(x + 4, y - 3, z, x - 4, y - 3, z, 1.8, 1, 0.85, 0.5, 1);
-  // The trail.
   rd.line3(x, y - 3, z, x - pod.vel[0] * 0.14, y - 3 - pod.vel[1] * 0.14, z - pod.vel[2] * 0.14,
     1.2, 1, 0.6, 0.2, 0.6);
 }

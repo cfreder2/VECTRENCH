@@ -8,6 +8,14 @@
   },
   "finale": "port",
   "music": "glacier",
+  "boss": {
+    "kind": "avalanche",
+    "name": "AVALANCHE",
+    "hp": 70,
+    "weapon": "freeze",
+    "weakTo": "breach",
+    "arena": "surface"
+  },
   "sections": [
     {
       "name": "the intake",

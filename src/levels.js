@@ -470,7 +470,14 @@ export const PREBUILT = [
       "finale": "port",
       "armedPort": false,
       "music": "bumblebee",
-      "boss": null,
+      "boss": {
+        "kind": "portcullis",
+        "name": "PORTCULLIS",
+        "hp": 60,
+        "weapon": "breach",
+        "weakTo": "arc",
+        "arena": "surface"
+      },
       "sections": [
         {
           "name": "wide mouth",
@@ -666,7 +673,14 @@ export const PREBUILT = [
       "finale": "port",
       "armedPort": false,
       "music": "fire",
-      "boss": null,
+      "boss": {
+        "kind": "furnace",
+        "name": "FURNACE",
+        "hp": 60,
+        "weapon": "magma",
+        "weakTo": "wave",
+        "arena": "surface"
+      },
       "sections": [
         {
           "name": "the descent",
@@ -886,7 +900,14 @@ export const PREBUILT = [
       "finale": "port",
       "armedPort": false,
       "music": "bumblebee",
-      "boss": null,
+      "boss": {
+        "kind": "broadside",
+        "name": "BROADSIDE",
+        "hp": 55,
+        "weapon": "rail",
+        "weakTo": "freeze",
+        "arena": "surface"
+      },
       "sections": [
         {
           "name": "the drop",
@@ -1053,7 +1074,14 @@ export const PREBUILT = [
       "finale": "port",
       "armedPort": false,
       "music": "water",
-      "boss": null,
+      "boss": {
+        "kind": "hydra",
+        "name": "HYDRA",
+        "hp": 50,
+        "weapon": "wave",
+        "weakTo": "ghost",
+        "arena": "trench"
+      },
       "sections": [
         {
           "name": "open water",
@@ -1342,7 +1370,14 @@ export const PREBUILT = [
       "finale": "port",
       "armedPort": false,
       "music": "overgrowth",
-      "boss": null,
+      "boss": {
+        "kind": "mantis",
+        "name": "MANTIS",
+        "hp": 70,
+        "weapon": "saw",
+        "weakTo": "magma",
+        "arena": "surface"
+      },
       "sections": [
         {
           "name": "the eaves",
@@ -1569,7 +1604,14 @@ export const PREBUILT = [
       "finale": "port",
       "armedPort": false,
       "music": "void",
-      "boss": null,
+      "boss": {
+        "kind": "revenant",
+        "name": "REVENANT",
+        "hp": 70,
+        "weapon": "ghost",
+        "weakTo": "rail",
+        "arena": "surface"
+      },
       "sections": [
         {
           "name": "flatline",
@@ -2023,7 +2065,14 @@ export const PREBUILT = [
       "finale": "port",
       "armedPort": false,
       "music": "glacier",
-      "boss": null,
+      "boss": {
+        "kind": "avalanche",
+        "name": "AVALANCHE",
+        "hp": 70,
+        "weapon": "freeze",
+        "weakTo": "breach",
+        "arena": "surface"
+      },
       "sections": [
         {
           "name": "the intake",

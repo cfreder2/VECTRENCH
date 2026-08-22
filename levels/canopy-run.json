@@ -8,6 +8,14 @@
   },
   "finale": "port",
   "music": "overgrowth",
+  "boss": {
+    "kind": "mantis",
+    "name": "MANTIS",
+    "hp": 70,
+    "weapon": "saw",
+    "weakTo": "magma",
+    "arena": "surface"
+  },
   "sections": [
     {
       "name": "the eaves",

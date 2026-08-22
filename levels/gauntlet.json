@@ -139,5 +139,13 @@
       "depth": 140,
       "obstacles": 0.44
     }
-  ]
+  ],
+  "boss": {
+    "kind": "broadside",
+    "name": "BROADSIDE",
+    "hp": 55,
+    "weapon": "rail",
+    "weakTo": "freeze",
+    "arena": "surface"
+  }
 }

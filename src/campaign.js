@@ -101,7 +101,7 @@ export class Campaign {
     const held = spec.boss && spec.boss.weapon;
     if (held && WEAPONS[held] && !this.weapons.includes(held)) {
       this.weapons.push(held);
-      if (!this.equipped) this.equipped = held;
+      if (!this.equipped && WEAPONS[held].built) this.equipped = held;
       weapon = held;
     }
     this.save();

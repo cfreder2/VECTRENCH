@@ -8,6 +8,14 @@
   },
   "finale": "port",
   "music": "void",
+  "boss": {
+    "kind": "revenant",
+    "name": "REVENANT",
+    "hp": 70,
+    "weapon": "ghost",
+    "weakTo": "rail",
+    "arena": "surface"
+  },
   "sections": [
     {
       "name": "flatline",

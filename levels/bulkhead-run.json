@@ -165,5 +165,13 @@
       "batteries": 0.48,
       "panels": 2
     }
-  ]
+  ],
+  "boss": {
+    "kind": "portcullis",
+    "name": "PORTCULLIS",
+    "hp": 60,
+    "weapon": "breach",
+    "weakTo": "arc",
+    "arena": "surface"
+  }
 }

@@ -397,6 +397,7 @@ export class Game {
     this.speedMul = 1;
     this.boss = null;
     this.pod = null;
+    this.iced = 0;
     this.ascentTimer = 0;
     this.escapeTimer = 0;
     this.lightTimer = 0;
@@ -575,8 +576,12 @@ export class Game {
     // the steer and is clamped by the same walls.
     if (this.barreling) this.shipX += this.barrelDir * BARREL_SLIDE * dt;
 
-    this.velX = approach(this.velX, inp.steerX * MAX_VX, STEER_RATE, dt);
-    this.velY = approach(this.velY, inp.steerY * MAX_VY, STEER_RATE, dt);
+    // Iced controls answer at a third of their rate for a heartbeat -- the
+    // freeze beam's mark. Telegraphed, dodgeable, and always brief.
+    this.iced = Math.max(0, (this.iced || 0) - dt);
+    const grip = this.iced > 0 ? 0.35 : 1;
+    this.velX = approach(this.velX, inp.steerX * MAX_VX * grip, STEER_RATE * grip, dt);
+    this.velY = approach(this.velY, inp.steerY * MAX_VY * grip, STEER_RATE * grip, dt);
     this.shipX += this.velX * dt;
     this.shipY += this.velY * dt;
 
@@ -678,7 +683,13 @@ export class Game {
   sayShield() {
     if (this.time - (this._shieldSaid || 0) < 3) return;
     this._shieldSaid = this.time;
-    this.say('THE TENTACLES SHIELD THE CORE', 1.4);
+    this.say('ITS PARTS SHIELD THE CORE', 1.4);
+  }
+
+  sayGuard() {
+    if (this.time - (this._guardSaid || 0) < 3) return;
+    this._guardSaid = this.time;
+    this.say('HIT THE ONE THAT GLOWS', 1.4);
   }
 
   /**
@@ -1101,7 +1112,7 @@ export class Game {
     // Project every candidate once. onScreen/sx/sy are read again by the
     // overlay, so this doubles as the frame's visibility pass.
     const cands = [this.level.enemies, this.drones];
-    if (this.boss && this.boss.alive) cands.push([this.boss], this.boss.parts);
+    if (this.boss && this.boss.alive) cands.push(this.boss.parts, [this.boss]);
     if (this.level.port) cands.push([this.level.port]);
     for (const arr of cands) {
       for (const e of arr) {
@@ -1653,7 +1664,7 @@ export class Game {
     // Whatever is in reach at all.
     const cands = [];
     const pools = [this.level.enemies, this.drones];
-    if (this.boss && this.boss.alive) pools.push([this.boss], this.boss.parts);
+    if (this.boss && this.boss.alive) pools.push(this.boss.parts, [this.boss]);
     for (const arr of pools) {
       for (const e of arr) {
         if (!e.alive || !e.world || e.kind === 'port') continue;
@@ -1732,6 +1743,10 @@ export class Game {
     if (this.zapTimer > 0 || !chain.length) return;
     this.zapTimer = ARC_TICK;
     chain.forEach((e, k) => {
+      if (e.kind === 'bosspart' && e.guarded) {
+        this.particles.burst(e.world[0], e.world[1], e.world[2], 3, 100, 0.5, 0.8, 1, 0.3, 1.2);
+        return;
+      }
       if (e.kind === 'boss' && e.shielded) {
         this.particles.burst(e.world[0], e.world[1], e.world[2], 4, 110, 0.5, 0.8, 1, 0.3, 1.2);
         return;
@@ -1793,7 +1808,7 @@ export class Game {
     const tr = this.track;
     const targets = [this.level.enemies, this.drones];
     if (this.level.port) targets.push([this.level.port]);
-    if (this.boss && this.boss.alive) targets.push([this.boss], this.boss.parts);
+    if (this.boss && this.boss.alive) targets.push(this.boss.parts, [this.boss]);
 
     // Player lasers.
     for (let i = W.lasers.length - 1; i >= 0; i--) {
@@ -1802,7 +1817,10 @@ export class Game {
       for (const arr of targets) {
         for (const e of arr) {
           if (!e.alive || !e.world) continue;
-          const R = RADIUS[e.kind] || 12;
+          // A shielded core blocks with a sliver, not its whole hull: at full
+          // radius it shadows the very parts mounted against it, and shots
+          // aimed at those parts die on the lattice instead.
+          const R = e.kind === 'boss' && e.shielded ? 8 : RADIUS[e.kind] || 12;
           if (Math.abs(e.world[2] - s.z) > R + 120) continue;
           if (!segSphere(s.px, s.py, s.pz, s.x, s.y, s.z,
             e.world[0], e.world[1], e.world[2], R)) continue;
@@ -1817,6 +1835,12 @@ export class Game {
           if (e.kind === 'boss' && e.shielded) {
             this.particles.burst(s.x, s.y, s.z, 6, 110, 0.5, 0.8, 1, 0.3, 1.4);
             this.sayShield();
+            break;
+          }
+          // A guarded part -- armored until its turn -- sheds fire the same way.
+          if (e.kind === 'bosspart' && e.guarded) {
+            this.particles.burst(s.x, s.y, s.z, 4, 100, 0.5, 0.8, 1, 0.3, 1.2);
+            this.sayGuard();
             break;
           }
           e.hp -= 1;
@@ -1885,7 +1909,7 @@ export class Game {
       const tg = m.target;
       let boom = false;
       if (tg && tg.alive && tg.world) {
-        const R = RADIUS[tg.kind] || 14;
+        const R = tg.kind === 'boss' && tg.shielded ? 8 : RADIUS[tg.kind] || 14;
         if (segSphere(m.px, m.py, m.pz, m.x, m.y, m.z,
           tg.world[0], tg.world[1], tg.world[2], R + 6)) {
           boom = true;
@@ -1895,7 +1919,7 @@ export class Game {
           // was dead 697 units out, having fired eight shells from maximum
           // range and landed none of them. It was not a threat because it was
           // never alive while you were close.
-          if (tg.kind === 'boss' && tg.shielded) {
+          if ((tg.kind === 'boss' && tg.shielded) || (tg.kind === 'bosspart' && tg.guarded)) {
             this.boomAt([m.x, m.y, m.z], 20, 130, 0.5, 0.8, 1, 0.5);
             this.sayShield();
             W.missiles.splice(i, 1);
@@ -2020,7 +2044,8 @@ export class Game {
       }
     } else if (e.kind === 'bosspart') {
       const left = this.boss ? this.boss.parts.filter((x) => x.alive).length : 0;
-      this.say(left > 0 ? `TENTACLE DOWN -- ${left} LEFT` : 'THE CORE IS OPEN', 1.4);
+      this.say(left > 0 ? `${e.label} DOWN -- ${left} LEFT`
+        : (this.boss && this.boss.openMsg) || 'THE CORE IS OPEN', 1.4);
       if (left === 0 && this.boss) {
         this.boss.flash = 1;
         this.audio.specialOn();
@@ -2138,7 +2163,7 @@ export class Game {
       // crosshair so a salvo of eight still reads as one decision.
       const arrs = [this.level.enemies, this.drones];
       if (port) arrs.push([port]);
-      if (this.boss && this.boss.alive) arrs.push([this.boss], this.boss.parts);
+      if (this.boss && this.boss.alive) arrs.push(this.boss.parts, [this.boss]);
       const cx = this.aimSX ?? rd.cx;
       const cy = this.aimSY ?? rd.cy;
       for (const arr of arrs) {

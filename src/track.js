@@ -80,6 +80,10 @@ export class Track {
       this.arenaStart = this.total;
       this.arenaLen = 6000;
       this.total += this.arenaLen;
+      // Most fights are flown over open ground; HYDRA's stays in its river.
+      this.arenaShape = spec.boss.arena === 'trench'
+        ? { width: 95, depth: 110 }
+        : { width: 150, depth: 44 };
     }
 
     // Section boundaries, so a t can be resolved back to authored intent.
@@ -127,8 +131,8 @@ export class Track {
         const t = i * G;
         const k = smoothstep(this.arenaStart - 400, this.arenaStart + 700, t);
         if (k <= 0) continue;
-        width[i] = lerp(width[i], 150, k);
-        depth[i] = lerp(depth[i], 44, k);
+        width[i] = lerp(width[i], this.arenaShape.width, k);
+        depth[i] = lerp(depth[i], this.arenaShape.depth, k);
         rough[i] = lerp(rough[i], 0.12, k);
         curv[i] = lerp(curv[i], 0, k);
         snake[i] = lerp(snake[i], 0, k);

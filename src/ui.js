@@ -617,7 +617,9 @@ export class UI {
     // The loadout button: the machine gun, until a warden hands over better.
     // With one or more specials earned it steps through them, gun included.
     $('wbtn').addEventListener('click', () => {
-      const cycle = [null, ...this.campaign.weapons];
+      // Only weapons that exist as shots can be fitted. An earned one whose
+      // shot is not built yet waits in the cycle's future, not in its present.
+      const cycle = [null, ...this.campaign.weapons.filter((w) => WEAPONS[w].built)];
       const at = cycle.indexOf(this.campaign.equipped);
       this.campaign.equip(cycle[(at + 1) % cycle.length]);
       this.refreshCampaign();

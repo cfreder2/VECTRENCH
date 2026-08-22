@@ -536,6 +536,18 @@ fights' shapes, and the wheel that connects them — is designed in
 [CAMPAIGN.md](CAMPAIGN.md#the-wardens); this file documents the ones that
 exist in code.
 
+**All eight wardens fly.** The full designs live in the
+[campaign roster](CAMPAIGN.md#the-wardens); in code they share one registry —
+HYDRA weaving its trench with one glowing segment takeable at a time,
+FURNACE pouring magma clouds that stay where poured, MANTIS throwing blades
+that come back and regrowing its arms once, PORTCULLIS closing the arena
+into a slot while you strip its panels, AVALANCHE racing your fire with
+regrowing ice, BROADSIDE's deck going silent a battery at a time, REVENANT
+real only when it strikes. Two mechanics worth knowing everywhere: a
+**shielded core blocks with a sliver of its hull**, so shots aimed at parts
+mounted against it reach them; and parts are checked **before** the core, so
+an overlapping hitbox never eats the shot you lined up.
+
 **MARIONETTE** — the Neon warden, and the first one built — is a floating
 core ringed by **six tentacle pods**, each a small lockable target of its
 own. The pods are what spawn the drone escorts, and while any pod lives the

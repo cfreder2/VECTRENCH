@@ -8,6 +8,14 @@
   },
   "finale": "port",
   "music": "water",
+  "boss": {
+    "kind": "hydra",
+    "name": "HYDRA",
+    "hp": 50,
+    "weapon": "wave",
+    "weakTo": "ghost",
+    "arena": "trench"
+  },
   "sections": [
     {
       "name": "open water",

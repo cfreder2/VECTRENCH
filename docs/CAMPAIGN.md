@@ -94,9 +94,10 @@ eye can count is what makes a boss a fight instead of a health bar. When a
 warden dies, an escape pod flies out and gets away — that is not color, it
 is the setup *(see the parking lot)*.
 
-The machinery is generic and proven; each warden below is a block of
-numbers, a draw function, and an attack script. MARIONETTE flies today; the
-rest are the briefs we build against.
+The machinery is generic and proven, and **all eight wardens fly**: each is
+a block of numbers, a draw function, and an attack script in the registry,
+verified end to end -- gate falls, fight, shape breaks, core dies, pod away,
+lightspeed, weapon in hand.
 
 ### HYDRA — Riverworks · yields WAVE · melted by GHOST
 A river monitor in segments, and the one fight that stays **in the trench**:
@@ -128,7 +129,7 @@ and desperate, ramming in figure-eights. The arms regrow once, at half
 strength, so the fight teaches you its rhythm and then asks again faster.
 MAGMA burns growth, which is why it melts.
 
-### MARIONETTE — Neon · yields ARC · melted by SAW · **built**
+### MARIONETTE — Neon · yields ARC · melted by SAW
 The one that flies today. A floating core ringed by six tentacle pods; the
 pods spawn the escorts and hold the shield lattice — the core refuses locks
 and sheds gunfire until the ring is broken, and the HUD counts the pods down
@@ -233,7 +234,8 @@ special weapon system.** In build order:
    fitted. Beating a warden's district hands its weapon over on the spot;
    until the first one falls, the ship flies clean and the SPECIAL button
    does not exist.
-5. ~~The boss arena machinery~~ — **done**: `boss` in a spec grows the arena,
-   the ascent, the fight, the escape pod, and the boss theme; MARIONETTE is
-   the first warden flying it. The remaining wardens, one at a time.
+5. ~~The boss arena machinery and the wardens~~ — **done, all eight**: every
+   district's gate now opens on its warden, each with its own shape, attacks,
+   and weapon to take. What remains of the fights is tuning against real
+   thumbs.
 6. The Citadel.
