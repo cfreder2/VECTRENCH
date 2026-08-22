@@ -213,6 +213,8 @@ export const SONGS = {
     // way and the lead comes forward: rendered with the default mix, 85% of the
     // energy sat under 250Hz and the tune was somewhere beneath it.
     mix: { lead: 0.3, under: 0.11, arp: 0.085, bass: 0.1, sub: 0.05 },
+    // Water wavers: deeper and slower than anything else that holds a note.
+    vibrato: { depth: 16, rate: 4.2 },
   },
 
   /**
@@ -335,7 +337,9 @@ export const SONGS = {
       'k.x.k.x.k.x.k.x.',
       'k...x.......x.xx',
     ],
-    // The siren lead, the reedy harmony.
+    // The siren lead, the reedy harmony -- and heat-haze shimmer: fast,
+    // shallow, unlike WATER's deep slow waver.
+    vibrato: { depth: 9, rate: 7 },
     duty: { lead: 0.125, under: 0.25, arp: 0.5, bass: 0.5 },
     mix: { lead: 0.34, under: 0.09, arp: 0.032, bass: 0.115, sub: 0.065 },
   },
@@ -444,8 +448,10 @@ export const SONGS = {
       'k.x.k.x.k.x.k.x.',
       'k...x.....x.x.x.',
     ],
-    // The hollow square lead -- no other song uses 50% -- over a reedy 25%
-    // harmony: the PWM pair, which is the synthwave sound.
+    // The hollow square lead over a reedy 25% harmony: the PWM pair, which
+    // is the synthwave sound -- and dead straight, no vibrato at all. A synth
+    // does not breathe; that is the point of it.
+    vibrato: { depth: 0 },
     duty: { lead: 0.5, under: 0.25, arp: 0.5, bass: 0.5 },
     mix: { lead: 0.3, under: 0.1, arp: 0.06, bass: 0.14, sub: 0.06 },
   },
@@ -570,6 +576,8 @@ export const SONGS = {
     // against about 70 for the other two. The lead comes up and the parts
     // running underneath it come down.
     mix: { lead: 0.36, under: 0.085, arp: 0.055, bass: 0.115, sub: 0.055 },
+    // The brass waver: slow, generous, held to the end of the phrase.
+    vibrato: { depth: 15, rate: 4.8 },
   },
 
   /**
@@ -671,8 +679,14 @@ export const SONGS = {
       'k..h..h.....',
       'k..h..k.hh..',
     ],
-    duty: { lead: 0.25, under: 0.125, arp: 0.25, bass: 0.5 },
-    mix: { lead: 0.3, under: 0.09, arp: 0.075, bass: 0.12, sub: 0.06 },
+    // The pastoral lead is the staircase triangle -- the recorder of the
+    // chip world, and no other song's voice. Triangles carry less energy, so
+    // the mix meets it.
+    vibrato: { depth: 10, rate: 4.5 },
+    duty: { lead: 'nes-triangle', under: 0.125, arp: 0.25, bass: 0.5 },
+    // A triangle fights uphill in the ear: nearly all fundamental, no bite.
+    // Measured A-weighted it needed twice the gain a pulse would to lead.
+    mix: { lead: 0.62, under: 0.08, arp: 0.05, bass: 0.11, sub: 0.03 },
   },
 
   /**
@@ -740,6 +754,9 @@ export const SONGS = {
       'm.......m.......',
       '........m...m...',
     ],
+    // Glass does not waver, and the bells ring two octaves up.
+    vibrato: { depth: 0 },
+    arpOctave: 24,
     duty: { lead: 0.5, under: 0.25, arp: 0.25, bass: 0.5 },
     mix: { lead: 0.26, under: 0.07, arp: 0.1, bass: 0.12, sub: 0.05 },
   },
@@ -799,6 +816,8 @@ export const SONGS = {
       'k.......k.......',
       'k.......m...m...',
     ],
+    // Wide and slow: the waver of something not quite steady on the air.
+    vibrato: { depth: 22, rate: 2.8 },
     duty: { lead: 0.5, under: 0.5, arp: 0.5, bass: 0.5 },
     mix: { lead: 0.24, under: 0.12, arp: 0.05, bass: 0.14, sub: 0.09 },
   },
@@ -881,7 +900,8 @@ export const SONGS = {
       'k.x.k.x.k.x.kkxx',
       'k...x...k...xxxx',
     ],
-    // The snarl: the thin lead over a hollow harmony.
+    // The snarl: the thin lead over a hollow harmony, shaking hard.
+    vibrato: { depth: 18, rate: 6.5 },
     duty: { lead: 0.125, under: 0.5, arp: 0.5, bass: 0.5 },
     mix: { lead: 0.3, under: 0.09, arp: 0.05, bass: 0.15, sub: 0.07 },
   },

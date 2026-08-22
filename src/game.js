@@ -459,6 +459,12 @@ export class Game {
 
     this.audio.setEngine(clamp((this.speed - 200) / 400, 0, 1), flying ? 1 : 0.3);
     this.audio.setMusicLevel(flying ? 1 : 0);
+    // The score keeps pace: as the run gets faster -- the level's own ramp,
+    // the burn, the gates -- the song plays up to a fifth faster with it.
+    if (flying && this.spec) {
+      const over = this.speed / Math.max(1, this.spec.speed.start) - 1;
+      this.audio.setMusicRate(1 + clamp(over, 0, 1) * 0.2);
+    }
   }
 
   updateShip(dt) {

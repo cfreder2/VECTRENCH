@@ -13,6 +13,7 @@ import { decodeSpec, normalizeSpec } from './spec.js';
 import { PREBUILT } from './levels.js';
 import { drawText } from './font.js';
 import { Campaign, DISTRICTS, WEAPONS } from './campaign.js';
+import { SONGS } from './songs.js';
 import { Renderer } from './renderer.js';
 import { drawShip } from './entities.js';
 import { Track, makeFrame } from './track.js';
@@ -626,8 +627,10 @@ export class UI {
     $('setup').addEventListener('click', () => {
       const x = $('extras');
       x.hidden = !x.hidden;
+      $('jukebox').hidden = true;
       $('setup').textContent = x.hidden ? 'SETUP' : 'CLOSE';
     });
+    this.buildJukebox();
   }
 
   /**
@@ -649,6 +652,57 @@ export class UI {
         img.src = shooter.snapshot(normalizeSpec(lv.spec));
         img.hidden = false;
       } catch { /* a square without its postcard still works */ }
+    }
+  }
+
+  /**
+   * The jukebox, in the game: the score book with its hands on the live
+   * mixer. Every song a button, every voice a slider writing straight into
+   * the Music that is already playing.
+   */
+  buildJukebox() {
+    $('jukeopen').addEventListener('click', () => {
+      $('extras').hidden = true;
+      $('setup').textContent = 'SETUP';
+      $('jukebox').hidden = false;
+      this.syncJukebox();
+    });
+    $('jukeclose').addEventListener('click', () => { $('jukebox').hidden = true; });
+    for (const [key, song] of Object.entries(SONGS)) {
+      const b = document.createElement('button');
+      b.className = 'chip';
+      b.dataset.song = key;
+      b.textContent = song.name;
+      b.addEventListener('click', () => {
+        this.audio.musicStart(key);
+        this.syncJukebox();
+      });
+      $('jukesongs').appendChild(b);
+    }
+    for (const [key, label] of [['lead', 'LEAD'], ['under', '2ND'], ['arp', 'ARP'], ['bass', 'BASS'], ['sub', 'TRI']]) {
+      const row = document.createElement('label');
+      row.innerHTML = `<span style="min-width:3em">${label}</span>
+        <input type="range" data-mix="${key}" min="0" max="0.5" step="0.005">
+        <span class="val" data-val="${key}"></span>`;
+      row.querySelector('input').addEventListener('input', (e) => {
+        const m = this.audio.music;
+        if (!m) return;
+        m.mix[key] = +e.target.value;
+        row.querySelector('.val').textContent = (+e.target.value).toFixed(3);
+      });
+      $('jukemix').appendChild(row);
+    }
+  }
+
+  syncJukebox() {
+    const m = this.audio.music;
+    if (!m) return;
+    for (const b of $('jukesongs').children) {
+      b.classList.toggle('on', b.dataset.song === m.songName);
+    }
+    for (const inp of $('jukemix').querySelectorAll('input')) {
+      inp.value = m.mix[inp.dataset.mix];
+      inp.parentElement.querySelector('.val').textContent = (+inp.value).toFixed(3);
     }
   }
 

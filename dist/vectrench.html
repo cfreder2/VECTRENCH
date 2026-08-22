@@ -249,6 +249,19 @@
   #wbtn { letter-spacing: .14em; }
   #wbtn:disabled { opacity: .45; }
   #extras[hidden] { display: none; }
+  #jukebox[hidden] { display: none; }
+  #jukebox {
+    position: absolute; left: 0; right: 0; bottom: 0;
+    top: calc(max(14px, env(safe-area-inset-top)) + 34px);
+    background: rgba(3, 10, 16, .97); border-top: 1px solid var(--line);
+    padding: 14px; overflow-y: auto; z-index: 6;
+    display: flex; flex-direction: column; gap: 10px; pointer-events: auto;
+  }
+  #jukesongs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+  #jukesongs button.on { background: var(--green, #6dffa8); color: #04140b; }
+  #jukemix label { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 10px; }
+  #jukemix input[type=range] { flex: 1; }
+  #jukemix .val { min-width: 3em; text-align: right; color: var(--cyan); }
   #extras {
     position: absolute; left: 0; right: 0; bottom: 0;
     top: calc(max(14px, env(safe-area-inset-top)) + 34px);
@@ -354,7 +367,20 @@
         </div>
       </div>
     </div>
+    <div id="jukebox" hidden>
+      <div class="row">
+        <button id="jukeclose" class="chip">CLOSE</button>
+        <span class="note">the score book, live -- what you fiddle here plays now. Tempo follows the throttle in flight.</span>
+      </div>
+      <label>SONGS</label>
+      <div id="jukesongs"></div>
+      <label>MIX</label>
+      <div id="jukemix"></div>
+    </div>
     <div id="extras" hidden>
+      <div class="row">
+        <button id="jukeopen" class="chip">JUKEBOX</button>
+      </div>
       <details class="foldable" id="customfold" hidden>
         <summary>YOUR LEVELS</summary>
         <div class="body">
@@ -6466,6 +6492,8 @@ const SONGS = {
     // way and the lead comes forward: rendered with the default mix, 85% of the
     // energy sat under 250Hz and the tune was somewhere beneath it.
     mix: { lead: 0.3, under: 0.11, arp: 0.085, bass: 0.1, sub: 0.05 },
+    // Water wavers: deeper and slower than anything else that holds a note.
+    vibrato: { depth: 16, rate: 4.2 },
   },
 
   /**
@@ -6588,7 +6616,9 @@ const SONGS = {
       'k.x.k.x.k.x.k.x.',
       'k...x.......x.xx',
     ],
-    // The siren lead, the reedy harmony.
+    // The siren lead, the reedy harmony -- and heat-haze shimmer: fast,
+    // shallow, unlike WATER's deep slow waver.
+    vibrato: { depth: 9, rate: 7 },
     duty: { lead: 0.125, under: 0.25, arp: 0.5, bass: 0.5 },
     mix: { lead: 0.34, under: 0.09, arp: 0.032, bass: 0.115, sub: 0.065 },
   },
@@ -6697,8 +6727,10 @@ const SONGS = {
       'k.x.k.x.k.x.k.x.',
       'k...x.....x.x.x.',
     ],
-    // The hollow square lead -- no other song uses 50% -- over a reedy 25%
-    // harmony: the PWM pair, which is the synthwave sound.
+    // The hollow square lead over a reedy 25% harmony: the PWM pair, which
+    // is the synthwave sound -- and dead straight, no vibrato at all. A synth
+    // does not breathe; that is the point of it.
+    vibrato: { depth: 0 },
     duty: { lead: 0.5, under: 0.25, arp: 0.5, bass: 0.5 },
     mix: { lead: 0.3, under: 0.1, arp: 0.06, bass: 0.14, sub: 0.06 },
   },
@@ -6823,6 +6855,8 @@ const SONGS = {
     // against about 70 for the other two. The lead comes up and the parts
     // running underneath it come down.
     mix: { lead: 0.36, under: 0.085, arp: 0.055, bass: 0.115, sub: 0.055 },
+    // The brass waver: slow, generous, held to the end of the phrase.
+    vibrato: { depth: 15, rate: 4.8 },
   },
 
   /**
@@ -6924,8 +6958,14 @@ const SONGS = {
       'k..h..h.....',
       'k..h..k.hh..',
     ],
-    duty: { lead: 0.25, under: 0.125, arp: 0.25, bass: 0.5 },
-    mix: { lead: 0.3, under: 0.09, arp: 0.075, bass: 0.12, sub: 0.06 },
+    // The pastoral lead is the staircase triangle -- the recorder of the
+    // chip world, and no other song's voice. Triangles carry less energy, so
+    // the mix meets it.
+    vibrato: { depth: 10, rate: 4.5 },
+    duty: { lead: 'nes-triangle', under: 0.125, arp: 0.25, bass: 0.5 },
+    // A triangle fights uphill in the ear: nearly all fundamental, no bite.
+    // Measured A-weighted it needed twice the gain a pulse would to lead.
+    mix: { lead: 0.62, under: 0.08, arp: 0.05, bass: 0.11, sub: 0.03 },
   },
 
   /**
@@ -6993,6 +7033,9 @@ const SONGS = {
       'm.......m.......',
       '........m...m...',
     ],
+    // Glass does not waver, and the bells ring two octaves up.
+    vibrato: { depth: 0 },
+    arpOctave: 24,
     duty: { lead: 0.5, under: 0.25, arp: 0.25, bass: 0.5 },
     mix: { lead: 0.26, under: 0.07, arp: 0.1, bass: 0.12, sub: 0.05 },
   },
@@ -7052,6 +7095,8 @@ const SONGS = {
       'k.......k.......',
       'k.......m...m...',
     ],
+    // Wide and slow: the waver of something not quite steady on the air.
+    vibrato: { depth: 22, rate: 2.8 },
     duty: { lead: 0.5, under: 0.5, arp: 0.5, bass: 0.5 },
     mix: { lead: 0.24, under: 0.12, arp: 0.05, bass: 0.14, sub: 0.09 },
   },
@@ -7134,7 +7179,8 @@ const SONGS = {
       'k.x.k.x.k.x.kkxx',
       'k...x...k...xxxx',
     ],
-    // The snarl: the thin lead over a hollow harmony.
+    // The snarl: the thin lead over a hollow harmony, shaking hard.
+    vibrato: { depth: 18, rate: 6.5 },
     duty: { lead: 0.125, under: 0.5, arp: 0.5, bass: 0.5 },
     mix: { lead: 0.3, under: 0.09, arp: 0.05, bass: 0.15, sub: 0.07 },
   },
@@ -7281,7 +7327,15 @@ class Music {
     this.songName = name;
     this.song = song;
     this.beats = song.beats;
-    this.stepTime = 60 / song.bpm / 4;
+    this.baseStep = 60 / song.bpm / 4;
+    this.rate = 1;
+    this.stepTime = this.baseStep;
+    // The voice knobs, per song: how the held notes waver, and which octave
+    // the arpeggio rings in. Two songs on the same duty stop sounding like
+    // the same instrument when one shimmers high and steady while the other
+    // wavers wide and slow.
+    this.vibrato = { depth: 13, rate: 5.5, ...(song.vibrato || {}) };
+    this.arpOctave = song.arpOctave ?? 12;
     this.lead = parseVoice(song.lead, song.beats);
     this.lead2 = song.lead2 ? parseVoice(song.lead2, song.beats) : null;
     this.arp = song.arp
@@ -7312,6 +7366,16 @@ class Music {
   setEnabled(on) {
     this.enabled = on;
     if (!on) this.stop();
+  }
+
+  /**
+   * Tempo, scaled live: the score follows the throttle. The lookahead
+   * scheduler reads stepTime fresh every note, so a rate change lands within
+   * a quarter second and never drops the beat.
+   */
+  setRate(r) {
+    this.rate = Math.max(0.5, Math.min(1.6, r));
+    if (this.baseStep) this.stepTime = this.baseStep / this.rate;
   }
 
   /** Ducks the music without losing the beat -- used while a run is ending. */
@@ -7386,7 +7450,7 @@ class Music {
     // chord instead of a run. An octave up, quiet, and always moving.
     if (this.arp) {
       const chord = this.arp[bar % this.arp.length];
-      this._pulse(hz(chord[i % chord.length] + 12), t, step * 0.85, this.mix.arp, this.duty.arp, 2600);
+      this._pulse(hz(chord[i % chord.length] + this.arpOctave), t, step * 0.85, this.mix.arp, this.duty.arp, 2600);
     }
 
     // The bass: a written line when the song has one, root-and-fifth when not.
@@ -7440,11 +7504,12 @@ class Music {
         o.frequency.setValueAtTime(this.authentic ? quantize(pt.f) : pt.f, t + pt.t);
       }
     }
-    if (wobble) {
+    if (wobble && this.vibrato.depth > 0) {
       const start = t + Math.min(0.16, dur * 0.35);
-      const period = 1 / 5.5;
+      const period = 1 / this.vibrato.rate;
+      const depth = this.vibrato.depth;
       for (let k = 0; start + k * period < t + dur; k++) {
-        o.detune.linearRampToValueAtTime(k % 2 ? -13 : 13, start + k * period);
+        o.detune.linearRampToValueAtTime(k % 2 ? -depth : depth, start + k * period);
       }
     }
     const g = ctx.createGain();
@@ -7659,6 +7724,8 @@ class Audio {
     this.music?.start();
   }
   musicStop() { this._flying = false; this.music?.stop(); }
+  /** The score keeps pace with the ship. 1 is the written tempo. */
+  setMusicRate(r) { this.music?.setRate(r); }
   /** 0 while a run is ending, so the win and loss stings play in the clear. */
   setMusicLevel(v) { this.music?.setLevel(v); }
 
@@ -8883,6 +8950,12 @@ class Game {
 
     this.audio.setEngine(clamp((this.speed - 200) / 400, 0, 1), flying ? 1 : 0.3);
     this.audio.setMusicLevel(flying ? 1 : 0);
+    // The score keeps pace: as the run gets faster -- the level's own ramp,
+    // the burn, the gates -- the song plays up to a fifth faster with it.
+    if (flying && this.spec) {
+      const over = this.speed / Math.max(1, this.spec.speed.start) - 1;
+      this.audio.setMusicRate(1 + clamp(over, 0, 1) * 0.2);
+    }
   }
 
   updateShip(dt) {
@@ -10701,6 +10774,7 @@ class Game {
 
 
 
+
 const $ = (id) => document.getElementById(id);
 
 /** '#b06fff' -> [0.69, 0.44, 1], for drawing DOM-side colors on the canvas. */
@@ -11309,8 +11383,10 @@ class UI {
     $('setup').addEventListener('click', () => {
       const x = $('extras');
       x.hidden = !x.hidden;
+      $('jukebox').hidden = true;
       $('setup').textContent = x.hidden ? 'SETUP' : 'CLOSE';
     });
+    this.buildJukebox();
   }
 
   /**
@@ -11332,6 +11408,57 @@ class UI {
         img.src = shooter.snapshot(normalizeSpec(lv.spec));
         img.hidden = false;
       } catch { /* a square without its postcard still works */ }
+    }
+  }
+
+  /**
+   * The jukebox, in the game: the score book with its hands on the live
+   * mixer. Every song a button, every voice a slider writing straight into
+   * the Music that is already playing.
+   */
+  buildJukebox() {
+    $('jukeopen').addEventListener('click', () => {
+      $('extras').hidden = true;
+      $('setup').textContent = 'SETUP';
+      $('jukebox').hidden = false;
+      this.syncJukebox();
+    });
+    $('jukeclose').addEventListener('click', () => { $('jukebox').hidden = true; });
+    for (const [key, song] of Object.entries(SONGS)) {
+      const b = document.createElement('button');
+      b.className = 'chip';
+      b.dataset.song = key;
+      b.textContent = song.name;
+      b.addEventListener('click', () => {
+        this.audio.musicStart(key);
+        this.syncJukebox();
+      });
+      $('jukesongs').appendChild(b);
+    }
+    for (const [key, label] of [['lead', 'LEAD'], ['under', '2ND'], ['arp', 'ARP'], ['bass', 'BASS'], ['sub', 'TRI']]) {
+      const row = document.createElement('label');
+      row.innerHTML = `<span style="min-width:3em">${label}</span>
+        <input type="range" data-mix="${key}" min="0" max="0.5" step="0.005">
+        <span class="val" data-val="${key}"></span>`;
+      row.querySelector('input').addEventListener('input', (e) => {
+        const m = this.audio.music;
+        if (!m) return;
+        m.mix[key] = +e.target.value;
+        row.querySelector('.val').textContent = (+e.target.value).toFixed(3);
+      });
+      $('jukemix').appendChild(row);
+    }
+  }
+
+  syncJukebox() {
+    const m = this.audio.music;
+    if (!m) return;
+    for (const b of $('jukesongs').children) {
+      b.classList.toggle('on', b.dataset.song === m.songName);
+    }
+    for (const inp of $('jukemix').querySelectorAll('input')) {
+      inp.value = m.mix[inp.dataset.mix];
+      inp.parentElement.querySelector('.val').textContent = (+inp.value).toFixed(3);
     }
   }
 

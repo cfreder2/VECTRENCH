@@ -249,6 +249,19 @@
   #wbtn { letter-spacing: .14em; }
   #wbtn:disabled { opacity: .45; }
   #extras[hidden] { display: none; }
+  #jukebox[hidden] { display: none; }
+  #jukebox {
+    position: absolute; left: 0; right: 0; bottom: 0;
+    top: calc(max(14px, env(safe-area-inset-top)) + 34px);
+    background: rgba(3, 10, 16, .97); border-top: 1px solid var(--line);
+    padding: 14px; overflow-y: auto; z-index: 6;
+    display: flex; flex-direction: column; gap: 10px; pointer-events: auto;
+  }
+  #jukesongs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+  #jukesongs button.on { background: var(--green, #6dffa8); color: #04140b; }
+  #jukemix label { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 10px; }
+  #jukemix input[type=range] { flex: 1; }
+  #jukemix .val { min-width: 3em; text-align: right; color: var(--cyan); }
   #extras {
     position: absolute; left: 0; right: 0; bottom: 0;
     top: calc(max(14px, env(safe-area-inset-top)) + 34px);
@@ -354,7 +367,20 @@
         </div>
       </div>
     </div>
+    <div id="jukebox" hidden>
+      <div class="row">
+        <button id="jukeclose" class="chip">CLOSE</button>
+        <span class="note">the score book, live -- what you fiddle here plays now. Tempo follows the throttle in flight.</span>
+      </div>
+      <label>SONGS</label>
+      <div id="jukesongs"></div>
+      <label>MIX</label>
+      <div id="jukemix"></div>
+    </div>
     <div id="extras" hidden>
+      <div class="row">
+        <button id="jukeopen" class="chip">JUKEBOX</button>
+      </div>
       <details class="foldable" id="customfold" hidden>
         <summary>YOUR LEVELS</summary>
         <div class="body">

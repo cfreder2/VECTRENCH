@@ -146,6 +146,8 @@ export class Audio {
     this.music?.start();
   }
   musicStop() { this._flying = false; this.music?.stop(); }
+  /** The score keeps pace with the ship. 1 is the written tempo. */
+  setMusicRate(r) { this.music?.setRate(r); }
   /** 0 while a run is ending, so the win and loss stings play in the clear. */
   setMusicLevel(v) { this.music?.setLevel(v); }
 

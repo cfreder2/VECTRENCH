@@ -375,6 +375,9 @@ than more voices:
 | **a walking bass** | roots on the beat is a metronome; a bass that moves is a part |
 | **per-song mix** | the balance is part of the writing. A theme carried by its bass and one carried by its lead do not want the same one |
 | **pulse width** | the voices are pulse waves of a chosen duty, built as PeriodicWaves. A 50% pulse has *no even harmonics* — it is the hollow one. 25% is reedy, 12.5% is thin and nasal, and those are what a chip lead is actually made of. Giving the lead and the harmony different duties is also what stops two pulse voices fusing into one |
+| **a voice per song** | duty cycles, but also per-song `vibrato` (depth and rate — water wavers deep and slow, fire shimmers fast and shallow, neon and glacier hold dead straight), `arpOctave` (glacier's bells ring two octaves up), and a lead that may be the staircase triangle itself — overgrowth's recorder. Nine songs, nine instruments, one engine |
+| **tempo follows the throttle** | the score plays up to a fifth faster as the run speeds up — the level's own ramp, the burn, the gates all push it. The scheduler reads the step fresh every note, so the beat never drops |
+| **the jukebox** | in SETUP: the score book with its hands on the live mixer — every song a button, every voice a slider writing into what is already playing |
 | **a written bass** | a song may carry `bassLine` — the bass part written out bar by bar like the lead — instead of `bass` roots the engine walks itself. The gallop is a written figure, not a setting |
 | **fills** | `drums` may be a list, one pattern per bar. One pattern is a loop; a list is a drummer, and a fill at a section's end is what makes the next section arrive |
 | **sweeps** | a note ending in `/` rises and `\` falls, stepped the way the 2A03's sweep unit stepped — a fixed fraction of the period per tick, so the slide covers the same interval wherever it starts. The alarm and the dive-bomb |

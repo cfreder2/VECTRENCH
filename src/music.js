@@ -117,7 +117,15 @@ export class Music {
     this.songName = name;
     this.song = song;
     this.beats = song.beats;
-    this.stepTime = 60 / song.bpm / 4;
+    this.baseStep = 60 / song.bpm / 4;
+    this.rate = 1;
+    this.stepTime = this.baseStep;
+    // The voice knobs, per song: how the held notes waver, and which octave
+    // the arpeggio rings in. Two songs on the same duty stop sounding like
+    // the same instrument when one shimmers high and steady while the other
+    // wavers wide and slow.
+    this.vibrato = { depth: 13, rate: 5.5, ...(song.vibrato || {}) };
+    this.arpOctave = song.arpOctave ?? 12;
     this.lead = parseVoice(song.lead, song.beats);
     this.lead2 = song.lead2 ? parseVoice(song.lead2, song.beats) : null;
     this.arp = song.arp
@@ -148,6 +156,16 @@ export class Music {
   setEnabled(on) {
     this.enabled = on;
     if (!on) this.stop();
+  }
+
+  /**
+   * Tempo, scaled live: the score follows the throttle. The lookahead
+   * scheduler reads stepTime fresh every note, so a rate change lands within
+   * a quarter second and never drops the beat.
+   */
+  setRate(r) {
+    this.rate = Math.max(0.5, Math.min(1.6, r));
+    if (this.baseStep) this.stepTime = this.baseStep / this.rate;
   }
 
   /** Ducks the music without losing the beat -- used while a run is ending. */
@@ -222,7 +240,7 @@ export class Music {
     // chord instead of a run. An octave up, quiet, and always moving.
     if (this.arp) {
       const chord = this.arp[bar % this.arp.length];
-      this._pulse(hz(chord[i % chord.length] + 12), t, step * 0.85, this.mix.arp, this.duty.arp, 2600);
+      this._pulse(hz(chord[i % chord.length] + this.arpOctave), t, step * 0.85, this.mix.arp, this.duty.arp, 2600);
     }
 
     // The bass: a written line when the song has one, root-and-fifth when not.
@@ -276,11 +294,12 @@ export class Music {
         o.frequency.setValueAtTime(this.authentic ? quantize(pt.f) : pt.f, t + pt.t);
       }
     }
-    if (wobble) {
+    if (wobble && this.vibrato.depth > 0) {
       const start = t + Math.min(0.16, dur * 0.35);
-      const period = 1 / 5.5;
+      const period = 1 / this.vibrato.rate;
+      const depth = this.vibrato.depth;
       for (let k = 0; start + k * period < t + dur; k++) {
-        o.detune.linearRampToValueAtTime(k % 2 ? -13 : 13, start + k * period);
+        o.detune.linearRampToValueAtTime(k % 2 ? -depth : depth, start + k * period);
       }
     }
     const g = ctx.createGain();
