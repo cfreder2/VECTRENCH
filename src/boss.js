@@ -979,8 +979,8 @@ export const WARDENS = {
         e.fireIn -= dt;
         if (e.fireIn <= 0) {
           if (e.type === 'mg') {
-            e.fireIn = 1.5 - st * 0.2;
-            for (let k = 0; k < 3; k++) {
+            e.fireIn = 0.9 - st * 0.15;
+            for (let k = 0; k < 4; k++) {
               const fx = game.shipPos[0] - e.world[0];
               const fy = game.shipPos[1] - e.world[1];
               const fz = game.shipPos[2] - e.world[2];
@@ -1094,17 +1094,22 @@ export const WARDENS = {
           c.nextShot = 0;
         }
       } else {
-        // BOOF. BOOF. BOOF. Three columns of light on the mark, each one a
-        // whole-body impact -- dodged entirely by not being there.
+        // BOOF. BOOF. BOOF -- and after each one the mark JUMPS to wherever
+        // you are now, so every shot is its own lock and its own roll. Keep
+        // moving and none of them ever owns you; stop and the next one does.
         c.nextShot -= dt;
         if (c.nextShot <= 0 && c.shots > 0) {
           c.shots -= 1;
-          c.nextShot = 0.45;
+          c.nextShot = 0.65;
           c.flashAt = game.time;
           const d = Math.hypot(game.shipX - c.lock.x, game.shipY - c.lock.y);
           if (d < 34) game.damage(28);
           game.shake = Math.min(1.9, game.shake + 0.85);
           game.audio.boof();
+          if (c.shots > 0) {
+            c.lock = { x: game.shipX, y: game.shipY };
+            game.audio.zap();
+          }
         }
         if (c.shots <= 0 && c.nextShot <= -0.35) {
           c.state = 'idle';
@@ -1300,7 +1305,7 @@ export const WARDENS = {
 
       // --- the beam: the mark while locked, the columns while it lands ----
       const tS = b.tShip ?? b.t - 560;
-      if (c.state === 'locked' && c.lock) {
+      if ((c.state === 'locked' || c.state === 'firing') && c.lock) {
         // The tracking line and the mark: exactly where, in red, blinking.
         const blink = Math.sin(time * 22) > 0 ? 1 : 0.45;
         const mz = [0, 0, 0];

@@ -183,10 +183,11 @@ faster than guns.
 **The cannon locks, and then it lands.** Six tail-lights count the charge
 while the hull shakes; then BEAM LOCKED — the mark is taken where you are,
 drawn in blinking red with a tracking line back to the muzzle — and one
-second is what you get to roll off it. Then BOOF, BOOF, BOOF: three thick
-columns of light on the mark, each a whole-body impact with a subwoofer
-thump, twenty-eight apiece for standing on it and nothing at all for
-having left. RAIL pierces the armor without asking, which is why it
+second is what you get to roll off it. Then BOOF, BOOF, BOOF — and after
+each impact the mark JUMPS to wherever you are now, so every shot is its
+own lock and its own roll. Keep moving and none of them ever owns you;
+stop, or let it walk you into a wall, and the next one does. Twenty-eight
+apiece. RAIL pierces the armor without asking, which is why it
 melts.
 
 ### The ninth fight
