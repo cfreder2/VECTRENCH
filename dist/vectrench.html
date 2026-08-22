@@ -11326,8 +11326,10 @@ class UI {
 
   syncMissileButton() {
     const g = this.game;
+    // Any phase, so long as we are in the cockpit: the cooldown ticks through
+    // ascents and endings alike, and a frozen "4.1s" over a launcher that is
+    // actually ready is worse than no label at all.
     if (this.screen !== 'flight') return;
-    if (g.phase !== 'flying' && g.phase !== 'boss') return;
     const ready = g.missileCooldown <= 0;
     const locks = g.locks ? g.locks.length : 0;
     const text = ready
