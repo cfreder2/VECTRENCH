@@ -58,13 +58,15 @@
   /* --- design --- */
   #design { flex-direction: column; gap: 10px; pointer-events: none; }
   #design > * { pointer-events: auto; }
-  #topbar { display: flex; align-items: center; gap: 14px; flex-wrap: nowrap; }
+  /* Two lines: the name with SETUP across from it, and under the name the
+     selected level and its length -- which truncates rather than wraps. */
+  #topbar { display: flex; flex-direction: column; gap: 3px; }
+  #topline { display: flex; align-items: center; justify-content: space-between; gap: 14px; }
   #topbar .title { font-size: 15px; letter-spacing: 0.22em; white-space: nowrap; }
   #topbar .hint {
-    color: var(--dim); font-size: 11px; letter-spacing: 0.08em;
-    flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    display: block; color: var(--dim); font-size: 11px; letter-spacing: 0.08em;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
-  #topbar #setup { flex: 0 0 auto; }
   #spacer { flex: 0; min-height: 0; }
 
   #sheet {
@@ -319,9 +321,11 @@
 
   <div id="design" class="layer">
     <div id="topbar">
-      <span class="title">VECTRENCH</span>
+      <div id="topline">
+        <span class="title">VECTRENCH</span>
+        <button id="setup" class="chip">SETUP</button>
+      </div>
       <span class="hint" id="statusline">pick a level</span>
-      <button id="setup" class="chip" style="margin-left:auto">SETUP</button>
     </div>
     <div id="spacer"></div>
     <div id="sheet">
