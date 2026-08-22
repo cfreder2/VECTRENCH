@@ -888,7 +888,9 @@ export const WARDENS = {
         b.swerveIn = 1.2 + hash2((game.time * 7) | 0, 1) * 1.6;
         b.xT = (hash2((game.time * 7) | 0, 2) * 2 - 1) * (hw - 76);
       }
-      b.t = lerp(b.t, game.t + 470, dt * 1.4);
+      // The chase lerp lags a moving target by speed/rate -- feed the ship's
+      // speed forward so the stand-off it holds is the stand-off we wrote.
+      b.t = lerp(b.t, game.t + 640 + game.speed / 1.4, dt * 1.4);
       b.x = lerp(b.x, b.xT, dt * 1.6);
       b.y = 20;
       b.tShip = game.t;         // the draw paints fire on the ship's plane
@@ -989,7 +991,7 @@ export const WARDENS = {
           const n = turrets.length;
           b.burst = {
             kind: n >= 4 ? 'corners' : n === 3 ? 'circle' : n === 2 ? 'x' : 'aim',
-            age: 0, dur: n === 1 ? 3.2 : 2.6,
+            age: 0, dur: n === 1 ? 3.2 : 2.6, fireIn: 0,
             pts: turrets.map((_, i) => ({ x: 0, y: 0 })),
           };
           game.say(n >= 4 ? 'CORNER SWEEP -- CENTER IS SAFE'
@@ -1025,10 +1027,27 @@ export const WARDENS = {
             pt.x = lerp(pt.x, game.shipX, dt * 2.6);
             pt.y = lerp(pt.y, game.shipY, dt * 2.6);
           }
-          if (Math.abs(game.shipX - pt.x) < 15 && Math.abs(game.shipY - pt.y) < 15) {
-            game.damage(12 * dt * 5, false);
-          }
         });
+        // The guns themselves do the shooting -- the same tracer streams the
+        // ground gatlings taught, walked along the pattern. The bolts carry
+        // the damage; the pattern only decides where they are walking.
+        bu.fireIn -= dt;
+        if (bu.fireIn <= 0) {
+          bu.fireIn = 0.12;
+          const clear = turrets.filter((g) => !g.guarded);
+          const shooters = clear.length ? clear : turrets;
+          const aim = [0, 0, 0];
+          bu.pts.forEach((pt, i) => {
+            const g = shooters[i % shooters.length];
+            tr.localToWorld(game.t, pt.x, pt.y, aim);
+            const dx = aim[0] - g.world[0];
+            const dy = aim[1] - g.world[1];
+            const dz = aim[2] - g.world[2];
+            const l = Math.hypot(dx, dy, dz) || 1;
+            game.weapons.fireBolt(g.world[0], g.world[1], g.world[2],
+              dx / l, dy / l, dz / l, 680, false, true);
+          });
+        }
         if (bu.age >= bu.dur) {
           b.burst = null;
           b.burstIn = 4.6 - st * 0.9;
@@ -1046,7 +1065,9 @@ export const WARDENS = {
             const sx = ((i % 3) - 1) * 46;
             const sy = ((i / 3) | 0 ? 1 : -1) * 26;
             const aim = [0, 0, 0];
-            tr.localToWorld(game.t - 60, clamp(game.shipX + sx, -hw, hw),
+            // Hung ahead of you, not lobbed behind: the spread drifts into
+            // the road you are about to use, pulsing, asking to be shot.
+            tr.localToWorld(game.t + 240, clamp(game.shipX + sx, -hw, hw),
               clamp(game.shipY + sy, 10, rim + 70), aim);
             const dx = aim[0] - pod.world[0];
             const dy = aim[1] - pod.world[1];
@@ -1056,9 +1077,9 @@ export const WARDENS = {
               kind: 'bossmissile', alive: true, hp: 1, maxHp: 1,
               lockable: true, points: 50, label: 'MISSILE',
               world: [pod.world[0], pod.world[1], pod.world[2]],
-              vel: [dx / l * 300, dy / l * 300, dz / l * 300],
+              vel: [dx / l * 205, dy / l * 205, dz / l * 205],
               t: pod.t, x: pod.x, y: pod.y,
-              flash: 0, paint: 0, los: 1, ttl: 8,
+              flash: 0, paint: 0, los: 1, ttl: 14,
             });
           }
           game.say('MISSILE VOLLEY', 1);
@@ -1074,7 +1095,7 @@ export const WARDENS = {
         m.world[2] += m.vel[2] * dt;
         m.flash = Math.max(0, m.flash - dt * 6);
         // Trench-local bookkeeping so paint and locks can find it.
-        m.t -= 300 * dt * 0.9;
+        m.t -= 205 * dt;
         const d = Math.hypot(game.shipPos[0] - m.world[0],
           game.shipPos[1] - m.world[1], game.shipPos[2] - m.world[2]);
         if (d < 16) {
@@ -1352,17 +1373,12 @@ export const WARDENS = {
 
       // --- the fire being painted, the volley, the blasts, the road -------
       if (b.burst) {
-        const clear = b.parts.filter((x) => x.alive && x.label === 'TURRET' && !x.guarded);
-        const turrets = clear.length ? clear
-          : b.parts.filter((x) => x.alive && x.label === 'TURRET');
-        b.burst.pts.forEach((pt, i) => {
-          const g = turrets[i % turrets.length];
-          if (!g) return;
-          tr.localToWorld(g.t, g.x, g.y, p);
-          tr.localToWorld(b.tShip ?? g.t - 400, pt.x, pt.y, q);
-          rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], 1.6, 1, 0.55, 0.9, 0.8);
-          rd.line3(q[0], q[1], q[2], q[0], q[1], q[2], 6, 1, 0.7, 1, 0.9);
-        });
+        // The tracers are the attack; this is only the aim-point glow, so the
+        // pattern's shape stays readable through the stream.
+        for (const pt of b.burst.pts) {
+          tr.localToWorld(b.tShip ?? b.t - 640, pt.x, pt.y, q);
+          rd.line3(q[0], q[1], q[2], q[0], q[1], q[2], 5, 1, 0.7, 1, 0.7);
+        }
       }
       for (const m of b.missilesLive) {
         const r = 5 + Math.sin(time * 8 + m.world[2] * 0.01) * 2;
