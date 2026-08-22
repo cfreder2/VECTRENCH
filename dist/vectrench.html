@@ -11239,21 +11239,30 @@ class UI {
     // second press within the window is the barrel roll, that way. The press
     // starts the knife immediately either way -- both moves begin identically,
     // so nothing is lost by not waiting to find out which one it is.
-    const rollTaps = { '-1': 0, '1': 0 };
+    // The double-tap window runs from the first tap's RELEASE to the second
+    // tap's press -- the same lesson the screen gesture learned the hard way:
+    // measure down-to-down and the window silently spends itself on however
+    // long the thumb rested, which works in a test and not under a hand.
+    const rollTaps = { '-1': { downAt: 0, upAt: 0 }, '1': { downAt: 0, upAt: 0 } };
     const rollBtn = (id, dir) => {
       const el = $(id);
+      const tap = rollTaps[dir];
       el.addEventListener('pointerdown', (e) => {
         e.preventDefault();
-        // The game logic first, the capture nicety last: setPointerCapture
-        // can throw (a pointer already gone by the time we ask), and a throw
-        // above the barrel-roll line was eating the double-tap whole.
         const now = performance.now();
-        if (now - rollTaps[dir] < 340) this.input.requestBarrel(dir);
-        rollTaps[dir] = now;
+        if (tap.upAt && now - tap.upAt < 480) this.input.requestBarrel(dir);
+        tap.downAt = now;
         this.input.rollBtn(dir, true);
         try { el.setPointerCapture?.(e.pointerId); } catch { /* fine without */ }
       });
-      for (const ev of ['pointerup', 'pointercancel', 'pointerleave']) {
+      el.addEventListener('pointerup', (e) => {
+        e.preventDefault();
+        // Only a genuine tap arms the double: a knife-edge hold released is
+        // the end of a hold, not the first half of a roll.
+        tap.upAt = performance.now() - tap.downAt < 340 ? performance.now() : 0;
+        this.input.rollBtn(dir, false);
+      });
+      for (const ev of ['pointercancel', 'pointerleave']) {
         el.addEventListener(ev, (e) => { e.preventDefault(); this.input.rollBtn(dir, false); });
       }
     };
