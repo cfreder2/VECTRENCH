@@ -341,27 +341,38 @@ export class UI {
     // tap's press -- the same lesson the screen gesture learned the hard way:
     // measure down-to-down and the window silently spends itself on however
     // long the thumb rested, which works in a test and not under a hand.
-    const rollTaps = { '-1': { downAt: 0, upAt: 0 }, '1': { downAt: 0, upAt: 0 } };
+    // Arming is forgiving on purpose. A real first tap under fire runs long
+    // -- 250, 400ms -- and a knife-edge hold runs SECONDS, so anything under
+    // 600ms is a tap. And every way a press can end must record the release:
+    // the left pad lives in the corner where the OS converts touches to
+    // pointercancel, and a first tap whose release goes unrecorded is why a
+    // double-tap starts needing three.
+    const rollTaps = { '-1': { downAt: 0, upAt: 0, down: false }, '1': { downAt: 0, upAt: 0, down: false } };
     const rollBtn = (id, dir) => {
       const el = $(id);
       const tap = rollTaps[dir];
       el.addEventListener('pointerdown', (e) => {
         e.preventDefault();
         const now = performance.now();
-        if (tap.upAt && now - tap.upAt < 480) this.input.requestBarrel(dir);
+        if (tap.upAt && now - tap.upAt < 480) {
+          this.input.requestBarrel(dir);
+          tap.upAt = 0;
+        }
+        tap.down = true;
         tap.downAt = now;
         this.input.rollBtn(dir, true);
         try { el.setPointerCapture?.(e.pointerId); } catch { /* fine without */ }
       });
-      el.addEventListener('pointerup', (e) => {
-        e.preventDefault();
-        // Only a genuine tap arms the double: a knife-edge hold released is
-        // the end of a hold, not the first half of a roll.
-        tap.upAt = performance.now() - tap.downAt < 340 ? performance.now() : 0;
+      const release = (e) => {
+        e.preventDefault?.();
+        if (!tap.down) return;   // a hover-leave is not a release
+        tap.down = false;
+        const now = performance.now();
+        tap.upAt = now - tap.downAt < 600 ? now : 0;
         this.input.rollBtn(dir, false);
-      });
-      for (const ev of ['pointercancel', 'pointerleave']) {
-        el.addEventListener(ev, (e) => { e.preventDefault(); this.input.rollBtn(dir, false); });
+      };
+      for (const ev of ['pointerup', 'pointercancel', 'pointerleave', 'lostpointercapture']) {
+        el.addEventListener(ev, release);
       }
     };
     rollBtn('lr', -1);
@@ -449,6 +460,14 @@ export class UI {
    */
   syncSpecButton() {
     const g = this.game;
+    // The cinematics and the result screens own the stage: no thumb controls
+    // floating over an escape, a lightspeed run, or the weapon reveal.
+    const ended = ['escape', 'lightspeed', 'won', 'dead', 'ended'].includes(g.phase);
+    if (ended !== this._padsHidden) {
+      this._padsHidden = ended;
+      $('pad').style.display = ended ? 'none' : '';
+      $('padleft').style.display = ended ? 'none' : '';
+    }
     const has = !!g.special;
     if (has !== this._specHas) {
       $('spec').style.display = has ? '' : 'none';
