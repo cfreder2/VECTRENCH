@@ -5021,10 +5021,35 @@ const SONGS = {
       'a4 g#4 g4 f#4 g4 f#4 f4 e4',
       'f4 f#4 g4 g#4 a4 a#4 a4 g#4',
     ],
-    // Null is a bar the score leaves unaccompanied. The opening descent is
-    // nearly solo and filling it in would trample the best moment in the piece.
-    bass: ['e3', null, 'e2', null, null, null, 'a2', 'a2', 'a2', 'a2', 'a2',
-      'd3', 'c3', 'e3', 'd3', 'd3', 'f3', 'd3', 'f3', 'e3', 'd3', 'c#3'],
+    // Written as the left hand plays it: alternating eighths, root and fifth.
+    // A bar of rests is a bar the score leaves unaccompanied -- the opening
+    // descent is nearly solo and filling it in would trample the best moment
+    // in the piece.
+    bassLine: [
+      'e3 .  .  .  .  .  .  . ',
+      '-  -  -  -  -  -  -  - ',
+      'e2 .  .  .  e2 .  .  . ',
+      '-  -  -  -  -  -  -  - ',
+      '-  -  -  -  -  -  -  - ',
+      '-  -  -  -  -  -  -  - ',
+      'a2 .  e3 .  a2 .  e3 . ',
+      'a2 .  e3 .  a2 .  e3 . ',
+      'a2 .  e3 .  a2 .  e3 . ',
+      'a2 .  e3 .  a2 .  e3 . ',
+      'a2 .  e3 .  a2 .  e3 . ',
+      'd3 .  a3 .  d3 .  a3 . ',
+      'c3 .  g3 .  c3 .  g3 . ',
+      'e3 .  b3 .  e3 .  b3 . ',
+      'd3 .  a3 .  d3 .  a3 . ',
+      'd3 .  a3 .  d3 .  a3 . ',
+      'f3 .  c4 .  f3 .  c4 . ',
+      'd3 .  a3 .  d3 .  a3 . ',
+      'f3 .  c4 .  f3 .  c4 . ',
+      'e3 .  b3 .  e3 .  b3 . ',
+      'd3 .  a3 .  d3 .  a3 . ',
+      'c#3 . e3 .  c#3 . e3 . ',
+    ],
+    bass: null,
     arp: null,            // it has no room for one: the lead never stops
     drums: 'k...h...',
     lead2: null,
@@ -5043,7 +5068,13 @@ const SONGS = {
     name: 'WATER',
     bpm: 132,
     beats: 16,            // sixteenths to the bar: 4/4
+    loopFrom: 2,          // the droplets fall once; the loop is bars 3-18
     lead: [
+      // Droplets: short high notes with rising sweeps, which is what a water
+      // drop sounds like, over the arpeggio running alone.
+      '-  -  -  -  a5/ .  -  -  -  -  -  -  e6/ .  -  - ',
+      '-  -  c6/ .  -  -  -  -  g5/ .  -  -  -  -  b4 . ',
+      // A: four bars that sink, four that climb back out.
       'e5 .  .  .  a5 .  .  .  g5 .  e5 .  d5 .  .  . ',
       'c5 .  .  .  e5 .  .  .  d5 .  c5 .  b4 .  .  . ',
       'a4 .  .  .  c5 .  .  .  e5 .  .  .  d5 .  c5 . ',
@@ -5052,10 +5083,22 @@ const SONGS = {
       'f5 .  .  .  e5 .  d5 .  c5 .  .  .  d5 .  e5 . ',
       'g5 .  .  .  f5 .  e5 .  d5 .  c5 .  b4 .  a4 . ',
       'a4 .  .  .  .  .  .  .  e5 .  .  .  .  .  .  . ',
+      // B: out into open water -- the circle of fifths, rising to the one
+      // high note in the piece and settling back onto the dominant.
+      'f5 .  .  .  e5 .  f5 .  a5 .  .  .  g5 .  f5 . ',
+      'g5 .  .  .  b4 .  d5 .  g5 .  .  .  a5 .  b5 . ',
+      'c6 .  .  .  b5 .  g5 .  e5 .  .  .  g5 .  c5 . ',
+      'a5 .  .  .  .  .  g5 .  f5 .  e5 .  f5 .  a5 . ',
+      'g5 .  .  .  f5 .  e5 .  d5 .  .  .  f5 .  e5 . ',
+      'd5 .  .  .  .  .  f5 .  b4 .  .  .  d5 .  f5 . ',
+      'e5 .  .  .  .  .  g#5 .  b5 .  .  .  .  .  g#5 . ',
+      'a5 .  g#5 .  .  .  e5 .  b4 .  c5 .  d5 .  .  . ',
     ],
     // A second pulse voice, a fifth or a third under the lead where it holds --
     // the trick that makes two channels sound like a section.
     lead2: [
+      '-  -  -  -  -  -  -  -  -  -  -  -  -  -  -  - ',
+      '-  -  -  -  -  -  -  -  -  -  -  -  -  -  -  - ',
       'c5 .  .  .  e5 .  .  .  d5 .  c5 .  a4 .  .  . ',
       'a4 .  .  .  c5 .  .  .  b4 .  a4 .  g4 .  .  . ',
       'e4 .  .  .  a4 .  .  .  c5 .  .  .  b4 .  a4 . ',
@@ -5064,18 +5107,69 @@ const SONGS = {
       'd5 .  .  .  c5 .  b4 .  a4 .  .  .  b4 .  c5 . ',
       'e5 .  .  .  d5 .  c5 .  b4 .  a4 .  g4 .  f4 . ',
       'f4 .  .  .  .  .  .  .  c5 .  .  .  .  .  .  . ',
+      'd5 .  .  .  c5 .  d5 .  f5 .  .  .  e5 .  d5 . ',
+      'd5 .  .  .  -  -  b4 .  d5 .  .  .  f5 .  g5 . ',
+      'e5 .  .  .  g5 .  e5 .  c5 .  .  .  e5 .  g4 . ',
+      'f5 .  .  .  .  .  e5 .  c5 .  .  .  c5 .  f5 . ',
+      'e5 .  .  .  d5 .  c5 .  a4 .  .  .  d5 .  c5 . ',
+      'b4 .  .  .  .  .  d5 .  f4 .  .  .  b4 .  d5 . ',
+      'b4 .  .  .  .  .  e5 .  g#5 .  .  .  .  .  e5 . ',
+      'c5 .  e5 .  .  .  c5 .  g#4 .  a4 .  b4 .  .  . ',
     ],
-    // i i VI v III V7 iv V7. Bar four carries a B in the tune, which is a
-    // tritone against an F -- E minor holds it instead. Bar six leans on an F,
-    // which is the seventh of a G rather than a clash with one.
-    arp: ['am', 'am', 'f', 'em', 'c', 'g7', 'dm', 'e7'],
+    // A: i i VI v III V7 iv V7. B: the circle -- iv VII III VI iv ii-dim V7 V7.
+    arp: ['am', 'am',
+      'am', 'am', 'f', 'em', 'c', 'g7', 'dm', 'e7',
+      'dm', 'g', 'c', 'fmaj7', 'dm', 'bdim', 'e7', 'e7'],
+    // Written out as a current, not a pulse: quarters that drift through each
+    // chord and hand the bar to the next one with a passing tone.
+    bassLine: [
+      'a2 .  .  .  .  .  .  .  e3 .  .  .  .  .  .  . ',
+      'a2 .  .  .  .  .  .  .  e3 .  .  .  g3 .  .  . ',
+      'a2 .  .  .  e3 .  .  .  a3 .  .  .  e3 .  .  . ',
+      'a2 .  .  .  e3 .  .  .  a3 .  g3 .  f3 .  e3 . ',
+      'f2 .  .  .  c3 .  .  .  f3 .  .  .  e3 .  .  . ',
+      'e2 .  .  .  b2 .  .  .  e3 .  .  .  d3 .  c3 . ',
+      'c3 .  .  .  g2 .  .  .  c3 .  .  .  e3 .  f3 . ',
+      'g2 .  .  .  d3 .  .  .  g3 .  f3 .  e3 .  d3 . ',
+      'd3 .  .  .  a2 .  .  .  d3 .  c3 .  b2 .  .  . ',
+      'e2 .  .  .  b2 .  .  .  g#2 .  .  .  b2 .  c3 . ',
+      'd3 .  .  .  a2 .  .  .  d3 .  .  .  f3 .  .  . ',
+      'g2 .  .  .  d3 .  .  .  g3 .  .  .  b2 .  .  . ',
+      'c3 .  .  .  g2 .  .  .  c3 .  .  .  e3 .  .  . ',
+      'f2 .  .  .  c3 .  .  .  f3 .  .  .  e3 .  d3 . ',
+      'd3 .  .  .  a2 .  .  .  d3 .  .  .  c3 .  .  . ',
+      'b2 .  .  .  f3 .  .  .  d3 .  .  .  b2 .  .  . ',
+      'e2 .  .  .  b2 .  .  .  e3 .  .  .  d3 .  .  . ',
+      'e2 .  .  .  g#2 .  .  .  b2 .  c3 .  d3 .  e3 . ',
+    ],
+    bass: null,
+    // Nothing under the droplets; a soft fill hands A to B, and another hands
+    // the loop back to its start.
+    drums: [
+      '................',
+      '................',
+      'k...h...k...h...',
+      'k...h...k...h...',
+      'k...h...k...h...',
+      'k...h...k...h...',
+      'k...h...k...h...',
+      'k...h...k...h...',
+      'k...h...k...h...',
+      'k...h...k..hh.h.',
+      'k...h...k...h...',
+      'k...h...k...h...',
+      'k...h...k...h...',
+      'k...h...k...h...',
+      'k...h...k...h...',
+      'k...h...k...h...',
+      'k...h...k...h...',
+      'k...h...h.h.h.h.',
+    ],
+    drumsFrom: 2,
     // The arpeggio is carrying the harmony here, so the bass gets out of its
     // way and the lead comes forward: rendered with the default mix, 85% of the
     // energy sat under 250Hz and the tune was somewhere beneath it.
     mix: { lead: 0.3, under: 0.11, arp: 0.085, bass: 0.1, sub: 0.05 },
-    bass: ['a2', 'a2', 'f2', 'e2', 'c3', 'g2', 'd3', 'e2'],
-    // Softer than a march: the kick on one and three, hats on the offbeats.
-    drums: 'k...h...k...h...',
   },
 
   /**
@@ -5221,11 +5315,12 @@ const SONGS = {
     name: 'ANTHEM',
     bpm: 152,
     beats: 16,
-    loopFrom: 2,          // bars 1-2 are the way in; the loop is bars 3-10
+    loopFrom: 2,          // bars 1-2 are the way in; the loop is bars 3-18
     drumsFrom: 1,         // and the drums arrive a bar after the arpeggio does
     lead: [
       '-  -  -  -  -  -  -  -  -  -  -  -  a4 .  b4 . ',
       'c5 .  .  .  .  .  .  .  e5 .  .  .  .  .  g5 . ',
+      // The theme: long notes, big intervals, unhurried over the sprint.
       'a5 .  .  .  .  .  g5 .  e5 .  .  .  .  .  .  . ',
       'f5 .  .  .  .  .  .  .  e5 .  d5 .  c5 .  .  . ',
       'e5 .  .  .  g5 .  .  .  .  .  a5 .  g5 .  e5 . ',
@@ -5234,6 +5329,16 @@ const SONGS = {
       'g5 .  .  .  e5 .  .  .  a5 .  .  .  .  .  .  . ',
       'f5 .  .  .  e5 .  d5 .  c5 .  d5 .  e5 .  .  . ',
       'b4 .  .  .  d5 .  .  .  e5 .  .  .  .  .  .  . ',
+      // The second strain: the same tune's promise kept -- higher, wider, and
+      // a sweep flare on the dominant before it hands the loop back.
+      'f5 .  .  .  .  .  e5 .  f5 .  a5 .  .  .  .  . ',
+      'g5 .  .  .  .  .  d5 .  g5 .  b5 .  .  .  .  . ',
+      'c6 .  .  .  .  .  b5 .  a5 .  .  .  e5 .  .  . ',
+      'a5 .  .  .  .  .  .  .  .  .  .  .  g5 .  e5 . ',
+      'f5 .  .  .  a5 .  .  .  c6 .  .  .  a5 .  f5 . ',
+      'd6 .  .  .  b5 .  .  .  g5 .  .  .  b5 .  d6 . ',
+      'e5/ .  .  .  a5 .  .  .  b5 .  .  .  g#5 .  .  . ',
+      'a5 .  .  .  g#5 .  .  .  b4 .  c5 .  d5 .  e5 . ',
     ],
     // A sixth or a third under, which is how two pulse channels were made to
     // sound like a brass section on hardware that had two pulse channels.
@@ -5248,17 +5353,69 @@ const SONGS = {
       'e5 .  .  .  c5 .  .  .  e5 .  .  .  .  .  .  . ',
       'a4 .  .  .  a4 .  a4 .  a4 .  b4 .  c5 .  .  . ',
       'g#4 . .  .  b4 .  .  .  b4 .  .  .  .  .  .  . ',
+      'c5 .  .  .  .  .  c5 .  c5 .  f5 .  .  .  .  . ',
+      'b4 .  .  .  .  .  b4 .  b4 .  g5 .  .  .  .  . ',
+      'e5 .  .  .  .  .  e5 .  e5 .  .  .  c5 .  .  . ',
+      'c5 .  .  .  .  .  .  .  .  .  .  .  e5 .  c5 . ',
+      'c5 .  .  .  f5 .  .  .  a5 .  .  .  f5 .  c5 . ',
+      'b5 .  .  .  g5 .  .  .  d5 .  .  .  g5 .  b5 . ',
+      '-  -  -  -  e5 .  .  .  g#5 .  .  .  e5 .  .  . ',
+      'c5 .  .  .  e5 .  .  .  g#4 .  a4 .  b4 .  c5 . ',
     ],
-    arp: ['am', 'am', 'am', 'f', 'c', 'g', 'dm', 'am', 'f', 'e7'],
-    // Nothing under the first bar at all: the arpeggio starts it alone.
-    bass: [null, 'a2', 'a2', 'f2', 'c3', 'g2', 'd3', 'a2', 'f2', 'e2'],
-    // Nothing under the first bar: the drums arrive with the theme.
-    drums: 'k..hk.h.k..hk.h.',
+    // The theme keeps the heroic i VI III VII; the strain is VI VII i, twice,
+    // then the dominant held for two bars.
+    arp: ['am', 'am', 'am', 'f', 'c', 'g', 'dm', 'am', 'f', 'e7',
+      'f', 'g', 'am', 'am', 'f', 'g', 'e7', 'e7'],
+    // Pumping eighths, written: the engine an anthem drives on, with a walk
+    // into every chord and the dominant rising home at the end.
+    bassLine: [
+      '-  -  -  -  -  -  -  -  -  -  -  -  -  -  -  - ',
+      'a2 .  .  .  .  .  .  .  a2 .  .  .  a3 .  .  . ',
+      'a2 .  a2 .  a2 .  a3 .  a2 .  a2 .  a3 .  a2 . ',
+      'f2 .  f2 .  f2 .  f3 .  f2 .  a2 .  b2 .  .  . ',
+      'c3 .  c3 .  c3 .  c2 .  c3 .  c3 .  b2 .  .  . ',
+      'g2 .  g2 .  g2 .  g3 .  g2 .  a2 .  b2 .  c3 . ',
+      'd3 .  d3 .  d3 .  d2 .  d3 .  d3 .  c3 .  b2 . ',
+      'a2 .  a2 .  a2 .  a3 .  a2 .  a2 .  g2 .  .  . ',
+      'f2 .  f2 .  f2 .  f3 .  f2 .  f2 .  f2 .  e2 . ',
+      'e2 .  e2 .  e2 .  e3 .  g#2 .  b2 .  e3 .  e2 . ',
+      'f2 .  f2 .  f2 .  f3 .  f2 .  f2 .  f3 .  f2 . ',
+      'g2 .  g2 .  g2 .  g3 .  g2 .  g2 .  g3 .  g2 . ',
+      'a2 .  a2 .  a2 .  a3 .  a2 .  a2 .  a3 .  a2 . ',
+      'a2 .  a2 .  a2 .  a3 .  a2 .  a2 .  g2 .  g2 . ',
+      'f2 .  f2 .  f2 .  f3 .  f2 .  f2 .  f3 .  f2 . ',
+      'g2 .  g2 .  g2 .  g3 .  g2 .  a2 .  b2 .  d3 . ',
+      'e2 .  e2 .  e2 .  e3 .  e2 .  e2 .  e3 .  e2 . ',
+      'e2 .  e2 .  g#2 .  g#2 .  b2 .  b2 .  d3 .  e3 . ',
+    ],
+    bass: null,
+    // The strain earns a backbeat the theme does not have, a fill hands each
+    // section over, and the last bar spills back into the loop.
+    drums: [
+      '................',
+      'k.......k.....x.',
+      'k..hk.h.k..hk.h.',
+      'k..hk.h.k..hk.h.',
+      'k..hk.h.k..hk.h.',
+      'k..hk.h.k..hk.h.',
+      'k..hk.h.k..hk.h.',
+      'k..hk.h.k..hk.h.',
+      'k..hk.h.k..hk.h.',
+      'k..hk.h.x.x.x.xx',
+      'k..hx..hk..hx..h',
+      'k..hx..hk..hx..h',
+      'k..hx..hk..hx..h',
+      'k..hx..hk..hx..h',
+      'k..hx..hk..hx..h',
+      'k..hx..hk..hx..h',
+      'k..hx..hk..hx..h',
+      'k..hx..hx.x.x.x.',
+    ],
     // Long notes put less energy in the melody band than a busy lead does --
     // measured, the first mix left the tune at 40.8% of what the ear hears
     // against about 70 for the other two. The lead comes up and the parts
     // running underneath it come down.
-    mix: { lead: 0.36, under: 0.085, arp: 0.055, bass: 0.13, sub: 0.055 },
+    mix: { lead: 0.36, under: 0.085, arp: 0.055, bass: 0.115, sub: 0.055 },
   },
 };
 

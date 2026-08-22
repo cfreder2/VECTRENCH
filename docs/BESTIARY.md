@@ -399,19 +399,21 @@ none do.
 
 | Song | | |
 | --- | --- | --- |
-| `bumblebee` | 160bpm, 2/4 | Rimsky-Korsakov at the score's tempo. No arpeggio — the lead never stops long enough for one |
-| `water` | 132bpm, A minor | i–VI–v–III–V7–iv–V7 over a running sixteenth arpeggio. Eight bars that sink for four and climb back out for four. Long held notes, vibrato, the bass out of the way |
-| `anthem` | 152bpm, A minor | The opening-theme shape: long notes with big intervals over an arpeggio going four times as fast. The tune sounds unhurried and enormous *because* something underneath it is sprinting. i–VI–III–VII, the heroic progression, which keeps rising away from the tonic instead of settling on it. Its first two bars play once and never return — `loopFrom` — and the drums arrive a bar after the arpeggio does |
+| `bumblebee` | 160bpm, 2/4 | Rimsky-Korsakov at the score's tempo, and now with the accompaniment written as the left hand plays it — alternating eighths, root and fifth — where before a generator marked the roots. The bars the score leaves unaccompanied stay unaccompanied. No arpeggio — the lead never stops long enough for one |
+| `water` | 132bpm, A minor | Eighteen bars. It opens with droplets — short high notes on rising sweeps, which is what a water drop sounds like — falling once over the arpeggio running alone. Then the eight bars that sink and climb back out, and a new eight-bar B section that heads into open water around the circle of fifths — iv–VII–III–VI — rising to the one c6 in the piece and settling home through a ♯7 dominant. The bass is written as a current: quarters that drift through each chord and hand every bar to the next with a passing tone |
+| `anthem` | 152bpm, A minor | Eighteen bars. The opening-theme shape: long notes with big intervals over an arpeggio going four times as fast — the tune sounds unhurried and enormous *because* something underneath it is sprinting. The theme keeps the heroic i–VI–III–VII; a new second strain answers it — VI–VII–i twice, peaking a step higher each phrase to d6, then a rising sweep flare on the dominant, the brass gesture, before the loop is handed back. The bass is written pumping eighths with a walk into every chord change, and the strain earns a backbeat the theme does not have. The first two bars still play once and never return |
 | `fire` | 176bpm, E minor | Sixteen bars with a form, not a loop: a two-bar alarm of rising hardware sweeps that plays once, a driving 3+3+2 theme stated bare then restated with its harmony, a chorus lifting to the relative major, and a climax that runs down the octave at full speed and dive-bombs back into the loop on a falling sweep. The bass is a written gallop — root, rest, root, octave — that walks into every chord change; the drums fill into each section and go double-time under the run, metallic short-register noise ticking through the groove. Its dominant is still a **B7** carrying the D♯ of the harmonic minor, and the chorus's biggest note is a ♭9 over it |
 
 All three written ones are checked as music before anyone hears them: every bar
-the right length, the lead inside a singing octave, and the strong beats landing
-on chord tones. The audit on `fire` flags exactly two deliberate moments — the
-♭9 over the dominant and one 85ms passing tone brushing the harmony pad in the
-climax run — and nothing else, which is what clean voice-leading looks like to a
-program. The mix is measured, not guessed: rendered voice by voice and A-weighted,
-the lead carries 39% of what the ear hears, the bass 21, and the shimmer parts sit
-behind both.
+the right length, every token a note, and the strong beats landing on chord
+tones — 66% for `water`, which floats on maj7 colors and suspensions, against
+88% for `anthem` and 87% for `fire`, which do not. The audit's remaining flags
+are all deliberate: the ♭9 over `fire`'s dominant, the 4–3 suspension over
+`anthem`'s final cadence, walking-bass passing tones. The mixes are measured,
+not guessed — each song rendered voice by voice and A-weighted, the lead holds
+39–44% of what the ear hears everywhere, and the sweeps are verified in the
+rendered audio itself: `fire`'s dive measurably falls 988→558Hz, `water`'s
+droplets rise 945→1570, `anthem`'s flare 725→1190.
 
 The average lead note says what a theme is as clearly as its tempo does:
 5.0 sixteenths for `anthem`, which sings, and short stabs for `fire`, which
