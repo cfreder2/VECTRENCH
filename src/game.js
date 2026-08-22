@@ -844,7 +844,9 @@ export class Game {
             this.say('PRISM -- FULL CHARGE', 1.1);
           } else {
             this.diamonds = Math.min(DIAMOND_CAP, this.diamonds + 1);
-            this.say(`+1 ${this.special.toUpperCase()}`, 0.8);
+            // Charge banks even before any weapon is earned -- the meter is
+            // the ship's, not the gun's -- so the message cannot assume one.
+            this.say(this.special ? `+1 ${this.special.toUpperCase()}` : '+1 SPECIAL CHARGE', 0.8);
           }
           this.audio.diamond(ob.kind === 'prism');
         }

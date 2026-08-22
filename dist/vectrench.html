@@ -58,12 +58,12 @@
   #topbar { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; }
   #topbar .title { font-size: 15px; letter-spacing: 0.22em; }
   #topbar .hint { color: var(--dim); font-size: 11px; letter-spacing: 0.08em; }
-  #spacer { flex: 1; min-height: 0; }
+  #spacer { flex: 0; min-height: 0; }
 
   #sheet {
     background: var(--panel); border: 1px solid var(--line); border-radius: 4px;
     padding: 12px; display: flex; flex-direction: column; gap: 10px;
-    max-height: 54vh; overflow-y: auto; backdrop-filter: blur(3px);
+    flex: 1 1 auto; min-height: 0; overflow-y: auto; backdrop-filter: blur(3px);
   }
   #sheet.collapsed { max-height: none; }
   #sheet.collapsed .foldable { display: none; }
@@ -195,11 +195,19 @@
   #msl:active { background: rgba(255,183,77,0.45); }
   #flight.on { display: block; }
   #err { color: var(--red); font-size: 11px; line-height: 1.6; }
+  /* The selection: the grid, and the plane beside it -- beside in landscape,
+     below in portrait. The sheet grows to fill the screen either way, because
+     a select screen with a void above it is a select screen half-drawn. */
+  #select { display: grid; grid-template-columns: 1fr; gap: 12px; align-items: start; }
+  @media (orientation: landscape) {
+    #select { grid-template-columns: 5fr 4fr; }
+  }
   #grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
   .cell {
     font: inherit; text-align: left; padding: 9px 10px; border-radius: 8px;
     background: rgba(10, 24, 34, .45); border: 1px solid #1d3a4c; color: #9fc2d0;
-    cursor: pointer; letter-spacing: .08em; min-height: 58px;
+    cursor: pointer; letter-spacing: .08em;
+    aspect-ratio: 1; min-height: 0;
     position: relative; overflow: hidden;
     -webkit-tap-highlight-color: transparent;
   }
@@ -210,7 +218,7 @@
   .cell .dname, .cell .dsub { position: relative; text-shadow: 0 1px 4px #000, 0 0 8px #000; }
   .cell .dname { display: block; font-size: 11px; letter-spacing: .14em; }
   .cell .dsub { display: block; font-size: 9px; margin-top: 4px; opacity: .65; }
-  .cell.on { min-height: 108px; }
+
   .cell.locked { opacity: .38; cursor: default; }
   .cell.on { background: rgba(111, 230, 255, .14); box-shadow: 0 0 10px rgba(111, 230, 255, .25) inset; }
   .cell.cleared .dname::after { content: ' \2713'; color: #6dffa8; }
@@ -248,14 +256,16 @@
     </div>
     <div id="spacer"></div>
     <div id="sheet">
-      <div class="foldable">
-        <label>THE DISTRICTS</label>
-        <div id="grid"></div>
-      </div>
-      <div class="foldable">
-        <label>INTERCEPTOR &mdash; SPECIAL WEAPON</label>
-        <div id="rack"></div>
-        <div class="note" id="racknote">beat a warden to take its weapon</div>
+      <div id="select">
+        <div class="foldable">
+          <label>THE DISTRICTS</label>
+          <div id="grid"></div>
+        </div>
+        <div class="foldable">
+          <label>INTERCEPTOR &mdash; SPECIAL WEAPON</label>
+          <div id="rack"></div>
+          <div class="note" id="racknote">beat a warden to take its weapon</div>
+        </div>
       </div>
       <div class="row">
         <button id="fly" class="primary" disabled>FLY</button>
@@ -8281,7 +8291,9 @@ class Game {
             this.say('PRISM -- FULL CHARGE', 1.1);
           } else {
             this.diamonds = Math.min(DIAMOND_CAP, this.diamonds + 1);
-            this.say(`+1 ${this.special.toUpperCase()}`, 0.8);
+            // Charge banks even before any weapon is earned -- the meter is
+            // the ship's, not the gun's -- so the message cannot assume one.
+            this.say(this.special ? `+1 ${this.special.toUpperCase()}` : '+1 SPECIAL CHARGE', 0.8);
           }
           this.audio.diamond(ob.kind === 'prism');
         }
