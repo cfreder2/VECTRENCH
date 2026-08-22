@@ -376,6 +376,7 @@ export class UI {
     } else {
       this.status(`${this.spec.name} -- ready`);
     }
+    this._entered = true;
   }
 
   /**
@@ -438,6 +439,10 @@ export class UI {
       `${lv.seals.length} seals`,
     ].join(', ');
     this.report([...report, '', `REALIZED: ${counts}`], 'ok');
+    // Selecting a level auditions its song, right there on the menu -- the
+    // music is part of what you are choosing. Gated behind the first entry so
+    // the boot's automatic selection does not talk over the title theme.
+    if (this._entered) this.audio.musicStart(this.spec.music);
     this.dirty = true;
     this.status(`${this.spec.name} -- ${Math.round(this.game.track.total)} units`);
   }
