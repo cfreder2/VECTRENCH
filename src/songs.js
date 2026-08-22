@@ -20,6 +20,7 @@ export const CHORDS = {
   am: 'a3 c4 e4', am7: 'a3 c4 g4', dm: 'd3 f3 a3', dm7: 'd3 f3 c4',
   em: 'e3 g3 b3', e7: 'e3 g#3 d4', f: 'f3 a3 c4', fmaj7: 'f3 a3 e4',
   c: 'c3 e3 g3', g: 'g3 b3 d4', g7: 'g3 b3 f4', bdim: 'b2 d3 f3',
+  b7: 'b2 d#3 f#3', d: 'd3 f#3 a3',
 };
 
 export const SONGS = {
@@ -111,6 +112,49 @@ export const SONGS = {
     bass: ['a2', 'a2', 'f2', 'e2', 'c3', 'g2', 'd3', 'e2'],
     // Softer than a march: the kick on one and three, hats on the offbeats.
     drums: 'k...h...k...h...',
+  },
+
+  /**
+   * FIRE. The opposite of the water stage in every choice: fast where that
+   * flows, hammered where that drifts, and short notes where that holds.
+   *
+   * E minor, but the dominant is a B7 -- which carries a D sharp, the raised
+   * seventh of the harmonic minor. That one note is what makes a stage sound
+   * hot rather than merely dark: it is a semitone from the tonic and it will
+   * not sit still. The bar before every return to E minor leans on it.
+   *
+   * The lead is rhythm rather than song. Stabs and runs, nothing held longer
+   * than a beat except at the end of a phrase, so there is no room to breathe.
+   */
+  fire: {
+    name: 'FIRE',
+    bpm: 172,
+    beats: 16,
+    lead: [
+      'e5 .  d5 .  e5 .  g5 .  b5 .  .  .  a5 g5 f#5 . ',
+      'e5 .  d5 .  e5 .  b4 .  e5 .  .  .  -  -  -  - ',
+      'g5 .  f5 .  e5 .  c5 .  g5 .  .  .  f5 e5 d5 . ',
+      'd#5 . e5 .  f#5 .  d#5 .  b4 .  .  .  -  -  -  - ',
+      'e5 .  g5 .  b5 .  a5 .  b5 .  g5 .  e5 .  b4 . ',
+      'a5 .  .  .  g5 .  e5 .  c5 .  e5 .  a5 .  .  . ',
+      'b5 .  a5 .  g5 .  f5 .  e5 .  d5 .  c5 .  b4 . ',
+      'b4 .  d#5 .  f#5 .  b5 .  b5 .  .  .  .  .  .  . ',
+    ],
+    lead2: [
+      'b4 .  a4 .  b4 .  e5 .  g5 .  .  .  e5 d5 b4 . ',
+      'b4 .  a4 .  b4 .  g4 .  b4 .  .  .  -  -  -  - ',
+      'e5 .  d5 .  c5 .  g4 .  e5 .  .  .  d5 c5 b4 . ',
+      'f#4 . g4 .  b4 .  f#4 .  f#4 .  .  .  -  -  -  - ',
+      'b4 .  e5 .  g5 .  e5 .  g5 .  e5 .  b4 .  g4 . ',
+      'e5 .  .  .  e5 .  c5 .  a4 .  c5 .  e5 .  .  . ',
+      'g5 .  f5 .  e5 .  d5 .  c5 .  b4 .  a4 .  g4 . ',
+      'f#4 . b4 .  d#5 .  f#5 .  f#5 .  .  .  .  .  .  . ',
+    ],
+    arp: ['em', 'em', 'c', 'b7', 'em', 'am', 'c', 'b7'],
+    bass: ['e2', 'e2', 'c3', 'b2', 'e2', 'a2', 'c3', 'b2'],
+    // Four on the floor. A stage that is on fire does not have a backbeat.
+    drums: 'k..hk..hk..hk..h',
+    mix: { lead: 0.26, under: 0.085, arp: 0.055, bass: 0.16, sub: 0.07 },
   },
 };
 
