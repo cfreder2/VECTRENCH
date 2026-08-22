@@ -9,7 +9,7 @@
 // timer tick, because a setInterval on a busy frame drifts by tens of
 // milliseconds, and at ten notes a second that is audible.
 
-import { songFor, CHORDS, MIX } from './songs.js';
+import { songFor, CHORDS, MIX, DUTY } from './songs.js';
 
 const SEMI = { c: 0, 'c#': 1, d: 2, 'd#': 3, e: 4, f: 5, 'f#': 6, g: 7, 'g#': 8, a: 9, 'a#': 10, b: 11 };
 
@@ -50,6 +50,32 @@ function parseVoice(bars, beats) {
 }
 
 const LOOKAHEAD = 0.25;         // schedule this far past the clock, every tick
+const HARMONICS = 64;           // enough for a pulse to sound like one
+
+/**
+ * A pulse wave of a given duty, as a PeriodicWave.
+ *
+ * Web Audio's 'square' is fixed at 50%, and a 50% pulse has *no even
+ * harmonics* -- it is the hollow, clarinet-ish one. The thin, nasal, reedy
+ * tones that a chip lead is made of are 25% and 12.5%, which keep the even
+ * harmonics and are the one thing the NES could do that this could not. The
+ * coefficient of harmonic n at duty d is (2/n*pi) sin(n*pi*d), and the browser
+ * band-limits it per note, so there is no aliasing to worry about either.
+ */
+function pulseWave(ctx, duty) {
+  ctx._pulseWaves = ctx._pulseWaves || new Map();
+  const key = duty.toFixed(3);
+  let w = ctx._pulseWaves.get(key);
+  if (w) return w;
+  const real = new Float32Array(HARMONICS + 1);
+  const imag = new Float32Array(HARMONICS + 1);
+  for (let n = 1; n <= HARMONICS; n++) {
+    real[n] = (2 / (n * Math.PI)) * Math.sin(n * Math.PI * duty);
+  }
+  w = ctx.createPeriodicWave(real, imag, { disableNormalization: false });
+  ctx._pulseWaves.set(key, w);
+  return w;
+}
 
 export class Music {
   /** @param noise a looping-safe noise buffer, shared with the sound effects. */
@@ -95,6 +121,7 @@ export class Music {
     this.drums = song.drums;
     this.drumsFrom = song.drumsFrom || 0;
     this.mix = { ...MIX, ...(song.mix || {}) };
+    this.duty = { ...DUTY, ...(song.duty || {}) };
     this.total = this.lead.length;
     // A song may open with bars that play once and are never heard again. That
     // is what an opening theme is: it arrives from somewhere before it settles
@@ -164,7 +191,7 @@ export class Music {
       const tilt = f > 500 ? Math.max(0.6, 1 - (f - 500) / 1500) : 1;
       const cut = Math.min(3200, Math.max(1100, f * 2.4));
       const dur = step * (lead.steps - 0.08);
-      this._pulse(f, t, dur, this.mix.lead * tilt, 'square', cut, dur > 0.26);
+      this._pulse(f, t, dur, this.mix.lead * tilt, this.duty.lead, cut, dur > 0.26);
       this._pulse(f / 2, t, dur, this.mix.sub, 'triangle', 1400);
     }
 
@@ -173,14 +200,14 @@ export class Music {
     const under = this.lead2 && this.lead2[i];
     if (under) {
       const dur = step * (under.steps - 0.08);
-      this._pulse(hz(under.note), t, dur, this.mix.under, 'square', 1800, dur > 0.26);
+      this._pulse(hz(under.note), t, dur, this.mix.under, this.duty.under, 1800, dur > 0.26);
     }
 
     // The arpeggio: one voice cycling a chord fast enough that the ear hears a
     // chord instead of a run. An octave up, quiet, and always moving.
     if (this.arp) {
       const chord = this.arp[bar % this.arp.length];
-      this._pulse(hz(chord[i % chord.length] + 12), t, step * 0.85, this.mix.arp, 'square', 2600);
+      this._pulse(hz(chord[i % chord.length] + 12), t, step * 0.85, this.mix.arp, this.duty.arp, 2600);
     }
 
     // The bass: root, then its fifth halfway through the bar.
@@ -188,10 +215,10 @@ export class Music {
     if (root != null) {
       const half = this.beats >> 1;
       const quarter = this.beats >> 2;
-      if (beat === 0) this._pulse(hz(root), t, step * quarter * 0.9, this.mix.bass, 'square', 900);
-      else if (beat === half) this._pulse(hz(root + 7), t, step * quarter * 0.8, this.mix.bass * 0.82, 'square', 900);
+      if (beat === 0) this._pulse(hz(root), t, step * quarter * 0.9, this.mix.bass, this.duty.bass, 900);
+      else if (beat === half) this._pulse(hz(root + 7), t, step * quarter * 0.8, this.mix.bass * 0.82, this.duty.bass, 900);
       else if (this.beats >= 16 && (beat === quarter * 3)) {
-        this._pulse(hz(root + 12), t, step * quarter * 0.7, this.mix.bass * 0.6, 'square', 900);
+        this._pulse(hz(root + 12), t, step * quarter * 0.7, this.mix.bass * 0.6, this.duty.bass, 900);
       }
     }
 
@@ -211,7 +238,9 @@ export class Music {
   _pulse(f, t, dur, gain, type, cut = 0, wobble = false) {
     const ctx = this.ctx;
     const o = ctx.createOscillator();
-    o.type = type;
+    // A number is a duty cycle; a string is one of the browser's own shapes.
+    if (typeof type === 'number') o.setPeriodicWave(pulseWave(ctx, type));
+    else o.type = type;
     o.frequency.setValueAtTime(f, t);
     if (wobble) {
       const start = t + Math.min(0.16, dur * 0.35);

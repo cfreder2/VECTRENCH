@@ -374,6 +374,16 @@ than more voices:
 | **a second pulse** | harmony under the lead, quieter and duller, so two channels read as one instrument thickening |
 | **a walking bass** | roots on the beat is a metronome; a bass that moves is a part |
 | **per-song mix** | the balance is part of the writing. A theme carried by its bass and one carried by its lead do not want the same one |
+| **pulse width** | the voices are pulse waves of a chosen duty, built as PeriodicWaves. A 50% pulse has *no even harmonics* — it is the hollow one. 25% is reedy, 12.5% is thin and nasal, and those are what a chip lead is actually made of. Giving the lead and the harmony different duties is also what stops two pulse voices fusing into one |
+
+**How this compares to the hardware it imitates.** More capable than the NES in
+most respects: any number of simultaneous voices against its five, smooth volume
+envelopes against its sixteen steps, real filters where it had none, and correct
+pitch anywhere on the keyboard where its high notes went out of tune. It was
+behind in exactly one way that mattered — a fixed 50% square — and that is what
+the duty cycles fix. What the hardware still has that this does not is the
+periodic-noise mode, a metallic pitched buzz used for percussion, and the sweep
+unit's hardware pitch slides.
 
 | Song | | |
 | --- | --- | --- |

@@ -154,6 +154,9 @@ export const SONGS = {
     bass: ['e2', 'e2', 'c3', 'b2', 'e2', 'a2', 'c3', 'b2'],
     // Four on the floor. A stage that is on fire does not have a backbeat.
     drums: 'k..hk..hk..hk..h',
+    // The thinnest lead there is. A stage on fire should sound like a siren,
+    // not a clarinet.
+    duty: { lead: 0.125, under: 0.25, arp: 0.5, bass: 0.5 },
     mix: { lead: 0.26, under: 0.085, arp: 0.055, bass: 0.16, sub: 0.07 },
   },
   /**
@@ -223,6 +226,16 @@ export const SONGS = {
  * the same mix, and eight stages will not either.
  */
 export const MIX = { lead: 0.2, under: 0.075, arp: 0.07, bass: 0.17, sub: 0.085 };
+
+/**
+ * The shape of each pulse voice, as a duty cycle.
+ *
+ * 0.5 is a plain square and the hollow one -- it has no even harmonics at all.
+ * 0.25 is reedy and 0.125 is thin and nasal, and those two are what a chip lead
+ * actually sounds like. Giving the lead and the harmony different duties is
+ * also what stops two pulse voices from fusing into one thicker voice.
+ */
+export const DUTY = { lead: 0.25, under: 0.125, arp: 0.5, bass: 0.5 };
 
 /** The song a level asks for, or the default. */
 export const songFor = (name) => SONGS[name] || SONGS.bumblebee;
