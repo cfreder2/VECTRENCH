@@ -1051,7 +1051,10 @@ export const WARDENS = {
         // A burst can outlive its last gun -- the pattern ends with the guns.
         if (!turrets.length) b.burst = null;
         if (b.burst && bu.fireIn <= 0) {
-          bu.fireIn = 0.12;
+          bu.fireIn = 0.075;
+          // The voice the ground gatlings taught, at a rate that means it.
+          bu.voice = !bu.voice;
+          if (bu.voice) game.audio.enemyShot();
           const clear = turrets.filter((g) => !g.guarded);
           const shooters = clear.length ? clear : turrets;
           const aim = [0, 0, 0];
@@ -1162,7 +1165,7 @@ export const WARDENS = {
           const off = Math.hypot(game.shipX - C.x, game.shipY - C.y);
           if (off > 26) game.damage(30);
           game.shake = Math.min(1.8, game.shake + 0.7);
-          game.audio.bigBoom();
+          game.audio.beam();
         }
         if (c.shots <= 0 && c.nextShot <= -0.3) {
           c.state = 'idle';
@@ -1407,16 +1410,27 @@ export const WARDENS = {
             1.8, m.flash > 0 ? 1 : 1, m.flash > 0 ? 1 : 0.45, m.flash > 0 ? 1 : 0.75, 0.95);
         }
       }
-      if (c.state === 'firing' && c.flashAt && time - c.flashAt < 0.22) {
-        const a = 1 - (time - c.flashAt) / 0.22;
+      if (c.state === 'firing' && c.flashAt && time - c.flashAt < 0.26) {
+        // The beams themselves, muzzle to field: fat, hot, and unmistakably
+        // COMING AT YOU -- the ring's sunbeam language, spoken by a cannon.
+        const a = 1 - (time - c.flashAt) / 0.26;
         const tS = b.tShip ?? b.t - 430;
         const rim = tr.rim(tS);
         const Cy = (12 + rim + 62) / 2;
+        const mz = [0, 0, 0];
+        tr.localToWorld(b.t + 136 * A.fT, X + 136 * A.fX, Y + 62, mz);
+        for (let k = 0; k < 10; k++) {
+          const ang = (k / 10) * TAU + 0.31;
+          tr.localToWorld(tS, Math.cos(ang) * 92, Cy + Math.sin(ang) * 70, q);
+          rd.line3(mz[0], mz[1], mz[2], q[0], q[1], q[2], 4.4, 1, 0.72, 0.3, a);
+          rd.line3(mz[0], mz[1], mz[2], q[0], q[1], q[2], 1.6, 1, 1, 0.85, a);
+        }
+        // The impact ring at your plane, with the eye left dark.
         for (let k = 0; k < 12; k++) {
-          const ang = (k / 12) * TAU;
-          tr.localToWorld(tS, Math.cos(ang) * 30, Cy + Math.sin(ang) * 24, p);
-          tr.localToWorld(tS, Math.cos(ang) * 160, Cy + Math.sin(ang) * 120, q);
-          rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], 3.4, 1, 0.55, 1, a);
+          const a0 = (k / 12) * TAU, a1 = ((k + 1) / 12) * TAU;
+          tr.localToWorld(tS, Math.cos(a0) * 30, Cy + Math.sin(a0) * 24, p);
+          tr.localToWorld(tS, Math.cos(a1) * 30, Cy + Math.sin(a1) * 24, q);
+          rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], 3, 1, 0.85, 0.5, a);
         }
       }
       for (const d of b.debris) {

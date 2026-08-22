@@ -235,6 +235,18 @@ export class Audio {
     if (prism) setTimeout(() => this._tone('triangle', base * 2, base * 2, 0.14, 0.3), 140);
   }
 
+  /**
+   * The cannon's beam: the big descending BLERRRR. A saw tearing down two
+   * octaves with a square under it and a throat of noise -- held just under
+   * a second, so three consecutive blasts overlap into something obscene.
+   */
+  beam() {
+    const v = 0.94 + Math.random() * 0.12;
+    this._tone('sawtooth', 980 * v, 150, 0.85, 0.3);
+    this._tone('square', 460 * v, 85, 0.85, 0.16);
+    this._noiseBurst(0.8, 0.34, 5200, 260, 2);
+  }
+
   /** The exit: everything winds up and out. */
   lightspeed() {
     this._tone('sawtooth', 160, 2400, 1.5, 0.22);

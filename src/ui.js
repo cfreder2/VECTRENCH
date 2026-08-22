@@ -455,7 +455,8 @@ export class UI {
 
   syncMissileButton() {
     const g = this.game;
-    if (this.screen !== 'flight' || g.phase !== 'flying') return;
+    if (this.screen !== 'flight') return;
+    if (g.phase !== 'flying' && g.phase !== 'boss') return;
     const ready = g.missileCooldown <= 0;
     const locks = g.locks ? g.locks.length : 0;
     const text = ready

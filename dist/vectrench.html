@@ -96,6 +96,9 @@
   button:hover:not(:disabled) { background: rgba(111,230,255,0.2); border-color: var(--cyan); }
   button:active:not(:disabled) { background: rgba(111,230,255,0.32); }
   button:disabled { opacity: 0.35; cursor: default; }
+  /* The boss door wears the warden's color when it is open, so an armed
+     button never fades into the panel. */
+  #boss:not(:disabled) { border-color: #b06fff; color: #c08aff; background: rgba(48, 16, 78, 0.35); }
   button:focus-visible, textarea:focus-visible, input:focus-visible,
   summary:focus-visible {
     outline: 2px solid var(--cyan); outline-offset: 2px;
@@ -7867,6 +7870,18 @@ class Audio {
     if (prism) setTimeout(() => this._tone('triangle', base * 2, base * 2, 0.14, 0.3), 140);
   }
 
+  /**
+   * The cannon's beam: the big descending BLERRRR. A saw tearing down two
+   * octaves with a square under it and a throat of noise -- held just under
+   * a second, so three consecutive blasts overlap into something obscene.
+   */
+  beam() {
+    const v = 0.94 + Math.random() * 0.12;
+    this._tone('sawtooth', 980 * v, 150, 0.85, 0.3);
+    this._tone('square', 460 * v, 85, 0.85, 0.16);
+    this._noiseBurst(0.8, 0.34, 5200, 260, 2);
+  }
+
   /** The exit: everything winds up and out. */
   lightspeed() {
     this._tone('sawtooth', 160, 2400, 1.5, 0.22);
@@ -11311,7 +11326,8 @@ class UI {
 
   syncMissileButton() {
     const g = this.game;
-    if (this.screen !== 'flight' || g.phase !== 'flying') return;
+    if (this.screen !== 'flight') return;
+    if (g.phase !== 'flying' && g.phase !== 'boss') return;
     const ready = g.missileCooldown <= 0;
     const locks = g.locks ? g.locks.length : 0;
     const text = ready

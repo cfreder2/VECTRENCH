@@ -96,6 +96,9 @@
   button:hover:not(:disabled) { background: rgba(111,230,255,0.2); border-color: var(--cyan); }
   button:active:not(:disabled) { background: rgba(111,230,255,0.32); }
   button:disabled { opacity: 0.35; cursor: default; }
+  /* The boss door wears the warden's color when it is open, so an armed
+     button never fades into the panel. */
+  #boss:not(:disabled) { border-color: #b06fff; color: #c08aff; background: rgba(48, 16, 78, 0.35); }
   button:focus-visible, textarea:focus-visible, input:focus-visible,
   summary:focus-visible {
     outline: 2px solid var(--cyan); outline-offset: 2px;
