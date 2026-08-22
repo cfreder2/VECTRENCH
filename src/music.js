@@ -93,8 +93,13 @@ export class Music {
       : null;
     this.bassRoots = song.bass.map((n) => (n ? midi(n) : null));
     this.drums = song.drums;
+    this.drumsFrom = song.drumsFrom || 0;
     this.mix = { ...MIX, ...(song.mix || {}) };
     this.total = this.lead.length;
+    // A song may open with bars that play once and are never heard again. That
+    // is what an opening theme is: it arrives from somewhere before it settles
+    // into the part that repeats.
+    this.loopStep = (song.loopFrom || 0) * song.beats;
     this.step = 0;
   }
 
@@ -139,7 +144,8 @@ export class Music {
     if (this.next < now) this.next = now + 0.02;
     while (this.next < now + LOOKAHEAD) {
       this._emit(this.step, this.next);
-      this.step = (this.step + 1) % this.total;
+      this.step += 1;
+      if (this.step >= this.total) this.step = this.loopStep;
       this.next += this.stepTime;
     }
   }
@@ -189,10 +195,12 @@ export class Music {
       }
     }
 
-    const hit = this.drums[beat % this.drums.length];
+    // A song may hold its drums back for a bar or two, which is most of what
+    // makes an opening feel like it is arriving rather than already going.
+    const hit = bar < this.drumsFrom ? '.' : this.drums[beat % this.drums.length];
     if (hit === 'k') this._kick(t);
     else if (hit === 'h') this._hat(t);
-    else if (beat % 2 === 0) this._hat(t, 0.025);
+    else if (beat % 2 === 0 && bar >= this.drumsFrom) this._hat(t, 0.025);
   }
 
   /**

@@ -156,7 +156,66 @@ export const SONGS = {
     drums: 'k..hk..hk..hk..h',
     mix: { lead: 0.26, under: 0.085, arp: 0.055, bass: 0.16, sub: 0.07 },
   },
+  /**
+   * ANTHEM. The opening-theme shape: a melody in long notes with big intervals,
+   * carried over an arpeggio going four times as fast. That contrast is the
+   * whole trick -- the tune sounds unhurried and enormous precisely because
+   * something underneath it is sprinting.
+   *
+   * A minor, and the progression is the heroic one: i VI III VII, which is four
+   * chords that keep rising away from the tonic instead of settling onto it.
+   * The second half turns to iv and the dominant so the loop lands rather than
+   * merely coming round again.
+   *
+   * The first two bars play once and never return. An opening arrives from
+   * somewhere: bare octaves on the bass, no drums, the arpeggio starting alone,
+   * and then the theme.
+   */
+  anthem: {
+    name: 'ANTHEM',
+    bpm: 152,
+    beats: 16,
+    loopFrom: 2,          // bars 1-2 are the way in; the loop is bars 3-10
+    drumsFrom: 1,         // and the drums arrive a bar after the arpeggio does
+    lead: [
+      '-  -  -  -  -  -  -  -  -  -  -  -  a4 .  b4 . ',
+      'c5 .  .  .  .  .  .  .  e5 .  .  .  .  .  g5 . ',
+      'a5 .  .  .  .  .  g5 .  e5 .  .  .  .  .  .  . ',
+      'f5 .  .  .  .  .  .  .  e5 .  d5 .  c5 .  .  . ',
+      'e5 .  .  .  g5 .  .  .  .  .  a5 .  g5 .  e5 . ',
+      'd5 .  .  .  .  .  .  .  b4 .  d5 .  g5 .  .  . ',
+      'a5 .  .  .  .  .  .  .  f5 .  a5 .  .  .  .  . ',
+      'g5 .  .  .  e5 .  .  .  a5 .  .  .  .  .  .  . ',
+      'f5 .  .  .  e5 .  d5 .  c5 .  d5 .  e5 .  .  . ',
+      'b4 .  .  .  d5 .  .  .  e5 .  .  .  .  .  .  . ',
+    ],
+    // A sixth or a third under, which is how two pulse channels were made to
+    // sound like a brass section on hardware that had two pulse channels.
+    lead2: [
+      '-  -  -  -  -  -  -  -  -  -  -  -  -  -  -  - ',
+      'a4 .  .  .  .  .  .  .  c5 .  .  .  .  .  e5 . ',
+      'e5 .  .  .  .  .  e5 .  c5 .  .  .  .  .  .  . ',
+      'c5 .  .  .  .  .  .  .  c5 .  a4 .  a4 .  .  . ',
+      'c5 .  .  .  e5 .  .  .  .  .  e5 .  e5 .  c5 . ',
+      'b4 .  .  .  .  .  .  .  g4 .  b4 .  d5 .  .  . ',
+      'f5 .  .  .  .  .  .  .  d5 .  f5 .  .  .  .  . ',
+      'e5 .  .  .  c5 .  .  .  e5 .  .  .  .  .  .  . ',
+      'a4 .  .  .  a4 .  a4 .  a4 .  b4 .  c5 .  .  . ',
+      'g#4 . .  .  b4 .  .  .  b4 .  .  .  .  .  .  . ',
+    ],
+    arp: ['am', 'am', 'am', 'f', 'c', 'g', 'dm', 'am', 'f', 'e7'],
+    // Nothing under the first bar at all: the arpeggio starts it alone.
+    bass: [null, 'a2', 'a2', 'f2', 'c3', 'g2', 'd3', 'a2', 'f2', 'e2'],
+    // Nothing under the first bar: the drums arrive with the theme.
+    drums: 'k..hk.h.k..hk.h.',
+    // Long notes put less energy in the melody band than a busy lead does --
+    // measured, the first mix left the tune at 40.8% of what the ear hears
+    // against about 70 for the other two. The lead comes up and the parts
+    // running underneath it come down.
+    mix: { lead: 0.36, under: 0.085, arp: 0.055, bass: 0.13, sub: 0.055 },
+  },
 };
+
 
 /**
  * How loud each voice sits, per song, because the balance is part of the

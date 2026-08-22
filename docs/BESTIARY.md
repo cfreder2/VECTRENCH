@@ -379,12 +379,18 @@ than more voices:
 | --- | --- | --- |
 | `bumblebee` | 160bpm, 2/4 | Rimsky-Korsakov at the score's tempo. No arpeggio — the lead never stops long enough for one |
 | `water` | 132bpm, A minor | i–VI–v–III–V7–iv–V7 over a running sixteenth arpeggio. Eight bars that sink for four and climb back out for four. Long held notes, vibrato, the bass out of the way |
+| `anthem` | 152bpm, A minor | The opening-theme shape: long notes with big intervals over an arpeggio going four times as fast. The tune sounds unhurried and enormous *because* something underneath it is sprinting. i–VI–III–VII, the heroic progression, which keeps rising away from the tonic instead of settling on it. Its first two bars play once and never return — `loopFrom` — and the drums arrive a bar after the arpeggio does |
 | `fire` | 172bpm, E minor | The opposite choice in every respect: hammered rather than flowing, stabs rather than song, four on the floor. Its dominant is a **B7**, which carries a D♯ — the raised seventh of the harmonic minor, a semitone off the tonic and unwilling to sit still. That one note is what makes a stage sound hot rather than merely dark |
 
-Both written ones are checked as music before anyone hears them: every bar the
-right length, the lead inside a singing octave, and the strong beats landing on
-chord tones — 53% for `water`, which floats, and 87% for `fire`, which does not.
-That check caught two wrong chords in `water`, one of them a tritone.
+All three written ones are checked as music before anyone hears them: every bar
+the right length, the lead inside a singing octave, and the strong beats landing
+on chord tones — 53% for `water`, which floats, against 87% for `fire` and 86%
+for `anthem`, which do not. That check caught two wrong chords in `water`, one
+of them a tritone.
+
+The average lead note says what a theme is as clearly as its tempo does:
+5.0 sixteenths for `anthem`, which sings, and short stabs for `fire`, which
+hammers.
 
 ## The ship
 
