@@ -375,28 +375,43 @@ than more voices:
 | **a walking bass** | roots on the beat is a metronome; a bass that moves is a part |
 | **per-song mix** | the balance is part of the writing. A theme carried by its bass and one carried by its lead do not want the same one |
 | **pulse width** | the voices are pulse waves of a chosen duty, built as PeriodicWaves. A 50% pulse has *no even harmonics* — it is the hollow one. 25% is reedy, 12.5% is thin and nasal, and those are what a chip lead is actually made of. Giving the lead and the harmony different duties is also what stops two pulse voices fusing into one |
+| **a written bass** | a song may carry `bassLine` — the bass part written out bar by bar like the lead — instead of `bass` roots the engine walks itself. The gallop is a written figure, not a setting |
+| **fills** | `drums` may be a list, one pattern per bar. One pattern is a loop; a list is a drummer, and a fill at a section's end is what makes the next section arrive |
+| **sweeps** | a note ending in `/` rises and `\` falls, stepped the way the 2A03's sweep unit stepped — a fixed fraction of the period per tick, so the slide covers the same interval wherever it starts. The alarm and the dive-bomb |
 
 **How this compares to the hardware it imitates.** More capable than the NES in
-most respects: any number of simultaneous voices against its five, smooth volume
-envelopes against its sixteen steps, real filters where it had none, and correct
-pitch anywhere on the keyboard where its high notes went out of tune. It was
-behind in exactly one way that mattered — a fixed 50% square — and that is what
-the duty cycles fix. What the hardware still has that this does not is the
-periodic-noise mode, a metallic pitched buzz used for percussion, and the sweep
-unit's hardware pitch slides.
+most respects: any number of simultaneous voices against its five, real filters
+where it had none. And as of [`src/nes.js`](../src/nes.js), everything the 2A03
+did that a browser oscillator cannot is emulated by construction, not by ear —
+so the parity now runs in both directions:
+
+| the hardware's trick | how it is done here |
+| --- | --- |
+| the noise channel is a 15-bit shift register, not white noise | the register itself, clocked and fed back exactly, rendered to a buffer. `h` in a drum pattern is the long mode |
+| its *short mode* repeats every 93 bits — a pitched, metallic rasp | the same register with the tap moved to bit 6, measured 0.85 self-correlated at 93 clocks: a real ~300Hz tone. `m` in a drum pattern |
+| the triangle is a staircase of 32 levels, with a rasp a smooth ramp lacks | the staircase's own Fourier series as a PeriodicWave, so the browser band-limits the corners per note |
+| the sweep unit slides pitch by a fraction of the period per tick | `sweepPoints()`, scheduled as steps, never eased — the steps are the sound |
+| the envelope is 4-bit: fifteen audible steps down | in authentic mode (the default) note decays are that staircase, not a smooth ramp |
+| the period register is 11 bits, so pitch is a grid — 0.1 cents off at A2, **14.5 cents** at C7 | every note is snapped to that grid, which is where the era's slightly sour top octave comes from |
+
+A song may opt out with `authentic: false` and play on the modern smooth grid;
+none do.
 
 | Song | | |
 | --- | --- | --- |
 | `bumblebee` | 160bpm, 2/4 | Rimsky-Korsakov at the score's tempo. No arpeggio — the lead never stops long enough for one |
 | `water` | 132bpm, A minor | i–VI–v–III–V7–iv–V7 over a running sixteenth arpeggio. Eight bars that sink for four and climb back out for four. Long held notes, vibrato, the bass out of the way |
 | `anthem` | 152bpm, A minor | The opening-theme shape: long notes with big intervals over an arpeggio going four times as fast. The tune sounds unhurried and enormous *because* something underneath it is sprinting. i–VI–III–VII, the heroic progression, which keeps rising away from the tonic instead of settling on it. Its first two bars play once and never return — `loopFrom` — and the drums arrive a bar after the arpeggio does |
-| `fire` | 172bpm, E minor | The opposite choice in every respect: hammered rather than flowing, stabs rather than song, four on the floor. Its dominant is a **B7**, which carries a D♯ — the raised seventh of the harmonic minor, a semitone off the tonic and unwilling to sit still. That one note is what makes a stage sound hot rather than merely dark |
+| `fire` | 176bpm, E minor | Sixteen bars with a form, not a loop: a two-bar alarm of rising hardware sweeps that plays once, a driving 3+3+2 theme stated bare then restated with its harmony, a chorus lifting to the relative major, and a climax that runs down the octave at full speed and dive-bombs back into the loop on a falling sweep. The bass is a written gallop — root, rest, root, octave — that walks into every chord change; the drums fill into each section and go double-time under the run, metallic short-register noise ticking through the groove. Its dominant is still a **B7** carrying the D♯ of the harmonic minor, and the chorus's biggest note is a ♭9 over it |
 
 All three written ones are checked as music before anyone hears them: every bar
 the right length, the lead inside a singing octave, and the strong beats landing
-on chord tones — 53% for `water`, which floats, against 87% for `fire` and 86%
-for `anthem`, which do not. That check caught two wrong chords in `water`, one
-of them a tritone.
+on chord tones. The audit on `fire` flags exactly two deliberate moments — the
+♭9 over the dominant and one 85ms passing tone brushing the harmony pad in the
+climax run — and nothing else, which is what clean voice-leading looks like to a
+program. The mix is measured, not guessed: rendered voice by voice and A-weighted,
+the lead carries 39% of what the ear hears, the bass 21, and the shimmer parts sit
+behind both.
 
 The average lead note says what a theme is as clearly as its tempo does:
 5.0 sixteenths for `anthem`, which sings, and short stabs for `fire`, which

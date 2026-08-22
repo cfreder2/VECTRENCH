@@ -4819,19 +4819,161 @@ function fitOf(track, L) {
   return track._fit;
 }
 
+// ---- nes.js --------------------------------------------------------
+// The parts of the NES's sound hardware that a plain oscillator cannot do.
+//
+// Everything else about this synth is ahead of the 2A03 -- unlimited voices,
+// smooth envelopes, real filters, correct pitch -- so parity is not a matter of
+// catching up in general. It is four specific things the hardware did that a
+// browser oscillator has no equivalent for, and each of them is audible:
+//
+//   the noise channel      is not white noise. It is a shift register, and in
+//                          its short mode it repeats every 93 bits, which the
+//                          ear hears as a pitch. That is the metallic buzz.
+//   the triangle           is not a triangle. It is a staircase of sixteen
+//                          levels up and sixteen down, and the corners of those
+//                          steps are why it has a rasp a pure triangle lacks.
+//   the sweep unit         slid a channel's pitch in hardware, by halving or
+//                          adding a fraction of its period on a timer.
+//   the period register    is eleven bits, so pitch is quantised -- and coarsely
+//                          at the top of the range, where a semitone can be
+//                          fewer than one step wide.
+
+const CPU_HZ = 1789773;         // NTSC 2A03 clock
+
+/** The noise channel's sixteen periods, in CPU cycles. Index 0 is the highest. */
+const NOISE_PERIODS = [
+  4, 8, 16, 32, 64, 96, 128, 160, 202, 254, 380, 508, 762, 1016, 2034, 4068,
+];
+
+/**
+ * The noise channel, as an audio buffer.
+ *
+ * A fifteen-bit shift register, clocked at the chosen period, feeding back bit
+ * 0 exclusive-ored with bit 1 -- or with bit 6 in short mode, which shortens
+ * the sequence from 32767 steps to 93 and turns hiss into a pitched, metallic
+ * rasp. The output is bit 0, inverted.
+ */
+function lfsrBuffer(ctx, { short = false, period = 8, seconds = 1 } = {}) {
+  const rate = CPU_HZ / period;              // shift register clocks a second
+  const len = Math.max(1, Math.floor(ctx.sampleRate * seconds));
+  const buf = ctx.createBuffer(1, len, ctx.sampleRate);
+  const out = buf.getChannelData(0);
+  let reg = 1;
+  let acc = 0;
+  const per = ctx.sampleRate / rate;         // samples per shift
+  let level = 1;
+  for (let i = 0; i < len; i++) {
+    acc += 1;
+    while (acc >= per) {
+      acc -= per;
+      const bit = (reg ^ (reg >> (short ? 6 : 1))) & 1;
+      reg = (reg >> 1) | (bit << 14);
+      level = (reg & 1) ? -1 : 1;
+    }
+    out[i] = level;
+  }
+  return buf;
+}
+
+/**
+ * The triangle channel's actual waveform: a staircase of 32 levels, not a
+ * smooth ramp. Built as a PeriodicWave from the steps' own Fourier series, so
+ * the browser band-limits it per note and the corners stay clean.
+ */
+function stepTriangle(ctx) {
+  if (ctx._nesTriangle) return ctx._nesTriangle;
+  const STEPS = 32, N = 64;
+  const shape = new Float32Array(STEPS);
+  for (let i = 0; i < STEPS; i++) {
+    const v = i < 16 ? i : 31 - i;           // 0..15 up, 15..0 down
+    shape[i] = (v / 7.5) - 1;                // to -1..1
+  }
+  const real = new Float32Array(N + 1);
+  const imag = new Float32Array(N + 1);
+  for (let n = 1; n <= N; n++) {
+    let re = 0, im = 0;
+    for (let i = 0; i < STEPS; i++) {
+      const a = (2 * Math.PI * n * i) / STEPS;
+      re += shape[i] * Math.cos(a);
+      im -= shape[i] * Math.sin(a);
+    }
+    real[n] = (2 / STEPS) * re;
+    imag[n] = (2 / STEPS) * im;
+  }
+  ctx._nesTriangle = ctx.createPeriodicWave(real, imag, { disableNormalization: false });
+  return ctx._nesTriangle;
+}
+
+/**
+ * A frequency as the hardware could actually have played it.
+ *
+ * The pulse channels divide the CPU clock by a eleven-bit period, so the
+ * playable pitches are a fixed grid that gets coarse at the top: around C7 the
+ * gap between one period and the next is most of a semitone, which is why NES
+ * music so often sounds slightly sour up there.
+ */
+function quantize(f) {
+  if (!(f > 0)) return f;
+  const period = Math.round(CPU_HZ / (16 * f)) - 1;
+  if (period < 8) return CPU_HZ / (16 * 9);   // the hardware mutes below this
+  if (period > 2047) return f;
+  return CPU_HZ / (16 * (period + 1));
+}
+
+/** How far off the wanted pitch that grid puts you, in cents. */
+function quantizeError(f) {
+  return 1200 * Math.log2(quantize(f) / f);
+}
+
+/**
+ * The sweep unit: the pitch slide, in hardware.
+ *
+ * Every tick it adds or subtracts the period shifted right by `shift`, which is
+ * a change of a fixed *fraction* -- so a slide covers the same musical interval
+ * wherever it starts, and accelerates in Hz as it rises. Returned as a list of
+ * (time, frequency) points to schedule, because that is the shape, and easing
+ * smoothly between the endpoints is not.
+ */
+function sweepPoints(f0, { up = true, shift = 4, ticks = 8, rate = 120 }) {
+  const pts = [];
+  let period = CPU_HZ / (16 * f0) - 1;
+  for (let i = 0; i < ticks; i++) {
+    const delta = Math.floor(period) >> shift;
+    period += up ? -delta : delta;
+    if (period < 8 || period > 2047) break;
+    pts.push({ t: (i + 1) / rate, f: CPU_HZ / (16 * (period + 1)) });
+  }
+  return pts;
+}
+
+/** The envelope's fifteen steps, as the hardware counted them down. */
+function envelopeSteps(peak, ticks = 15) {
+  const out = [];
+  for (let i = 0; i < ticks; i++) out.push((peak * (ticks - i)) / ticks);
+  return out;
+}
+
 // ---- songs.js ------------------------------------------------------
 // The score book: one song per level.
 //
 // The synth this plays through is the NES's, near enough -- two pulse voices, a
 // triangle, and noise -- which is the palette every Mega Man stage was written
 // for. What made those tracks sound bigger than four voices was never more
-// instruments; it was technique. Three of them, all here:
+// instruments; it was technique. All of it is here:
 //
 //   arpeggios     a chord is not a chord, it is one voice cycling three notes
 //                 faster than the ear separates them. It is where the shimmer
 //                 comes from, and it costs one channel instead of three.
 //   vibrato       a held note that does not waver sounds like a test tone.
-//   a bass line   roots on the beat is a metronome. A bass that walks is a part.
+//   a bass line   roots on the beat is a metronome. A bass that walks is a
+//                 part -- and a song may write its own with `bassLine`, bar by
+//                 bar, which is how a gallop gets written.
+//   fills         `drums` as a list is one pattern per bar: a drummer, not a
+//                 loop. `k` kick, `h` hat, `x` a hard hit, `m` the metallic
+//                 short-register noise.
+//   sweeps        a note ending in / rises and \ falls, stepped the way the
+//                 hardware's sweep unit stepped. The siren and the dive-bomb.
 //
 // A song is data. Bars are strings of note names, one token per sixteenth, `.`
 // to hold and `-` to rest -- so the shape of a phrase is visible in the source
@@ -4937,49 +5079,128 @@ const SONGS = {
   },
 
   /**
-   * FIRE. The opposite of the water stage in every choice: fast where that
-   * flows, hammered where that drifts, and short notes where that holds.
+   * FIRE. Written like the stage themes worth stealing from: not a loop, a
+   * song. Sixteen bars in E minor at 176 -- a two-bar alarm that plays once,
+   * a driving theme stated bare and then restated with its harmony, a chorus
+   * that lifts to the relative major and soars, and a climax that runs down
+   * the harmonic minor and dive-bombs back into the loop.
    *
-   * E minor, but the dominant is a B7 -- which carries a D sharp, the raised
-   * seventh of the harmonic minor. That one note is what makes a stage sound
-   * hot rather than merely dark: it is a semitone from the tonic and it will
-   * not sit still. The bar before every return to E minor leans on it.
+   * What it leans on, by voice:
    *
-   * The lead is rhythm rather than song. Stabs and runs, nothing held longer
-   * than a beat except at the end of a phrase, so there is no room to breathe.
+   *   lead     duty 12.5% -- the siren -- with hardware sweeps: the intro
+   *            alarms rise (/) and the bar-16 dive falls (\). The theme is a
+   *            3+3+2 cell, the engine of every driving chip track: it pulls
+   *            against the beat without ever losing it.
+   *   lead2    silent for the first statement, harmony from the restatement
+   *            on -- thirds and sixths below, the two-pulses-as-a-section
+   *            trick. It even dives in parallel at the end.
+   *   bass     written out, not generated: the gallop -- root, rest, root,
+   *            octave -- with a walk at every corner so each chord change is
+   *            arrived at, not jumped to. The intro pounds quarters, then
+   *            eighths, then sixteenths: a launch ramp.
+   *   drums    a different bar where it matters: fills into each section,
+   *            metallic short-register noise ticking through the groove,
+   *            double-time under the climax run.
+   *
+   * The D sharp is still the hottest note in it -- the raised seventh, a
+   * semitone off the tonic -- and the whole last bar leans on it.
    */
   fire: {
     name: 'FIRE',
-    bpm: 172,
+    bpm: 176,
     beats: 16,
+    loopFrom: 2,          // the alarm plays once; the loop is bars 3-16
     lead: [
-      'e5 .  d5 .  e5 .  g5 .  b5 .  .  .  a5 g5 f#5 . ',
-      'e5 .  d5 .  e5 .  b4 .  e5 .  .  .  -  -  -  - ',
-      'g5 .  f5 .  e5 .  c5 .  g5 .  .  .  f5 e5 d5 . ',
-      'd#5 . e5 .  f#5 .  d#5 .  b4 .  .  .  -  -  -  - ',
-      'e5 .  g5 .  b5 .  a5 .  b5 .  g5 .  e5 .  b4 . ',
-      'a5 .  .  .  g5 .  e5 .  c5 .  e5 .  a5 .  .  . ',
-      'b5 .  a5 .  g5 .  f5 .  e5 .  d5 .  c5 .  b4 . ',
-      'b4 .  d#5 .  f#5 .  b5 .  b5 .  .  .  .  .  .  . ',
+      // The alarm: three rising sweeps, the third tumbling down a run that
+      // lands on the theme's doorstep.
+      'e5/ .  .  .  -  -  -  -  g5/ .  .  .  -  -  -  - ',
+      'b5/ .  .  .  b5 a5 g5 f#5 e5 d#5 e5 d#5 b4 .  d#5 . ',
+      // A: the 3+3+2 cell, stated bare.
+      'e5 .  .  g5 .  .  b5 .  .  .  a5 .  g5 .  a5 . ',
+      'b5 .  .  .  .  .  .  .  g5 .  e5 .  g5 .  b4 . ',
+      'c5 .  .  e5 .  .  g5 .  .  .  a5 .  g5 .  e5 . ',
+      'f#5 .  .  d#5 .  .  b4 .  .  .  f#5 .  a5 .  b5 . ',
+      // A restated, harmony underneath now, the tail climbing instead.
+      'e5 .  .  g5 .  .  b5 .  .  .  a5 .  g5 .  a5 . ',
+      'b5 .  .  .  .  .  .  .  c6 .  b5 .  a5 .  g5 . ',
+      'a5 .  .  g5 .  .  e5 .  .  .  g5 .  a5 .  b5 . ',
+      'b5 .  .  .  .  .  a5 .  f#5 .  d#5 .  b4 .  c5 d5 ',
+      // B: the lift. Long notes, big intervals, the relative major.
+      'e5 .  .  .  .  .  .  .  g5 .  .  .  .  .  a5 . ',
+      'b5 .  .  .  .  .  .  .  a5 .  .  .  f#5 .  d5 . ',
+      'g5 .  .  .  .  .  b5 .  d6 .  .  .  .  .  b5 . ',
+      'c6 .  .  .  b5 .  a5 .  f#5 .  .  .  d#5 .  f#5 . ',
+      // The climax: down the octave at full speed, back up the arpeggio,
+      // and a dive-bomb on the dominant into the loop.
+      'b5 a5 g5 f#5 e5 d5 c5 b4 a4 .  c5 .  e5 .  a5 . ',
+      'b5\\ .  .  .  .  .  .  .  -  -  -  -  b4 .  d#5 . ',
     ],
     lead2: [
-      'b4 .  a4 .  b4 .  e5 .  g5 .  .  .  e5 d5 b4 . ',
-      'b4 .  a4 .  b4 .  g4 .  b4 .  .  .  -  -  -  - ',
-      'e5 .  d5 .  c5 .  g4 .  e5 .  .  .  d5 c5 b4 . ',
-      'f#4 . g4 .  b4 .  f#4 .  f#4 .  .  .  -  -  -  - ',
-      'b4 .  e5 .  g5 .  e5 .  g5 .  e5 .  b4 .  g4 . ',
-      'e5 .  .  .  e5 .  c5 .  a4 .  c5 .  e5 .  .  . ',
-      'g5 .  f5 .  e5 .  d5 .  c5 .  b4 .  a4 .  g4 . ',
-      'f#4 . b4 .  d#5 .  f#5 .  f#5 .  .  .  .  .  .  . ',
+      '-  -  -  -  -  -  -  -  -  -  -  -  -  -  -  - ',
+      '-  -  -  -  -  -  -  -  -  -  -  -  -  -  -  - ',
+      '-  -  -  -  -  -  -  -  -  -  -  -  -  -  -  - ',
+      'g5 .  .  .  .  .  .  .  e5 .  c5 .  e5 .  g4 . ',
+      '-  -  -  -  -  -  -  -  -  -  -  -  -  -  -  - ',
+      'd#5 .  .  b4 .  .  f#4 .  .  .  d#5 .  f#5 .  g5 . ',
+      'g4 .  .  b4 .  .  g5 .  .  .  f#5 .  e5 .  f#5 . ',
+      'g5 .  .  .  .  .  .  .  a5 .  g5 .  f#5 .  e5 . ',
+      'e5 .  .  e5 .  .  c5 .  .  .  e5 .  f#5 .  g5 . ',
+      'f#5 .  .  .  .  .  f#5 .  d#5 .  b4 .  f#4 .  a4 b4 ',
+      'c5 .  .  .  .  .  .  .  e5 .  .  .  .  .  f#5 . ',
+      'd5 .  .  .  .  .  .  .  f#5 .  .  .  d5 .  a4 . ',
+      'b4 .  .  .  .  .  d5 .  g5 .  .  .  .  .  g5 . ',
+      'a5 .  .  .  f#5 .  f#5 .  d#5 .  .  .  b4 .  d#5 . ',
+      'c5 .  .  .  .  .  .  .  e5 .  .  .  .  .  .  . ',
+      'f#5\\ .  .  .  .  .  .  .  -  -  -  -  g4 .  a4 . ',
     ],
-    arp: ['em', 'em', 'c', 'b7', 'em', 'am', 'c', 'b7'],
-    bass: ['e2', 'e2', 'c3', 'b2', 'e2', 'a2', 'c3', 'b2'],
-    // Four on the floor. A stage that is on fire does not have a backbeat.
-    drums: 'k..hk..hk..hk..h',
-    // The thinnest lead there is. A stage on fire should sound like a siren,
-    // not a clarinet.
+    arp: ['em', 'em', 'em', 'em', 'c', 'b7', 'em', 'em', 'c', 'b7',
+      'c', 'd', 'g', 'b7', 'am', 'b7'],
+    // The gallop, written out. Root - rest - root - octave, and a walk into
+    // every chord change: the corner is approached, never jumped.
+    bassLine: [
+      'e2 .  .  .  e2 .  .  .  e2 .  .  .  e2 .  .  . ',
+      'e2 .  e2 .  e2 .  e2 .  e2 .  e2 .  e2 e2 e2 e2 ',
+      'e2 .  e2 e3 e2 .  e2 e3 e2 .  e2 e3 e2 .  e2 e3 ',
+      'e2 .  e2 e3 e2 .  e2 e3 e2 .  g2 .  a2 .  b2 . ',
+      'c3 .  c3 c4 c3 .  c3 c4 c3 .  c3 c4 c3 .  c3 c4 ',
+      'b2 .  b2 b3 b2 .  a2 .  g2 .  f#2 .  e2 .  d#2 . ',
+      'e2 .  e2 e3 e2 .  e2 e3 e2 .  e2 e3 e2 .  e2 e3 ',
+      'e2 .  e2 e3 e2 .  e2 e3 g2 .  g2 g3 a2 .  b2 . ',
+      'c3 .  c3 c4 c3 .  c3 c4 c3 .  c3 c4 a2 .  b2 . ',
+      'b2 .  b2 b3 b2 .  b2 b3 b2 .  a2 .  g2 .  a2 b2 ',
+      'c3 .  c3 c4 c3 .  c3 c4 c3 .  c3 c4 c3 .  d3 . ',
+      'd3 .  d3 d4 d3 .  d3 d4 d3 .  d3 d4 d3 .  e3 f#3 ',
+      'g2 .  g2 g3 g2 .  g2 g3 g2 .  g2 g3 a2 .  b2 . ',
+      'b2 .  b2 b3 b2 .  b2 b3 b2 .  b2 b3 b2 .  a2 . ',
+      'a2 .  a2 a3 a2 .  a2 a3 a2 .  a2 a3 g2 .  a2 . ',
+      'b2 .  b2 b3 b2 .  b2 .  b2 .  a2 .  g2 .  f#2 d#2 ',
+    ],
+    bass: null,           // the written line above replaces the generator
+    // One bar of drums per bar of song: quarters under the alarm, a snare
+    // ramp, then kick on one and three, snare on two and four, the metallic
+    // short-mode noise ticking sixteenths between -- with a fill at the end
+    // of every section and double-time under the climax run.
+    drums: [
+      'k...k...k...k...',
+      'k...k...x.x.x.xx',
+      'k.mhx.mhk.mhx.mh',
+      'k.mhx.mhk.mhx.mh',
+      'k.mhx.mhk.mhx.mh',
+      'k.mhx.mhk.x.x.xx',
+      'k.mhx.mhk.mhx.mh',
+      'k.mhx.mhk.mhx.mh',
+      'k.mhx.mhk.mhx.mh',
+      'k.mhx.mhx.x.xxxx',
+      'k..hx..hk..hx..h',
+      'k..hx..hk..hx..h',
+      'k..hx..hk..hx..h',
+      'k..hx..hk.x.x.x.',
+      'k.x.k.x.k.x.k.x.',
+      'k...x.......x.xx',
+    ],
+    // The siren lead, the reedy harmony.
     duty: { lead: 0.125, under: 0.25, arp: 0.5, bass: 0.5 },
-    mix: { lead: 0.26, under: 0.085, arp: 0.055, bass: 0.16, sub: 0.07 },
+    mix: { lead: 0.34, under: 0.09, arp: 0.032, bass: 0.115, sub: 0.065 },
   },
   /**
    * ANTHEM. The opening-theme shape: a melody in long notes with big intervals,
@@ -5076,11 +5297,12 @@ const songFor = (name) => SONGS[name] || SONGS.bumblebee;
 
 
 
+
 const SEMI = { c: 0, 'c#': 1, d: 2, 'd#': 3, e: 4, f: 5, 'f#': 6, g: 7, 'g#': 8, a: 9, 'a#': 10, b: 11 };
 
-/** 'a#4' -> MIDI number. */
+/** 'a#4' -> MIDI number. A trailing / or \\ is a sweep and is stripped here. */
 const midi = (name) => {
-  const m = /^([a-g]#?)(-?\d)$/.exec(name);
+  const m = /^([a-g]#?)(-?\d)[/\\]?$/.exec(name);
   return m ? SEMI[m[1]] + (+m[2] + 1) * 12 : null;
 };
 
@@ -5106,7 +5328,7 @@ function parseVoice(bars, beats) {
       if (tok === '-') { last = null; continue; }
       const n = midi(tok);
       if (n === null) { last = null; continue; }
-      last = { note: n, steps: 1 };
+      last = { note: n, steps: 1, sweep: tok.endsWith('/') ? 1 : tok.endsWith('\\') ? -1 : 0 };
       row[i] = last;
     }
     out.push(...row);
@@ -5146,7 +5368,12 @@ class Music {
   /** @param noise a looping-safe noise buffer, shared with the sound effects. */
   constructor(ctx, dest, noise) {
     this.ctx = ctx;
-    this.noise = noise;
+    // The noise channel is a shift register, not a hiss. Long mode is the one
+    // that sounds like noise; short mode repeats every 93 bits, which the ear
+    // hears as a pitch -- the metallic rasp the hardware is known for.
+    this.noiseLong = lfsrBuffer(ctx, { short: false, period: 32, seconds: 1 });
+    this.noiseShort = lfsrBuffer(ctx, { short: true, period: 64, seconds: 1 });
+    this.noise = noise || this.noiseLong;
     this.setSong('bumblebee');
     this.enabled = true;
     this.playing = false;
@@ -5182,11 +5409,20 @@ class Music {
     this.arp = song.arp
       ? song.arp.map((c) => (CHORDS[c] || c).split(/\s+/).map(midi))
       : null;
-    this.bassRoots = song.bass.map((n) => (n ? midi(n) : null));
-    this.drums = song.drums;
+    this.bassRoots = song.bass ? song.bass.map((n) => (n ? midi(n) : null)) : [];
+    // A written bass line outranks the generated root-and-fifth. Roots on the
+    // beat is a metronome; the tracks worth stealing from all have a bass that
+    // is a part, and a part has to be written.
+    this.bassLine = song.bassLine ? parseVoice(song.bassLine, song.beats) : null;
+    // One pattern is a loop. A list of patterns, one per bar, is a drummer --
+    // it is where fills come from, and a fill is what makes a section arrive.
+    this.drums = Array.isArray(song.drums) ? song.drums : [song.drums];
     this.drumsFrom = song.drumsFrom || 0;
     this.mix = { ...MIX, ...(song.mix || {}) };
     this.duty = { ...DUTY, ...(song.duty || {}) };
+    // Authentic mode puts the pitch back on the hardware's eleven-bit grid and
+    // counts the envelope down in fifteen steps rather than easing it.
+    this.authentic = song.authentic !== false;
     this.total = this.lead.length;
     // A song may open with bars that play once and are never heard again. That
     // is what an opening theme is: it arrives from somewhere before it settles
@@ -5256,8 +5492,8 @@ class Music {
       const tilt = f > 500 ? Math.max(0.6, 1 - (f - 500) / 1500) : 1;
       const cut = Math.min(3200, Math.max(1100, f * 2.4));
       const dur = step * (lead.steps - 0.08);
-      this._pulse(f, t, dur, this.mix.lead * tilt, this.duty.lead, cut, dur > 0.26);
-      this._pulse(f / 2, t, dur, this.mix.sub, 'triangle', 1400);
+      this._pulse(f, t, dur, this.mix.lead * tilt, this.duty.lead, cut, dur > 0.26, lead.sweep);
+      this._pulse(f / 2, t, dur, this.mix.sub, 'nes-triangle', 1400);
     }
 
     // The second pulse: harmony under the lead, quieter and duller so it reads
@@ -5275,8 +5511,12 @@ class Music {
       this._pulse(hz(chord[i % chord.length] + 12), t, step * 0.85, this.mix.arp, this.duty.arp, 2600);
     }
 
-    // The bass: root, then its fifth halfway through the bar.
-    const root = this.bassRoots[bar % this.bassRoots.length];
+    // The bass: a written line when the song has one, root-and-fifth when not.
+    if (this.bassLine) {
+      const b = this.bassLine[i];
+      if (b) this._pulse(hz(b.note), t, step * (b.steps - 0.1), this.mix.bass, this.duty.bass, 900);
+    }
+    const root = this.bassLine ? null : this.bassRoots[bar % this.bassRoots.length];
     if (root != null) {
       const half = this.beats >> 1;
       const quarter = this.beats >> 2;
@@ -5289,9 +5529,12 @@ class Music {
 
     // A song may hold its drums back for a bar or two, which is most of what
     // makes an opening feel like it is arriving rather than already going.
-    const hit = bar < this.drumsFrom ? '.' : this.drums[beat % this.drums.length];
+    const pat = this.drums[bar % this.drums.length];
+    const hit = bar < this.drumsFrom ? '.' : pat[beat % pat.length];
     if (hit === 'k') this._kick(t);
     else if (hit === 'h') this._hat(t);
+    else if (hit === 'x') this._hat(t, 0.11, false);       // a hard white hit
+    else if (hit === 'm') this._hat(t, 0.09, true);        // the metallic one
     else if (beat % 2 === 0 && bar >= this.drumsFrom) this._hat(t, 0.025);
   }
 
@@ -5300,13 +5543,25 @@ class Music {
    * would: a held note that does not waver sounds like a test tone, and a note
    * that wavers from the instant it starts sounds seasick.
    */
-  _pulse(f, t, dur, gain, type, cut = 0, wobble = false) {
+  _pulse(f0, t, dur, gain, type, cut = 0, wobble = false, sweep = 0) {
     const ctx = this.ctx;
     const o = ctx.createOscillator();
-    // A number is a duty cycle; a string is one of the browser's own shapes.
+    // A number is a duty cycle; the triangle is the hardware's staircase rather
+    // than the browser's smooth one; anything else is a plain oscillator shape.
     if (typeof type === 'number') o.setPeriodicWave(pulseWave(ctx, type));
+    else if (type === 'nes-triangle') o.setPeriodicWave(stepTriangle(ctx));
     else o.type = type;
+    const f = this.authentic ? quantize(f0) : f0;
     o.frequency.setValueAtTime(f, t);
+    // The sweep unit: the period changes by a fraction of itself on a timer, so
+    // a slide covers the same interval wherever it starts. Stepped, not eased --
+    // the steps are the sound.
+    if (sweep) {
+      for (const pt of sweepPoints(f, { up: sweep > 0, shift: 4, ticks: 10 })) {
+        if (pt.t > dur) break;
+        o.frequency.setValueAtTime(this.authentic ? quantize(pt.f) : pt.f, t + pt.t);
+      }
+    }
     if (wobble) {
       const start = t + Math.min(0.16, dur * 0.35);
       const period = 1 / 5.5;
@@ -5317,6 +5572,14 @@ class Music {
     const g = ctx.createGain();
     g.gain.setValueAtTime(0, t);
     g.gain.linearRampToValueAtTime(gain, t + 0.004);
+    if (this.authentic) {
+      // Fifteen steps down, the way a four-bit envelope counted. It is a
+      // staircase, and on a short note you hear the stairs.
+      const steps = envelopeSteps(gain);
+      steps.forEach((v, k) => {
+        g.gain.setValueAtTime(v, t + 0.004 + ((dur - 0.004) * k) / steps.length);
+      });
+    }
     g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
     o.connect(g);
     if (cut) {
@@ -5352,10 +5615,10 @@ class Music {
   }
 
   /** The offbeats: a tick of noise, quiet enough to sit under the gun. */
-  _hat(t, gain = 0.06) {
+  _hat(t, gain = 0.06, metallic = false) {
     const ctx = this.ctx;
     const s = ctx.createBufferSource();
-    s.buffer = this.noise;
+    s.buffer = metallic ? this.noiseShort : this.noiseLong;
     const f = ctx.createBiquadFilter();
     f.type = 'highpass';
     f.frequency.value = 6000;

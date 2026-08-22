@@ -10,12 +10,13 @@
 // milliseconds, and at ten notes a second that is audible.
 
 import { songFor, CHORDS, MIX, DUTY } from './songs.js';
+import { lfsrBuffer, stepTriangle, quantize, sweepPoints, envelopeSteps } from './nes.js';
 
 const SEMI = { c: 0, 'c#': 1, d: 2, 'd#': 3, e: 4, f: 5, 'f#': 6, g: 7, 'g#': 8, a: 9, 'a#': 10, b: 11 };
 
-/** 'a#4' -> MIDI number. */
+/** 'a#4' -> MIDI number. A trailing / or \\ is a sweep and is stripped here. */
 const midi = (name) => {
-  const m = /^([a-g]#?)(-?\d)$/.exec(name);
+  const m = /^([a-g]#?)(-?\d)[/\\]?$/.exec(name);
   return m ? SEMI[m[1]] + (+m[2] + 1) * 12 : null;
 };
 
@@ -41,7 +42,7 @@ function parseVoice(bars, beats) {
       if (tok === '-') { last = null; continue; }
       const n = midi(tok);
       if (n === null) { last = null; continue; }
-      last = { note: n, steps: 1 };
+      last = { note: n, steps: 1, sweep: tok.endsWith('/') ? 1 : tok.endsWith('\\') ? -1 : 0 };
       row[i] = last;
     }
     out.push(...row);
@@ -81,7 +82,12 @@ export class Music {
   /** @param noise a looping-safe noise buffer, shared with the sound effects. */
   constructor(ctx, dest, noise) {
     this.ctx = ctx;
-    this.noise = noise;
+    // The noise channel is a shift register, not a hiss. Long mode is the one
+    // that sounds like noise; short mode repeats every 93 bits, which the ear
+    // hears as a pitch -- the metallic rasp the hardware is known for.
+    this.noiseLong = lfsrBuffer(ctx, { short: false, period: 32, seconds: 1 });
+    this.noiseShort = lfsrBuffer(ctx, { short: true, period: 64, seconds: 1 });
+    this.noise = noise || this.noiseLong;
     this.setSong('bumblebee');
     this.enabled = true;
     this.playing = false;
@@ -117,11 +123,20 @@ export class Music {
     this.arp = song.arp
       ? song.arp.map((c) => (CHORDS[c] || c).split(/\s+/).map(midi))
       : null;
-    this.bassRoots = song.bass.map((n) => (n ? midi(n) : null));
-    this.drums = song.drums;
+    this.bassRoots = song.bass ? song.bass.map((n) => (n ? midi(n) : null)) : [];
+    // A written bass line outranks the generated root-and-fifth. Roots on the
+    // beat is a metronome; the tracks worth stealing from all have a bass that
+    // is a part, and a part has to be written.
+    this.bassLine = song.bassLine ? parseVoice(song.bassLine, song.beats) : null;
+    // One pattern is a loop. A list of patterns, one per bar, is a drummer --
+    // it is where fills come from, and a fill is what makes a section arrive.
+    this.drums = Array.isArray(song.drums) ? song.drums : [song.drums];
     this.drumsFrom = song.drumsFrom || 0;
     this.mix = { ...MIX, ...(song.mix || {}) };
     this.duty = { ...DUTY, ...(song.duty || {}) };
+    // Authentic mode puts the pitch back on the hardware's eleven-bit grid and
+    // counts the envelope down in fifteen steps rather than easing it.
+    this.authentic = song.authentic !== false;
     this.total = this.lead.length;
     // A song may open with bars that play once and are never heard again. That
     // is what an opening theme is: it arrives from somewhere before it settles
@@ -191,8 +206,8 @@ export class Music {
       const tilt = f > 500 ? Math.max(0.6, 1 - (f - 500) / 1500) : 1;
       const cut = Math.min(3200, Math.max(1100, f * 2.4));
       const dur = step * (lead.steps - 0.08);
-      this._pulse(f, t, dur, this.mix.lead * tilt, this.duty.lead, cut, dur > 0.26);
-      this._pulse(f / 2, t, dur, this.mix.sub, 'triangle', 1400);
+      this._pulse(f, t, dur, this.mix.lead * tilt, this.duty.lead, cut, dur > 0.26, lead.sweep);
+      this._pulse(f / 2, t, dur, this.mix.sub, 'nes-triangle', 1400);
     }
 
     // The second pulse: harmony under the lead, quieter and duller so it reads
@@ -210,8 +225,12 @@ export class Music {
       this._pulse(hz(chord[i % chord.length] + 12), t, step * 0.85, this.mix.arp, this.duty.arp, 2600);
     }
 
-    // The bass: root, then its fifth halfway through the bar.
-    const root = this.bassRoots[bar % this.bassRoots.length];
+    // The bass: a written line when the song has one, root-and-fifth when not.
+    if (this.bassLine) {
+      const b = this.bassLine[i];
+      if (b) this._pulse(hz(b.note), t, step * (b.steps - 0.1), this.mix.bass, this.duty.bass, 900);
+    }
+    const root = this.bassLine ? null : this.bassRoots[bar % this.bassRoots.length];
     if (root != null) {
       const half = this.beats >> 1;
       const quarter = this.beats >> 2;
@@ -224,9 +243,12 @@ export class Music {
 
     // A song may hold its drums back for a bar or two, which is most of what
     // makes an opening feel like it is arriving rather than already going.
-    const hit = bar < this.drumsFrom ? '.' : this.drums[beat % this.drums.length];
+    const pat = this.drums[bar % this.drums.length];
+    const hit = bar < this.drumsFrom ? '.' : pat[beat % pat.length];
     if (hit === 'k') this._kick(t);
     else if (hit === 'h') this._hat(t);
+    else if (hit === 'x') this._hat(t, 0.11, false);       // a hard white hit
+    else if (hit === 'm') this._hat(t, 0.09, true);        // the metallic one
     else if (beat % 2 === 0 && bar >= this.drumsFrom) this._hat(t, 0.025);
   }
 
@@ -235,13 +257,25 @@ export class Music {
    * would: a held note that does not waver sounds like a test tone, and a note
    * that wavers from the instant it starts sounds seasick.
    */
-  _pulse(f, t, dur, gain, type, cut = 0, wobble = false) {
+  _pulse(f0, t, dur, gain, type, cut = 0, wobble = false, sweep = 0) {
     const ctx = this.ctx;
     const o = ctx.createOscillator();
-    // A number is a duty cycle; a string is one of the browser's own shapes.
+    // A number is a duty cycle; the triangle is the hardware's staircase rather
+    // than the browser's smooth one; anything else is a plain oscillator shape.
     if (typeof type === 'number') o.setPeriodicWave(pulseWave(ctx, type));
+    else if (type === 'nes-triangle') o.setPeriodicWave(stepTriangle(ctx));
     else o.type = type;
+    const f = this.authentic ? quantize(f0) : f0;
     o.frequency.setValueAtTime(f, t);
+    // The sweep unit: the period changes by a fraction of itself on a timer, so
+    // a slide covers the same interval wherever it starts. Stepped, not eased --
+    // the steps are the sound.
+    if (sweep) {
+      for (const pt of sweepPoints(f, { up: sweep > 0, shift: 4, ticks: 10 })) {
+        if (pt.t > dur) break;
+        o.frequency.setValueAtTime(this.authentic ? quantize(pt.f) : pt.f, t + pt.t);
+      }
+    }
     if (wobble) {
       const start = t + Math.min(0.16, dur * 0.35);
       const period = 1 / 5.5;
@@ -252,6 +286,14 @@ export class Music {
     const g = ctx.createGain();
     g.gain.setValueAtTime(0, t);
     g.gain.linearRampToValueAtTime(gain, t + 0.004);
+    if (this.authentic) {
+      // Fifteen steps down, the way a four-bit envelope counted. It is a
+      // staircase, and on a short note you hear the stairs.
+      const steps = envelopeSteps(gain);
+      steps.forEach((v, k) => {
+        g.gain.setValueAtTime(v, t + 0.004 + ((dur - 0.004) * k) / steps.length);
+      });
+    }
     g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
     o.connect(g);
     if (cut) {
@@ -287,10 +329,10 @@ export class Music {
   }
 
   /** The offbeats: a tick of noise, quiet enough to sit under the gun. */
-  _hat(t, gain = 0.06) {
+  _hat(t, gain = 0.06, metallic = false) {
     const ctx = this.ctx;
     const s = ctx.createBufferSource();
-    s.buffer = this.noise;
+    s.buffer = metallic ? this.noiseShort : this.noiseLong;
     const f = ctx.createBiquadFilter();
     f.type = 'highpass';
     f.frequency.value = 6000;

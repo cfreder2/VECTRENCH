@@ -3,13 +3,20 @@
 // The synth this plays through is the NES's, near enough -- two pulse voices, a
 // triangle, and noise -- which is the palette every Mega Man stage was written
 // for. What made those tracks sound bigger than four voices was never more
-// instruments; it was technique. Three of them, all here:
+// instruments; it was technique. All of it is here:
 //
 //   arpeggios     a chord is not a chord, it is one voice cycling three notes
 //                 faster than the ear separates them. It is where the shimmer
 //                 comes from, and it costs one channel instead of three.
 //   vibrato       a held note that does not waver sounds like a test tone.
-//   a bass line   roots on the beat is a metronome. A bass that walks is a part.
+//   a bass line   roots on the beat is a metronome. A bass that walks is a
+//                 part -- and a song may write its own with `bassLine`, bar by
+//                 bar, which is how a gallop gets written.
+//   fills         `drums` as a list is one pattern per bar: a drummer, not a
+//                 loop. `k` kick, `h` hat, `x` a hard hit, `m` the metallic
+//                 short-register noise.
+//   sweeps        a note ending in / rises and \ falls, stepped the way the
+//                 hardware's sweep unit stepped. The siren and the dive-bomb.
 //
 // A song is data. Bars are strings of note names, one token per sixteenth, `.`
 // to hold and `-` to rest -- so the shape of a phrase is visible in the source
@@ -115,49 +122,128 @@ export const SONGS = {
   },
 
   /**
-   * FIRE. The opposite of the water stage in every choice: fast where that
-   * flows, hammered where that drifts, and short notes where that holds.
+   * FIRE. Written like the stage themes worth stealing from: not a loop, a
+   * song. Sixteen bars in E minor at 176 -- a two-bar alarm that plays once,
+   * a driving theme stated bare and then restated with its harmony, a chorus
+   * that lifts to the relative major and soars, and a climax that runs down
+   * the harmonic minor and dive-bombs back into the loop.
    *
-   * E minor, but the dominant is a B7 -- which carries a D sharp, the raised
-   * seventh of the harmonic minor. That one note is what makes a stage sound
-   * hot rather than merely dark: it is a semitone from the tonic and it will
-   * not sit still. The bar before every return to E minor leans on it.
+   * What it leans on, by voice:
    *
-   * The lead is rhythm rather than song. Stabs and runs, nothing held longer
-   * than a beat except at the end of a phrase, so there is no room to breathe.
+   *   lead     duty 12.5% -- the siren -- with hardware sweeps: the intro
+   *            alarms rise (/) and the bar-16 dive falls (\). The theme is a
+   *            3+3+2 cell, the engine of every driving chip track: it pulls
+   *            against the beat without ever losing it.
+   *   lead2    silent for the first statement, harmony from the restatement
+   *            on -- thirds and sixths below, the two-pulses-as-a-section
+   *            trick. It even dives in parallel at the end.
+   *   bass     written out, not generated: the gallop -- root, rest, root,
+   *            octave -- with a walk at every corner so each chord change is
+   *            arrived at, not jumped to. The intro pounds quarters, then
+   *            eighths, then sixteenths: a launch ramp.
+   *   drums    a different bar where it matters: fills into each section,
+   *            metallic short-register noise ticking through the groove,
+   *            double-time under the climax run.
+   *
+   * The D sharp is still the hottest note in it -- the raised seventh, a
+   * semitone off the tonic -- and the whole last bar leans on it.
    */
   fire: {
     name: 'FIRE',
-    bpm: 172,
+    bpm: 176,
     beats: 16,
+    loopFrom: 2,          // the alarm plays once; the loop is bars 3-16
     lead: [
-      'e5 .  d5 .  e5 .  g5 .  b5 .  .  .  a5 g5 f#5 . ',
-      'e5 .  d5 .  e5 .  b4 .  e5 .  .  .  -  -  -  - ',
-      'g5 .  f5 .  e5 .  c5 .  g5 .  .  .  f5 e5 d5 . ',
-      'd#5 . e5 .  f#5 .  d#5 .  b4 .  .  .  -  -  -  - ',
-      'e5 .  g5 .  b5 .  a5 .  b5 .  g5 .  e5 .  b4 . ',
-      'a5 .  .  .  g5 .  e5 .  c5 .  e5 .  a5 .  .  . ',
-      'b5 .  a5 .  g5 .  f5 .  e5 .  d5 .  c5 .  b4 . ',
-      'b4 .  d#5 .  f#5 .  b5 .  b5 .  .  .  .  .  .  . ',
+      // The alarm: three rising sweeps, the third tumbling down a run that
+      // lands on the theme's doorstep.
+      'e5/ .  .  .  -  -  -  -  g5/ .  .  .  -  -  -  - ',
+      'b5/ .  .  .  b5 a5 g5 f#5 e5 d#5 e5 d#5 b4 .  d#5 . ',
+      // A: the 3+3+2 cell, stated bare.
+      'e5 .  .  g5 .  .  b5 .  .  .  a5 .  g5 .  a5 . ',
+      'b5 .  .  .  .  .  .  .  g5 .  e5 .  g5 .  b4 . ',
+      'c5 .  .  e5 .  .  g5 .  .  .  a5 .  g5 .  e5 . ',
+      'f#5 .  .  d#5 .  .  b4 .  .  .  f#5 .  a5 .  b5 . ',
+      // A restated, harmony underneath now, the tail climbing instead.
+      'e5 .  .  g5 .  .  b5 .  .  .  a5 .  g5 .  a5 . ',
+      'b5 .  .  .  .  .  .  .  c6 .  b5 .  a5 .  g5 . ',
+      'a5 .  .  g5 .  .  e5 .  .  .  g5 .  a5 .  b5 . ',
+      'b5 .  .  .  .  .  a5 .  f#5 .  d#5 .  b4 .  c5 d5 ',
+      // B: the lift. Long notes, big intervals, the relative major.
+      'e5 .  .  .  .  .  .  .  g5 .  .  .  .  .  a5 . ',
+      'b5 .  .  .  .  .  .  .  a5 .  .  .  f#5 .  d5 . ',
+      'g5 .  .  .  .  .  b5 .  d6 .  .  .  .  .  b5 . ',
+      'c6 .  .  .  b5 .  a5 .  f#5 .  .  .  d#5 .  f#5 . ',
+      // The climax: down the octave at full speed, back up the arpeggio,
+      // and a dive-bomb on the dominant into the loop.
+      'b5 a5 g5 f#5 e5 d5 c5 b4 a4 .  c5 .  e5 .  a5 . ',
+      'b5\\ .  .  .  .  .  .  .  -  -  -  -  b4 .  d#5 . ',
     ],
     lead2: [
-      'b4 .  a4 .  b4 .  e5 .  g5 .  .  .  e5 d5 b4 . ',
-      'b4 .  a4 .  b4 .  g4 .  b4 .  .  .  -  -  -  - ',
-      'e5 .  d5 .  c5 .  g4 .  e5 .  .  .  d5 c5 b4 . ',
-      'f#4 . g4 .  b4 .  f#4 .  f#4 .  .  .  -  -  -  - ',
-      'b4 .  e5 .  g5 .  e5 .  g5 .  e5 .  b4 .  g4 . ',
-      'e5 .  .  .  e5 .  c5 .  a4 .  c5 .  e5 .  .  . ',
-      'g5 .  f5 .  e5 .  d5 .  c5 .  b4 .  a4 .  g4 . ',
-      'f#4 . b4 .  d#5 .  f#5 .  f#5 .  .  .  .  .  .  . ',
+      '-  -  -  -  -  -  -  -  -  -  -  -  -  -  -  - ',
+      '-  -  -  -  -  -  -  -  -  -  -  -  -  -  -  - ',
+      '-  -  -  -  -  -  -  -  -  -  -  -  -  -  -  - ',
+      'g5 .  .  .  .  .  .  .  e5 .  c5 .  e5 .  g4 . ',
+      '-  -  -  -  -  -  -  -  -  -  -  -  -  -  -  - ',
+      'd#5 .  .  b4 .  .  f#4 .  .  .  d#5 .  f#5 .  g5 . ',
+      'g4 .  .  b4 .  .  g5 .  .  .  f#5 .  e5 .  f#5 . ',
+      'g5 .  .  .  .  .  .  .  a5 .  g5 .  f#5 .  e5 . ',
+      'e5 .  .  e5 .  .  c5 .  .  .  e5 .  f#5 .  g5 . ',
+      'f#5 .  .  .  .  .  f#5 .  d#5 .  b4 .  f#4 .  a4 b4 ',
+      'c5 .  .  .  .  .  .  .  e5 .  .  .  .  .  f#5 . ',
+      'd5 .  .  .  .  .  .  .  f#5 .  .  .  d5 .  a4 . ',
+      'b4 .  .  .  .  .  d5 .  g5 .  .  .  .  .  g5 . ',
+      'a5 .  .  .  f#5 .  f#5 .  d#5 .  .  .  b4 .  d#5 . ',
+      'c5 .  .  .  .  .  .  .  e5 .  .  .  .  .  .  . ',
+      'f#5\\ .  .  .  .  .  .  .  -  -  -  -  g4 .  a4 . ',
     ],
-    arp: ['em', 'em', 'c', 'b7', 'em', 'am', 'c', 'b7'],
-    bass: ['e2', 'e2', 'c3', 'b2', 'e2', 'a2', 'c3', 'b2'],
-    // Four on the floor. A stage that is on fire does not have a backbeat.
-    drums: 'k..hk..hk..hk..h',
-    // The thinnest lead there is. A stage on fire should sound like a siren,
-    // not a clarinet.
+    arp: ['em', 'em', 'em', 'em', 'c', 'b7', 'em', 'em', 'c', 'b7',
+      'c', 'd', 'g', 'b7', 'am', 'b7'],
+    // The gallop, written out. Root - rest - root - octave, and a walk into
+    // every chord change: the corner is approached, never jumped.
+    bassLine: [
+      'e2 .  .  .  e2 .  .  .  e2 .  .  .  e2 .  .  . ',
+      'e2 .  e2 .  e2 .  e2 .  e2 .  e2 .  e2 e2 e2 e2 ',
+      'e2 .  e2 e3 e2 .  e2 e3 e2 .  e2 e3 e2 .  e2 e3 ',
+      'e2 .  e2 e3 e2 .  e2 e3 e2 .  g2 .  a2 .  b2 . ',
+      'c3 .  c3 c4 c3 .  c3 c4 c3 .  c3 c4 c3 .  c3 c4 ',
+      'b2 .  b2 b3 b2 .  a2 .  g2 .  f#2 .  e2 .  d#2 . ',
+      'e2 .  e2 e3 e2 .  e2 e3 e2 .  e2 e3 e2 .  e2 e3 ',
+      'e2 .  e2 e3 e2 .  e2 e3 g2 .  g2 g3 a2 .  b2 . ',
+      'c3 .  c3 c4 c3 .  c3 c4 c3 .  c3 c4 a2 .  b2 . ',
+      'b2 .  b2 b3 b2 .  b2 b3 b2 .  a2 .  g2 .  a2 b2 ',
+      'c3 .  c3 c4 c3 .  c3 c4 c3 .  c3 c4 c3 .  d3 . ',
+      'd3 .  d3 d4 d3 .  d3 d4 d3 .  d3 d4 d3 .  e3 f#3 ',
+      'g2 .  g2 g3 g2 .  g2 g3 g2 .  g2 g3 a2 .  b2 . ',
+      'b2 .  b2 b3 b2 .  b2 b3 b2 .  b2 b3 b2 .  a2 . ',
+      'a2 .  a2 a3 a2 .  a2 a3 a2 .  a2 a3 g2 .  a2 . ',
+      'b2 .  b2 b3 b2 .  b2 .  b2 .  a2 .  g2 .  f#2 d#2 ',
+    ],
+    bass: null,           // the written line above replaces the generator
+    // One bar of drums per bar of song: quarters under the alarm, a snare
+    // ramp, then kick on one and three, snare on two and four, the metallic
+    // short-mode noise ticking sixteenths between -- with a fill at the end
+    // of every section and double-time under the climax run.
+    drums: [
+      'k...k...k...k...',
+      'k...k...x.x.x.xx',
+      'k.mhx.mhk.mhx.mh',
+      'k.mhx.mhk.mhx.mh',
+      'k.mhx.mhk.mhx.mh',
+      'k.mhx.mhk.x.x.xx',
+      'k.mhx.mhk.mhx.mh',
+      'k.mhx.mhk.mhx.mh',
+      'k.mhx.mhk.mhx.mh',
+      'k.mhx.mhx.x.xxxx',
+      'k..hx..hk..hx..h',
+      'k..hx..hk..hx..h',
+      'k..hx..hk..hx..h',
+      'k..hx..hk.x.x.x.',
+      'k.x.k.x.k.x.k.x.',
+      'k...x.......x.xx',
+    ],
+    // The siren lead, the reedy harmony.
     duty: { lead: 0.125, under: 0.25, arp: 0.5, bass: 0.5 },
-    mix: { lead: 0.26, under: 0.085, arp: 0.055, bass: 0.16, sub: 0.07 },
+    mix: { lead: 0.34, under: 0.09, arp: 0.032, bass: 0.115, sub: 0.065 },
   },
   /**
    * ANTHEM. The opening-theme shape: a melody in long notes with big intervals,
