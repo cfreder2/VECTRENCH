@@ -542,8 +542,9 @@ HYDRA weaving its trench with one glowing segment takeable at a time,
 FURNACE pouring magma clouds that stay where poured, MANTIS throwing blades
 that come back and regrowing its arms once, PORTCULLIS closing the arena
 into a slot while you strip its panels, AVALANCHE racing your fire with
-regrowing ice, BROADSIDE's deck going silent a battery at a time, REVENANT
-real only when it strikes. Two mechanics worth knowing everywhere: a
+regrowing ice, BROADSIDE's deck going silent a battery at a time, REVENANT the
+juggernaut tank grinding wreckage under its treads, its cannon charging in
+plain sight before the half-shield sweep. Two mechanics worth knowing everywhere: a
 **shielded core blocks with a sliver of its hull**, so shots aimed at parts
 mounted against it reach them; and parts are checked **before** the core, so
 an overlapping hitbox never eats the shot you lined up.

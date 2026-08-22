@@ -837,86 +837,204 @@ export const WARDENS = {
     },
   },
 
-  /** Real only when it strikes; every dodge is a window. */
+  /**
+   * The dead district's last war machine: a tank the size of a building,
+   * still patrolling a road with nothing left on it but wreckage -- which it
+   * rolls over, and the wreckage goes up under the treads. Six mounts on the
+   * hull are the shape: turrets, launchers, lasers, each silencing its own
+   * weapon when it dies. And the cannon: on a cycle it charges -- glowing,
+   * shaking harder the longer it holds -- then sweeps a beam across the whole
+   * road that takes half a shield in one touch. The sweep alternates sides
+   * and the beam has a ceiling: read the wind-up, be high or be past it.
+   */
   revenant: {
     init(b) {
-      b.openMsg = '';
-      b.shielded = true;      // phased
-      b.phase = 'gone';
-      b.phaseIn = 3;
-      b.realFor = 0;
+      b.openMsg = 'THE CANNON HOUSING IS OPEN';
+      mkPart(b, 'TURRET', 6);
+      mkPart(b, 'TURRET', 6);
+      mkPart(b, 'LAUNCHER', 7);
+      mkPart(b, 'LAUNCHER', 7);
+      mkPart(b, 'LASER', 6);
+      mkPart(b, 'LASER', 6);
+      b.cannon = { state: 'idle', tIn: 5, charge: 0, dir: 1, x: 0, hit: false };
+      b.debris = [];
+      b.swayRate = 0.3;
     },
     update(b, dt, game) {
       const tr = game.track;
-      const st = b.hp > b.maxHp * 0.5 ? 0 : 1;
-      if (b.phase === 'gone') {
-        // A shimmer under the floor, sliding toward you.
-        b.shielded = true;
-        b.lockable = false;
-        b.t = lerp(b.t, game.t + 240, dt * 2);
-        b.x = lerp(b.x, game.shipX, dt * 1.2);
-        b.y = 6;
-        tr.localToWorld(b.t, b.x, b.y, b.world);
-        b.phaseIn -= dt;
-        if (b.phaseIn <= 0) {
-          b.phase = 'rising';
-          b.riseAt = game.time + 0.8;
-          game.say('IT RISES', 0.9);
-          game.audio.zap();
+      const st = stageOf(b);
+      b.shielded = partsAlive(b) > 0;
+      b.lockable = !b.shielded;
+
+      // On the road: the hull grinds along the floor, tracking slowly.
+      b.t = lerp(b.t, game.t + 400, dt * 1.4);
+      b.sway += dt * (b.swayRate + st * 0.15);
+      const hw = tr.halfWidth(b.t);
+      b.x = Math.sin(b.sway) * (hw - 60);
+      b.y = 16;
+      tr.localToWorld(b.t, b.x, b.y, b.world);
+      b.los = 1;
+
+      // The mounts, in two rows along the hull top.
+      b.parts.forEach((part, i) => {
+        if (!part.alive) return;
+        const row = i % 2 ? 1 : -1;
+        const rank = (i / 2) | 0;
+        part.t = b.t - 40 + rank * 44;
+        part.x = clamp(b.x + row * 22, -hw + 10, hw - 10);
+        part.y = 34;
+        tr.localToWorld(part.t, part.x, part.y, part.world);
+        part.los = 1;
+      });
+
+      // Each mount that lives keeps its weapon talking.
+      const has = (label) => b.parts.some((p) => p.alive && p.label === label);
+      if (has('TURRET')) {
+        b.timers.mg = (b.timers.mg ?? 1.2) - dt;
+        if (b.timers.mg <= 0) {
+          b.timers.mg = 1.1 - st * 0.2;
+          const gun = b.parts.find((p) => p.alive && p.label === 'TURRET');
+          const fx = game.shipPos[0] - gun.world[0];
+          const fy = game.shipPos[1] - gun.world[1];
+          const fz = game.shipPos[2] - gun.world[2];
+          const l = Math.hypot(fx, fy, fz) || 1;
+          game.weapons.fireBolt(gun.world[0], gun.world[1], gun.world[2],
+            fx / l, fy / l, fz / l, 500);
         }
-      } else if (b.phase === 'rising') {
-        if (game.time >= b.riseAt) {
-          b.phase = 'real';
-          b.realFor = 2.8 - st * 0.4;
-          b.shielded = false;
-          b.lockable = true;
-          // The volley: bolts up through the floor beneath you.
-          for (const s of [-0.25, 0, 0.25]) {
-            game.weapons.fireBolt(b.world[0] + s * 60, 2, b.world[2],
-              s * 0.4, 0.85, 0.35, 430, true);
-          }
-          game.audio.bigBoom();
+      }
+      if (has('LAUNCHER')) {
+        b.missilesIn -= dt;
+        if (b.missilesIn <= 0) { b.missilesIn = 8 - st * 1.5; seekerPair(b, game); }
+      }
+      if (has('LASER')) boltVolley(b, dt, game, st, 4.4);
+
+      // The road has wreckage on it, and the tank does not steer around it.
+      b.timers.junk = (b.timers.junk ?? 0.5) - dt;
+      if (b.timers.junk <= 0 && b.debris.length < 10) {
+        b.timers.junk = 0.7;
+        b.debris.push({
+          t: b.t + 240 + hash2((game.time * 19) | 0, 3) * 500,
+          x: (hash2((game.time * 19) | 0, 7) * 2 - 1) * (hw - 26),
+          size: 5 + hash2((game.time * 19) | 0, 11) * 6,
+        });
+      }
+      b.debris = b.debris.filter((d) => {
+        if (d.t < game.t - 120) return false;
+        if (Math.abs(b.t - d.t) < 56 && Math.abs(b.x - d.x) < 36) {
+          const w = [0, 0, 0];
+          tr.localToWorld(d.t, d.x, 8, w);
+          game.boomAt(w, 22, 140, 1, 0.6, 0.25, 0.7);
+          game.audio.smallBoom();
+          return false;
+        }
+        return true;
+      });
+
+      // The cannon. Idle, then the charge -- glow and shake climbing the whole
+      // way -- then the sweep: a beam wall crossing the road, half a shield if
+      // it touches you. Alternating sides, with a ceiling you can climb over.
+      const c = b.cannon;
+      if (c.state === 'idle') {
+        c.tIn -= dt;
+        c.charge = Math.max(0, c.charge - dt * 2);
+        if (c.tIn <= 0) {
+          c.state = 'charging';
+          c.tIn = 2.6;
+          c.charge = 0;
+          game.say('THE CANNON CHARGES', 1.4);
+          game.audio.specialOn();
+        }
+      } else if (c.state === 'charging') {
+        c.tIn -= dt;
+        c.charge = Math.min(1, c.charge + dt / 2.4);
+        if (c.tIn <= 0) {
+          c.state = 'firing';
+          c.tIn = 1.15;
+          c.dir = -c.dir;
+          c.x = -c.dir * (hw - 6);
+          c.hit = false;
+          game.say('SWEEP', 0.9);
+          game.audio.zap();
+          game.shake = Math.min(1.6, game.shake + 0.8);
         }
       } else {
-        // Real: it hangs where it surfaced, takes its beating or gives one.
-        b.y = lerp(b.y, tr.rim(b.t) + 40, dt * 3);
-        tr.localToWorld(b.t, b.x, b.y, b.world);
-        b.los = 1;
-        boltVolley(b, dt, game, st, 2.6);
-        b.realFor -= dt;
-        if (b.realFor <= 0) {
-          b.phase = 'gone';
-          b.phaseIn = 3.4 - st * 0.8;
-          b.boltAt = 0;
-          game.say('GONE', 0.7);
+        c.tIn -= dt;
+        c.x += c.dir * (hw * 2 / 1.15) * dt;
+        const beamTop = tr.rim(game.t) + 46;
+        if (!c.hit && Math.abs(game.shipX - c.x) < 26 && game.shipY < beamTop) {
+          c.hit = true;
+          game.damage(55);
+          game.say('THE BEAM', 1.2);
+        }
+        if (c.tIn <= 0) {
+          c.state = 'idle';
+          c.tIn = 9 - st * 2.5;
+          c.charge = 0;
         }
       }
     },
     draw(rd, b, tr, time) {
       const p = [0, 0, 0];
       const q = [0, 0, 0];
-      if (b.phase === 'real') {
-        const col = b.flash > 0 ? [1, 1, 1] : [1, 0.4, 0.85];
-        // An angular wraith: two swept fins and a hollow eye.
-        for (const [dx0, dy0, dx1, dy1] of [
-          [0, 16, -22, -12], [-22, -12, 0, -4], [0, -4, 22, -12], [22, -12, 0, 16],
-        ]) {
-          tr.localToWorld(b.t, b.x + dx0, b.y + dy0, p);
-          tr.localToWorld(b.t, b.x + dx1, b.y + dy1, q);
-          rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], 2.4, col[0], col[1], col[2], 1);
-        }
-        coreGlow(rd, tr, b, time, col);
-      } else {
-        // The shimmer: broken dashes at floor level, converging while it rises.
-        const urgent = b.phase === 'rising';
-        const a = urgent ? 0.5 + 0.4 * Math.sin(time * 24) : 0.22;
-        for (let k = 0; k < 6; k++) {
-          const off = (hash2(k, (time * 6) | 0) - 0.5) * (urgent ? 26 : 70);
-          tr.localToWorld(b.t - 20 + k * 8, b.x + off, 3, p);
-          tr.localToWorld(b.t - 8 + k * 8, b.x + off * 0.6, 5, q);
-          rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], 1.4, 1, 0.4, 0.85, a);
+      const c = b.cannon;
+      // The charge shakes the whole machine, harder as it builds.
+      const jx = (hash2((time * 60) | 0, 3) - 0.5) * c.charge * 6;
+      const jy = (hash2((time * 60) | 0, 7) - 0.5) * c.charge * 4;
+      const col = b.flash > 0 ? [1, 1, 1] : [1, 0.45, 0.85];
+      const X = b.x + jx, Y = b.y + jy;
+
+      // The hull: long, low, and mean. Two decks.
+      const H = [
+        [-90, -14, 90, -14], [90, -14, 104, 2], [104, 2, 90, 16], [90, 16, -90, 16],
+        [-90, 16, -104, 2], [-104, 2, -90, -14],
+      ];
+      for (const [t0, y0, t1, y1] of H) {
+        tr.localToWorld(b.t + t0, X, Y + y0, p);
+        tr.localToWorld(b.t + t1, X, Y + y1, q);
+        rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], 2.6, col[0], col[1], col[2], 1);
+      }
+      // The treads: rolling marks along the skirt, animated by distance.
+      for (const side of [-26, 26]) {
+        for (let k = 0; k < 7; k++) {
+          const roll = ((b.t * 0.11 + k * 26) % 182) - 91;
+          tr.localToWorld(b.t + roll, X + side, 4, p);
+          tr.localToWorld(b.t + roll + 12, X + side, 4, q);
+          rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], 2, 0.7, 0.3, 0.6, 0.8);
         }
       }
+      // The mounts.
+      for (const part of b.parts) {
+        if (!part.alive) continue;
+        const pc = part.flash > 0 ? [1, 1, 1]
+          : part.label === 'TURRET' ? [1, 0.7, 0.3]
+          : part.label === 'LAUNCHER' ? [1, 0.5, 0.5] : [0.6, 0.8, 1];
+        square(rd, tr, part.t, part.x + jx, part.y + jy, 7, pc, 1.8);
+      }
+      // The cannon: a long barrel aimed back down the road, and the charge
+      // glowing at its muzzle -- bigger, brighter, whiter as it builds.
+      tr.localToWorld(b.t - 104, X, Y + 6, p);
+      tr.localToWorld(b.t - 190, X, Y + 18, q);
+      rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], 3.2, col[0], col[1], col[2], 1);
+      if (c.charge > 0) {
+        const g = c.charge;
+        rd.line3(q[0], q[1], q[2], q[0], q[1], q[2], 6 + g * 22,
+          1, 0.6 + g * 0.4, 0.9, 0.5 + g * 0.5);
+      }
+      // The sweep, while it fires: a wall of beam at the sweep's x.
+      if (c.state === 'firing') {
+        const beamTop = tr.rim(b.t) + 46;
+        for (let seg = 0; seg < 6; seg++) {
+          const t0 = b.t - 190 - seg * 130;
+          tr.localToWorld(t0, c.x, 4, p);
+          tr.localToWorld(t0 - 110, c.x, beamTop, q);
+          rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], 4, 1, 0.5, 0.9, 0.95);
+        }
+      }
+      // The wreckage on the road, waiting for the treads.
+      for (const d of b.debris) {
+        square(rd, tr, d.t, d.x, 8, d.size, [0.85, 0.45, 0.8], 1.3, 0.7);
+      }
+      coreGlow(rd, tr, b, time, col);
     },
   },
 };

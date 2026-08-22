@@ -169,15 +169,17 @@ deck is silent the magazine opens. FREEZE stops a cycling battery mid-cycle,
 which is why it melts.
 
 ### REVENANT — Void · yields GHOST · melted by RAIL
-The ambusher, in the emptiest arena in the game — DEAD AIR's silence with
-nothing to hide behind except not-being-there. It phases: untargetable,
-unhittable, a shimmer sliding under the surface — then it solidifies to
-strike, and for that window it is real. Its GHOST shots rise through the
-floor beneath you, telegraphed by the shimmer converging. **The shape:** the
-windows. It must become real to hurt you, and every strike you dodge is a
-strike you can answer; the fight is patience, bait, and punish. RAIL is the
-one thing that catches it mid-phase — a lance does not care whether the
-target is entirely there — which is why it melts.
+The dead district's last war machine: a tank the size of a building, still
+patrolling a road with nothing left on it but wreckage — which it rolls
+over, and the wreckage goes up under the treads as it comes. Six mounts on
+the hull are **the shape**: two machine-gun turrets, two missile launchers,
+two laser pods, each silencing its own weapon when it dies, the cannon
+housing shielded until the deck is stripped. And **the cannon**: on a cycle
+it charges — the muzzle glow swelling, the whole hull shaking harder the
+longer it holds — then sweeps a beam across the entire road that takes half
+a shield in a single touch. The sweep alternates sides and the beam has a
+ceiling: read the wind-up, be high or be past it. RAIL pierces the hull
+armor no other gun cares to argue with, which is why it melts.
 
 ### The ninth fight
 The Citadel's boss is the eight escape pods, assembled. Parked in the
