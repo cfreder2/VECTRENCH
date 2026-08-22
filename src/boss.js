@@ -1050,7 +1050,16 @@ export const WARDENS = {
         bu.fireIn -= dt;
         // A burst can outlive its last gun -- the pattern ends with the guns.
         if (!turrets.length) b.burst = null;
-        if (b.burst && bu.fireIn <= 0) {
+        // The hunt is not a bolt stream; it is a BEAM, swept after you, and
+        // the beam itself is what burns. Stay ahead of it or climb off it.
+        if (b.burst && bu.kind === 'aim') {
+          const pt = bu.pts[0];
+          if (Math.abs(game.shipX - pt.x) < 16 && Math.abs(game.shipY - pt.y) < 16) {
+            game.damage(15 * dt, false);
+          }
+          bu.hum = (bu.hum ?? 0) - dt;
+          if (bu.hum <= 0) { bu.hum = 0.45; game.audio.zap(); }
+        } else if (b.burst && bu.fireIn <= 0) {
           bu.fireIn = 0.075;
           // The voice the ground gatlings taught, at a rate that means it.
           bu.voice = !bu.voice;
@@ -1393,7 +1402,23 @@ export const WARDENS = {
       rd.line3(p[0], p[1], p[2], p[0], p[1], p[2], 2.4, col[0], col[1], col[2], 0.8);
 
       // --- the fire being painted, the volley, the blasts, the road -------
-      if (b.burst) {
+      if (b.burst && b.burst.kind === 'aim') {
+        // The hunting beam: muzzle to the chase point, halo over core, with
+        // the burn spot blazing where it lands. It sweeps because its target
+        // does -- the lag is the dodge.
+        const hunter = b.parts.find((x) => x.alive && x.label === 'TURRET' && !x.guarded)
+          || b.parts.find((x) => x.alive && x.label === 'TURRET');
+        if (hunter) {
+          const pt = b.burst.pts[0];
+          const flick = 0.8 + 0.2 * Math.sin(time * 31);
+          tr.localToWorld(hunter.t, hunter.x, hunter.y, p);
+          tr.localToWorld(b.tShip ?? b.t - 640, pt.x, pt.y, q);
+          rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], 6.5, 1, 0.35, 0.85, 0.55 * flick);
+          rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], 2.6, 1, 0.75, 1, 0.95 * flick);
+          rd.line3(q[0], q[1], q[2], q[0], q[1], q[2], 12, 1, 0.6, 0.95, 0.8 * flick);
+          rd.line3(q[0], q[1], q[2], q[0], q[1], q[2], 4, 1, 1, 1, flick);
+        }
+      } else if (b.burst) {
         // The tracers are the attack; this is only the aim-point glow, so the
         // pattern's shape stays readable through the stream.
         for (const pt of b.burst.pts) {
