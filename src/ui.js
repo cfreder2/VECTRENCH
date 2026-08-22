@@ -184,7 +184,6 @@ export class UI {
     this.refreshCampaign();
 
     $('fly').addEventListener('click', () => this.fly());
-    $('full').addEventListener('click', () => this.goFullscreen());
     $('designbtn').addEventListener('click', () => this.design());
 
     for (const ev of ['gamepadconnected', 'gamepaddisconnected']) {
@@ -388,26 +387,6 @@ export class UI {
     return 'no';
   }
 
-  async goFullscreen() {
-    const got = await this.enterFullscreen();
-    if (got === 'standalone') {
-      this.status('already full screen -- you are running it from the home screen');
-      return;
-    }
-    if (got === 'no') {
-      this.status('this browser will not go full screen. On iPhone: Share, then ADD TO HOME SCREEN, and open it from there');
-      return;
-    }
-    const type = (screen.orientation && screen.orientation.type)
-      || (innerWidth > innerHeight ? 'landscape-primary' : 'portrait-primary');
-    const want = type.startsWith('landscape') ? 'landscape' : 'portrait';
-    try {
-      await screen.orientation?.lock?.(want);
-      this.status(`full screen, locked ${want}`);
-    } catch {
-      this.status('full screen (this browser will not lock the orientation)');
-    }
-  }
 
   loadFromHash() {
     const m = location.hash.match(/lvl=([A-Za-z0-9_-]+)/);

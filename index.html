@@ -221,12 +221,21 @@
     width: min(100cqw, 100cqh); height: min(100cqw, 100cqh);
   }
   #plane { display: flex; flex-direction: column; gap: 10px; min-height: 0; min-width: 0; }
-  #shipview { flex: 1; min-height: 70px; width: 100%; border: 1px solid var(--line); border-radius: 8px; }
+  /* The canvas is absolutely sized by its wrapper, never the other way round:
+     a canvas whose backing store can push its own layout box inflates itself
+     one frame at a time until it has eaten the screen. It did. */
+  #shipwrap {
+    flex: 1 1 0; min-height: 96px; position: relative;
+    border: 1px solid var(--line); border-radius: 8px; overflow: hidden;
+  }
+  @media (orientation: portrait) { #shipwrap { flex: 0 0 clamp(96px, 18vh, 160px); } }
+  #shipview { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
   #plane .row { flex-wrap: nowrap; }
   #train { flex: 0 0 auto; }
   #plane #fly { flex: 1; }
   #wbtn { letter-spacing: .14em; }
   #wbtn:disabled { opacity: .45; }
+  #extras[hidden] { display: none; }
   #extras {
     position: absolute; left: 0; right: 0; bottom: 0;
     top: calc(max(14px, env(safe-area-inset-top)) + 34px);
@@ -293,7 +302,7 @@
           <div id="grid"></div>
         </div>
         <div id="plane">
-          <canvas id="shipview"></canvas>
+          <div id="shipwrap"><canvas id="shipview"></canvas></div>
           <button id="wbtn" class="chip" disabled>MACHINE GUN</button>
           <div class="row">
             <button id="train" class="chip">TRAIN</button>
@@ -303,9 +312,6 @@
       </div>
     </div>
     <div id="extras" hidden>
-      <div class="row">
-        <button id="full" class="chip">FULL SCREEN</button>
-      </div>
       <details class="foldable" id="customfold" hidden>
         <summary>YOUR LEVELS</summary>
         <div class="body">
