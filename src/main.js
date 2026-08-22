@@ -66,6 +66,7 @@ function frame(now) {
     game.draw();
     ui.syncMissileButton();
     ui.syncBurnButton();
+    ui.syncSpecButton();
   } else {
     ui.drawBackdrop();
   }

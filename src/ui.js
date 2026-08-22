@@ -16,6 +16,7 @@ import { drawSchematic } from './hud.js';
 const $ = (id) => document.getElementById(id);
 
 const BURN_PIPS = 5;   // chevrons on the boost gauge
+const SPEC_PIPS = 8;   // diamonds on the special gauge
 
 export class UI {
   constructor(rd, input, audio, game) {
@@ -95,6 +96,12 @@ export class UI {
       }
     };
     hold('burn', (on) => { this.input.boostHeld = on; });
+    // The special is a toggle, not a hold: press to light it, press to keep
+    // what is left. pointerdown so it lands on touch-down like everything else.
+    $('spec').addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      this.input.toggleSpecial();
+    });
 
     $('calibrate').addEventListener('click', async () => {
       if (this.input.motion !== 'granted') await this.input.requestMotion();
@@ -165,6 +172,23 @@ export class UI {
     }
     const cls = g.burning ? 'on' : lit === 0 ? 'cooling' : '';
     if (cls !== this._burnCls) { $('burn').className = cls; this._burnCls = cls; }
+  }
+
+  /**
+   * The special's button is its gauge: a row of diamonds in the weapon's
+   * color, whole ones lit, and the partial one the trickle is still earning
+   * left dark. Lit solid while the weapon is live.
+   */
+  syncSpecButton() {
+    const g = this.game;
+    const whole = Math.floor(Math.max(0, g.diamonds ?? 0) + 1e-6);
+    if (whole !== this._specPips) {
+      $('spec').innerHTML = Array.from({ length: SPEC_PIPS }, (_, i) =>
+        `<b class="${i < whole ? 'lit' : ''}">◆</b>`).join('');
+      this._specPips = whole;
+    }
+    const cls = g.specialOn ? 'on' : whole === 0 ? 'cooling' : '';
+    if (cls !== this._specCls) { $('spec').className = cls; this._specCls = cls; }
   }
 
   syncMissileButton() {

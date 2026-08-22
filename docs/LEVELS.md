@@ -153,6 +153,8 @@ rather than as rock, and two of them talk to the ship's own controls.
 | `cross` | Four thick arms from the middle, turning. |
 | `slot` | A wall with a slit in it, and the slits alternate. Upright ones only take the ship **on edge**; flat ones only take it **level**. See `slotgap` for how much room they leave A run of them in one section shares a single centre line, so a run is a straight line down which only your posture changes rather than a slalom you also have to roll through |
 | `boostgate` | A green hexagonal hoop, and the only friendly thing in a canyon. Through the hole is three seconds of 1.5x on a timer of its own -- it neither spends the burn tank nor fills it, and a second hoop adds three more seconds. Not solid: it cannot hurt you, it does not stop shots, and the fairness audit does not treat it as an obstruction |
+| `diamond` | A violet diamond-shaped hoop — the shape and color of the special weapon's meter. Through the hole is **+1 diamond** of special charge, stacking past the trickle's ceiling up to eight. Friendly the same way the boostgate is: not solid, does not stop shots, ignored by the fairness audit |
+| `prism` | The rare one: a diamond hoop cycling through every color. Through the hole the special's meter **fills outright** to eight diamonds. Place at most one in a level, somewhere earned |
 | `pinwheel` | Three or five thin arms from the middle, turning. Geometry, not a gun. |
 
 ### An armed port, if you want one

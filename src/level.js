@@ -235,6 +235,18 @@ export function buildLevel(spec, track) {
           [cx - r, cx + r, cy + r, rim + 14],
           [cx - r, cx + r, -30, cy - r],
         ], { ring: { cx, cy, r }, taken: false }));
+      } else if (kind === 'diamond' || kind === 'prism') {
+        // The gates that feed the special's meter. The same frame-of-boxes
+        // trick as the turbo gate; the diamond is only how it is drawn.
+        const r = clamp(20 + rand() * 8, 16, Math.max(17, hw - 14));
+        const cx = (rand() * 2 - 1) * Math.max(0, hw - r - 16);
+        const cy = clamp(34 + rand() * 40, r + 6, Math.max(r + 7, rim - r - 6));
+        obstacles.push(obstacle(t, 12, kind, [
+          [-hw - 30, cx - r, -30, rim + 14],
+          [cx + r, hw + 30, -30, rim + 14],
+          [cx - r, cx + r, cy + r, rim + 14],
+          [cx - r, cx + r, -30, cy - r],
+        ], { ring: { cx, cy, r }, taken: false }));
       } else if (kind === 'ring') {
         const r = clamp(28 + rand() * 12, 22, hw - 12);
         const cx = (rand() * 2 - 1) * Math.max(0, hw - r - 12);

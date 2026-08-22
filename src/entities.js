@@ -324,6 +324,39 @@ export function drawObstacles(rd, track, obstacles, cursor, camT, far, time) {
       continue;
     }
 
+    if ((ob.kind === 'diamond' || ob.kind === 'prism') && ob.ring) {
+      // A rotated square, nested twice, in the equipped weapon's color -- the
+      // shape is the promise: fly through this and the meter gains a diamond.
+      // The prism cycles through every color, because it fills everything.
+      const { cx, cy, r } = ob.ring;
+      const pulse = 0.7 + 0.3 * Math.sin(time * 6 + ob.t * 0.013);
+      let col = ob.col || [0.75, 0.4, 1];
+      if (ob.kind === 'prism' && !ob.taken) {
+        const h = time * 1.3;
+        col = [0.55 + 0.45 * Math.sin(h), 0.55 + 0.45 * Math.sin(h + 2.1),
+          0.55 + 0.45 * Math.sin(h + 4.2)];
+      }
+      const g = ob.taken ? [col[0] * 0.3, col[1] * 0.3, col[2] * 0.3] : col;
+      const D = [[0, 1], [1, 0], [0, -1], [-1, 0]];
+      for (const [rad, w] of [[r, 2.2], [r * 0.6, 1.3]]) {
+        for (let k = 0; k < 4; k++) {
+          const a = D[k], b = D[(k + 1) % 4];
+          for (const tt of [ob.t, ob.t + ob.dz]) {
+            track.localToWorld(tt, cx + a[0] * rad, cy + a[1] * rad, p);
+            track.localToWorld(tt, cx + b[0] * rad, cy + b[1] * rad, q);
+            rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], w, g[0], g[1], g[2], pulse);
+          }
+        }
+      }
+      for (let k = 0; k < 4; k++) {
+        const a = D[k];
+        track.localToWorld(ob.t, cx + a[0] * r, cy + a[1] * r, p);
+        track.localToWorld(ob.t + ob.dz, cx + a[0] * r, cy + a[1] * r, q);
+        rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], 1.1, g[0], g[1], g[2], pulse * 0.8);
+      }
+      continue;
+    }
+
     if ((ob.kind === 'gate' || ob.kind === 'slot') && ob.window) {
       const { gx, gy, gw, gh } = ob.window;
       // Draw the window, not the blocks: the gap is the information. A slot's

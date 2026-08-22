@@ -69,6 +69,7 @@ export class Input {
     this._lastPress = null;
     this.boosting = false;         // the burn is open
     this.boostHeld = false;        // the BURN button is down
+    this.specialPressed = false;   // the special was asked for, once
     this.boostHeld = false;
     this.motion = 'unavailable';   // unavailable | granted | denied
     this.padName = '';             // the controller in use, if there is one
@@ -119,6 +120,7 @@ export class Input {
       if ((k === 'shift' || k === 'm' || k === 'enter') && !this.keys.has(k)) {
         this.launchMissiles();
       }
+      if (k === 'x' && !this.keys.has(k)) this.toggleSpecial();
 
       this.keys.add(k);
       if ([' ', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright'].includes(e.key.toLowerCase())) {
@@ -476,6 +478,18 @@ export class Input {
 
     this.steerX = sx;
     this.steerY = sy;
+  }
+
+  /** True once per special toggle request, from the button or a key. */
+  takeSpecial() {
+    const v = this.specialPressed;
+    this.specialPressed = false;
+    return v;
+  }
+
+  /** Requests the special weapon toggled. Button and keyboard both land here. */
+  toggleSpecial() {
+    this.specialPressed = true;
   }
 
   /** True once per missile request, from the button, a key, or a call. */

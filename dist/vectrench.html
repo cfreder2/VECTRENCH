@@ -161,6 +161,13 @@
     font: inherit; letter-spacing: .14em; border-radius: 10px;
   }
   #burn { padding: 16px 0; font-size: 15px; }
+  #spec { padding: 12px 0; font-size: 13px; letter-spacing: 3px;
+    border-color: #7a3fb8; background: rgba(30,10,50,.35); color: #b06fff; }
+  #spec b { font-weight: 400; color: #3a1f5c; transition: color .12s; }
+  #spec b.lit { color: #c08aff; text-shadow: 0 0 8px rgba(176,111,255,.7); }
+  #spec.on { background: #b06fff; border-color: #b06fff; }
+  #spec.on b { color: #1d0836; text-shadow: none; }
+  #spec.on b.lit { color: #12041f; }
   #burn {
     color: #7dffb0; background: rgba(10,32,20,.55); border: 1px solid #2f8f5c;
     display: flex; align-items: center; justify-content: center; gap: 2px;
@@ -281,6 +288,7 @@
   <div id="flight" class="layer">
     <button id="pause" class="chip">MENU</button>
     <div id="pad">
+      <button id="spec" aria-label="special weapon"></button>
       <button id="burn" aria-label="boost"></button>
       <button id="msl">MISSILES</button>
     </div>
@@ -1064,7 +1072,7 @@ const _tmp = [0, 0];
 const OBSTACLE_KINDS = [
   'pylon', 'fang', 'gate', 'ring', 'stack',
   'pinwheel', 'cross', 'press', 'slider',
-  'slot', 'boostgate',
+  'slot', 'boostgate', 'diamond', 'prism',
 ];
 
 /** Field ranges. Also the documentation the design agent is given. */
@@ -2496,6 +2504,258 @@ const PREBUILT = [
       ]
     },
   },
+  {
+    label: "NEON DISTRICT",
+    blurb: "The power grid at night. Wide avenues of light that keep narrowing into the wires: coil rings that fire fast, sliding switchgear, and more drones than anywhere else in the game. The diamond gates are here -- fly through them and the special charges past its base. Somewhere in the dark stretch there is a prism.",
+    spec: {
+      "name": "NEON DISTRICT",
+      "seed": 7013,
+      "speed": {
+        "start": 260,
+        "end": 430
+      },
+      "finale": "port",
+      "armedPort": false,
+      "music": "neon",
+      "sections": [
+        {
+          "name": "the on-ramp",
+          "length": 2400,
+          "width": 118,
+          "depth": 122,
+          "curviness": 0.35,
+          "snaking": 0.1,
+          "hilliness": 0.25,
+          "roughness": 0.4,
+          "obstacles": 0.14,
+          "kinds": [
+            "pylon",
+            "boostgate",
+            "diamond"
+          ],
+          "turrets": 0.2,
+          "gatlings": 0.2,
+          "batteries": 0.15,
+          "wallguns": 0.15,
+          "drones": 0.35,
+          "seals": 0,
+          "panels": 2,
+          "slotgap": 4,
+          "ringrate": 0.2,
+          "hue": 0.74
+        },
+        {
+          "name": "substation",
+          "length": 2600,
+          "width": 100,
+          "depth": 122,
+          "curviness": 0.5,
+          "snaking": 0.2,
+          "hilliness": 0.3,
+          "roughness": 0.5,
+          "obstacles": 0.3,
+          "kinds": [
+            "ring",
+            "stack",
+            "diamond"
+          ],
+          "turrets": 0.3,
+          "gatlings": 0.3,
+          "batteries": 0.2,
+          "wallguns": 0.3,
+          "drones": 0.45,
+          "seals": 0,
+          "panels": 2,
+          "slotgap": 4,
+          "ringrate": 0.14,
+          "hue": 0.76
+        },
+        {
+          "name": "switchgear",
+          "length": 2600,
+          "width": 88,
+          "depth": 118,
+          "curviness": 0.55,
+          "snaking": 0.25,
+          "hilliness": 0.35,
+          "roughness": 0.5,
+          "obstacles": 0.38,
+          "kinds": [
+            "slider",
+            "cross",
+            "gate"
+          ],
+          "turrets": 0.35,
+          "gatlings": 0.3,
+          "batteries": 0.25,
+          "wallguns": 0.4,
+          "drones": 0.5,
+          "seals": 0,
+          "panels": 2,
+          "slotgap": 4,
+          "ringrate": 0.2,
+          "hue": 0.78
+        },
+        {
+          "name": "the coil run",
+          "length": 2800,
+          "width": 80,
+          "depth": 118,
+          "curviness": 0.6,
+          "snaking": 0.3,
+          "hilliness": 0.3,
+          "roughness": 0.5,
+          "obstacles": 0.42,
+          "kinds": [
+            "ring",
+            "ring",
+            "slider",
+            "diamond"
+          ],
+          "turrets": 0.35,
+          "gatlings": 0.35,
+          "batteries": 0.25,
+          "wallguns": 0.4,
+          "drones": 0.55,
+          "seals": 0,
+          "panels": 2,
+          "slotgap": 4,
+          "ringrate": 0.1,
+          "hue": 0.79
+        },
+        {
+          "name": "breaker row",
+          "length": 2600,
+          "width": 84,
+          "depth": 124,
+          "curviness": 0.5,
+          "snaking": 0.2,
+          "hilliness": 0.4,
+          "roughness": 0.55,
+          "obstacles": 0.4,
+          "kinds": [
+            "gate",
+            "cross",
+            "boostgate"
+          ],
+          "turrets": 0.4,
+          "gatlings": 0.35,
+          "batteries": 0.3,
+          "wallguns": 0.5,
+          "drones": 0.5,
+          "seals": 1,
+          "panels": 3,
+          "slotgap": 4,
+          "ringrate": 0.2,
+          "hue": 0.8
+        },
+        {
+          "name": "the dark stretch",
+          "length": 2400,
+          "width": 96,
+          "depth": 130,
+          "curviness": 0.4,
+          "snaking": 0.15,
+          "hilliness": 0.25,
+          "roughness": 0.4,
+          "obstacles": 0.14,
+          "kinds": [
+            "prism"
+          ],
+          "turrets": 0.5,
+          "gatlings": 0.45,
+          "batteries": 0.4,
+          "wallguns": 0.2,
+          "drones": 0.65,
+          "seals": 0,
+          "panels": 2,
+          "slotgap": 4,
+          "ringrate": 0.2,
+          "hue": 0.72
+        },
+        {
+          "name": "live wires",
+          "length": 2800,
+          "width": 76,
+          "depth": 116,
+          "curviness": 0.65,
+          "snaking": 0.35,
+          "hilliness": 0.35,
+          "roughness": 0.55,
+          "obstacles": 0.46,
+          "kinds": [
+            "ring",
+            "slider",
+            "slot",
+            "diamond"
+          ],
+          "turrets": 0.4,
+          "gatlings": 0.4,
+          "batteries": 0.3,
+          "wallguns": 0.45,
+          "drones": 0.6,
+          "seals": 0,
+          "panels": 2,
+          "slotgap": 8,
+          "ringrate": 0.09,
+          "hue": 0.82
+        },
+        {
+          "name": "grid heart",
+          "length": 2600,
+          "width": 72,
+          "depth": 114,
+          "curviness": 0.6,
+          "snaking": 0.3,
+          "hilliness": 0.4,
+          "roughness": 0.55,
+          "obstacles": 0.44,
+          "kinds": [
+            "ring",
+            "cross",
+            "gate",
+            "diamond"
+          ],
+          "turrets": 0.45,
+          "gatlings": 0.45,
+          "batteries": 0.35,
+          "wallguns": 0.5,
+          "drones": 0.6,
+          "seals": 1,
+          "panels": 3,
+          "slotgap": 4,
+          "ringrate": 0.09,
+          "hue": 0.84
+        },
+        {
+          "name": "the last avenue",
+          "length": 2400,
+          "width": 82,
+          "depth": 118,
+          "curviness": 0.45,
+          "snaking": 0.2,
+          "hilliness": 0.3,
+          "roughness": 0.45,
+          "obstacles": 0.3,
+          "kinds": [
+            "stack",
+            "boostgate",
+            "diamond"
+          ],
+          "turrets": 0.5,
+          "gatlings": 0.5,
+          "batteries": 0.4,
+          "wallguns": 0.4,
+          "drones": 0.55,
+          "seals": 0,
+          "panels": 2,
+          "slotgap": 4,
+          "ringrate": 0.2,
+          "hue": 0.86
+        }
+      ]
+    },
+  },
 ];
 
 // ---- track.js ------------------------------------------------------
@@ -3075,6 +3335,18 @@ function buildLevel(spec, track) {
         const cx = (rand() * 2 - 1) * Math.max(0, hw - r - 16);
         const cy = clamp(34 + rand() * 40, r + 6, Math.max(r + 7, rim - r - 6));
         obstacles.push(obstacle(t, 12, 'boostgate', [
+          [-hw - 30, cx - r, -30, rim + 14],
+          [cx + r, hw + 30, -30, rim + 14],
+          [cx - r, cx + r, cy + r, rim + 14],
+          [cx - r, cx + r, -30, cy - r],
+        ], { ring: { cx, cy, r }, taken: false }));
+      } else if (kind === 'diamond' || kind === 'prism') {
+        // The gates that feed the special's meter. The same frame-of-boxes
+        // trick as the turbo gate; the diamond is only how it is drawn.
+        const r = clamp(20 + rand() * 8, 16, Math.max(17, hw - 14));
+        const cx = (rand() * 2 - 1) * Math.max(0, hw - r - 16);
+        const cy = clamp(34 + rand() * 40, r + 6, Math.max(r + 7, rim - r - 6));
+        obstacles.push(obstacle(t, 12, kind, [
           [-hw - 30, cx - r, -30, rim + 14],
           [cx + r, hw + 30, -30, rim + 14],
           [cx - r, cx + r, cy + r, rim + 14],
@@ -3824,6 +4096,39 @@ function drawObstacles(rd, track, obstacles, cursor, camT, far, time) {
         const a = (k / 6) * TAU;
         track.localToWorld(ob.t, cx + Math.cos(a) * r, cy + Math.sin(a) * r, p);
         track.localToWorld(ob.t + ob.dz, cx + Math.cos(a) * r, cy + Math.sin(a) * r, q);
+        rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], 1.1, g[0], g[1], g[2], pulse * 0.8);
+      }
+      continue;
+    }
+
+    if ((ob.kind === 'diamond' || ob.kind === 'prism') && ob.ring) {
+      // A rotated square, nested twice, in the equipped weapon's color -- the
+      // shape is the promise: fly through this and the meter gains a diamond.
+      // The prism cycles through every color, because it fills everything.
+      const { cx, cy, r } = ob.ring;
+      const pulse = 0.7 + 0.3 * Math.sin(time * 6 + ob.t * 0.013);
+      let col = ob.col || [0.75, 0.4, 1];
+      if (ob.kind === 'prism' && !ob.taken) {
+        const h = time * 1.3;
+        col = [0.55 + 0.45 * Math.sin(h), 0.55 + 0.45 * Math.sin(h + 2.1),
+          0.55 + 0.45 * Math.sin(h + 4.2)];
+      }
+      const g = ob.taken ? [col[0] * 0.3, col[1] * 0.3, col[2] * 0.3] : col;
+      const D = [[0, 1], [1, 0], [0, -1], [-1, 0]];
+      for (const [rad, w] of [[r, 2.2], [r * 0.6, 1.3]]) {
+        for (let k = 0; k < 4; k++) {
+          const a = D[k], b = D[(k + 1) % 4];
+          for (const tt of [ob.t, ob.t + ob.dz]) {
+            track.localToWorld(tt, cx + a[0] * rad, cy + a[1] * rad, p);
+            track.localToWorld(tt, cx + b[0] * rad, cy + b[1] * rad, q);
+            rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], w, g[0], g[1], g[2], pulse);
+          }
+        }
+      }
+      for (let k = 0; k < 4; k++) {
+        const a = D[k];
+        track.localToWorld(ob.t, cx + a[0] * r, cy + a[1] * r, p);
+        track.localToWorld(ob.t + ob.dz, cx + a[0] * r, cy + a[1] * r, q);
         rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], 1.1, g[0], g[1], g[2], pulse * 0.8);
       }
       continue;
@@ -5297,6 +5602,114 @@ const SONGS = {
     mix: { lead: 0.34, under: 0.09, arp: 0.032, bass: 0.115, sub: 0.065 },
   },
   /**
+   * NEON. The power grid at night: synthwave in the chip idiom. Sixteen bars
+   * in A minor at 138 -- slower than FIRE on paper and relentless anyway,
+   * because the engine is the bass: the lament descent, a-g-f-e, pumped in
+   * eighths with a chromatic slip into every change. The intro is three zap
+   * sweeps -- arcs jumping a substation -- and the turnaround dives on one.
+   *
+   * The lead is the one duty no other song uses: the plain 50% square, hollow
+   * and cold, which against the reedy harmony underneath is the PWM-synth
+   * sound every night-drive record is built on. Drums are the backbeat with
+   * the metallic short-register noise ticking the off-beats -- electricity in
+   * the hi-hat.
+   */
+  neon: {
+    name: 'NEON',
+    bpm: 138,
+    beats: 16,
+    loopFrom: 2,          // the arcs jump once; the loop is bars 3-16
+    lead: [
+      '-  -  -  -  e5/ .  -  -  -  -  -  -  a5/ .  -  - ',
+      '-  -  b5/ .  -  -  -  -  e5 .  d5 .  c5 .  b4 . ',
+      // A: the hook, low and terse.
+      'a4 .  .  .  e5 .  d5 .  c5 .  .  .  b4 .  c5 . ',
+      'b4 .  .  .  d5 .  .  .  g4 .  .  .  a4 .  b4 . ',
+      'c5 .  .  .  f5 .  e5 .  c5 .  .  .  a4 .  .  . ',
+      'b4 .  .  .  g#4 .  .  .  e4 .  .  .  d5 .  b4 . ',
+      // A restated, climbing out of the basement this time.
+      'a4 .  .  .  e5 .  d5 .  c5 .  .  .  b4 .  c5 . ',
+      'b4 .  .  .  d5 .  g5 .  b5 .  .  .  a5 .  g5 . ',
+      'a5 .  .  .  f5 .  .  .  c5 .  .  .  f5 .  a5 . ',
+      'g#5 .  .  .  e5 .  .  .  b4 .  d5 .  e5 .  g5 . ',
+      // B: the long lights. Held notes over the descent still running below.
+      'a5 .  .  .  .  .  .  .  g5 .  .  .  f5 .  .  . ',
+      'g5 .  .  .  .  .  e5 .  g5 .  .  .  c6 .  .  . ',
+      'a5 .  .  .  f5 .  .  .  d5 .  .  .  e5 .  f5 . ',
+      'e5 .  .  .  .  .  g#5 .  b5 .  .  .  .  .  .  . ',
+      // The run down through the leading tone, and the dive home.
+      'a5 g5 f5 e5 d5 c5 b4 a4 g#4 .  b4 .  e5 .  d5 . ',
+      'b4\\ .  .  .  -  -  -  -  e5 .  d5 .  c5 .  b4 . ',
+    ],
+    lead2: [
+      '-  -  -  -  -  -  -  -  -  -  -  -  -  -  -  - ',
+      '-  -  -  -  -  -  -  -  -  -  -  -  -  -  -  - ',
+      '-  -  -  -  -  -  -  -  -  -  -  -  -  -  -  - ',
+      '-  -  -  -  -  -  -  -  -  -  -  -  -  -  -  - ',
+      '-  -  -  -  -  -  -  -  -  -  -  -  -  -  -  - ',
+      '-  -  -  -  -  -  -  -  -  -  -  -  -  -  -  - ',
+      'e4 .  .  .  c5 .  b4 .  a4 .  .  .  g4 .  a4 . ',
+      'g4 .  .  .  b4 .  d5 .  g5 .  .  .  f5 .  d5 . ',
+      'f5 .  .  .  c5 .  .  .  a4 .  .  .  c5 .  f5 . ',
+      'e5 .  .  .  b4 .  .  .  g#4 .  b4 .  c5 .  e5 . ',
+      'f5 .  .  .  .  .  .  .  e5 .  .  .  c5 .  .  . ',
+      'e5 .  .  .  .  .  c5 .  e5 .  .  .  g5 .  .  . ',
+      'f5 .  .  .  d5 .  .  .  a4 .  .  .  c5 .  d5 . ',
+      'b4 .  .  .  .  .  e5 .  g#5 .  .  .  .  .  .  . ',
+      'c5 .  .  .  .  .  .  .  a4 .  .  .  .  .  .  . ',
+      'g#4\\ .  .  .  -  -  -  -  c5 .  b4 .  a4 .  g#4 . ',
+    ],
+    arp: ['am', 'am',
+      'am', 'g', 'f', 'e7', 'am', 'g', 'f', 'e7',
+      'f', 'c', 'dm', 'e7', 'am', 'e7'],
+    // The lament, pumped: eighths on the root with the octave popping, and a
+    // chromatic slip -- g#, f#, c#, d# -- into nearly every change.
+    bassLine: [
+      'a2 .  .  .  a2 .  .  .  a2 .  .  .  a2 .  .  . ',
+      'a2 .  .  .  a2 .  .  .  a2 .  a2 .  a2 .  g#2 . ',
+      'a2 .  a2 .  a3 .  a2 .  a2 .  a3 .  a2 .  g#2 . ',
+      'g2 .  g2 .  g3 .  g2 .  g2 .  g3 .  g2 .  f#2 . ',
+      'f2 .  f2 .  f3 .  f2 .  f2 .  f3 .  f2 .  f2 . ',
+      'e2 .  e2 .  e3 .  e2 .  e2 .  e3 .  e2 .  g#2 . ',
+      'a2 .  a2 .  a3 .  a2 .  a2 .  a3 .  a2 .  g#2 . ',
+      'g2 .  g2 .  g3 .  g2 .  g2 .  g3 .  g2 .  f#2 . ',
+      'f2 .  f2 .  f3 .  f2 .  f2 .  f3 .  f2 .  e2 . ',
+      'e2 .  e2 .  e3 .  e2 .  g#2 .  b2 .  d3 .  e3 . ',
+      'f2 .  f2 .  f3 .  f2 .  f2 .  f3 .  f2 .  e2 . ',
+      'c3 .  c3 .  c2 .  c3 .  c3 .  c2 .  c3 .  c#3 . ',
+      'd3 .  d3 .  d2 .  d3 .  d3 .  d2 .  d3 .  d#3 . ',
+      'e2 .  e2 .  e3 .  e2 .  e2 .  e3 .  e2 .  e2 . ',
+      'a2 .  a2 .  a3 .  a2 .  g2 .  f2 .  e2 .  d2 . ',
+      'e2 .  e2 .  e3 .  e2 .  e2 .  g#2 .  b2 .  g#2 . ',
+    ],
+    bass: null,
+    // Backbeat with the metallic tick on the off-beats; fills into each
+    // section, double-time under the run.
+    drums: [
+      'k.......k.......',
+      'k.......k...x.x.',
+      'k.h.x.m.k.h.x.m.',
+      'k.h.x.m.k.h.x.m.',
+      'k.h.x.m.k.h.x.m.',
+      'k.h.x.h.x.x.x.x.',
+      'k.h.x.m.k.h.x.m.',
+      'k.h.x.m.k.h.x.m.',
+      'k.h.x.m.k.h.x.m.',
+      'k.h.x.h.x.x.xxxx',
+      'k.h.x.h.kkh.x.h.',
+      'k.h.x.h.kkh.x.h.',
+      'k.h.x.h.kkh.x.h.',
+      'k.h.x.h.k.x.x.x.',
+      'k.x.k.x.k.x.k.x.',
+      'k...x.....x.x.x.',
+    ],
+    // The hollow square lead -- no other song uses 50% -- over a reedy 25%
+    // harmony: the PWM pair, which is the synthwave sound.
+    duty: { lead: 0.5, under: 0.25, arp: 0.5, bass: 0.5 },
+    mix: { lead: 0.3, under: 0.1, arp: 0.06, bass: 0.14, sub: 0.06 },
+  },
+
+  /**
    * ANTHEM. The opening-theme shape: a melody in long notes with big intervals,
    * carried over an arpeggio going four times as fast. That contrast is the
    * whole trick -- the tune sounds unhurried and enormous precisely because
@@ -5997,6 +6410,28 @@ class Audio {
   }
   enemyShot() { this._tone('sawtooth', 620, 180, 0.14, 0.1); }
   hit() { this._noiseBurst(0.13, 0.22, 2600, 700, 2); }
+
+  /** The arc: a crackle and a falling whine, over before the next one. */
+  zap() {
+    const v = 0.92 + Math.random() * 0.16;
+    this._noiseBurst(0.06, 0.5, 5200 * v, 900, 2);
+    this._tone('sawtooth', 1900 * v, 240, 0.11, 0.22);
+    this._tone('square', 640 * v, 90, 0.07, 0.14);
+  }
+
+  /** A diamond gate taken: two quick notes up. A prism: three, higher. */
+  diamond(prism = false) {
+    const base = prism ? 880 : 660;
+    this._tone('triangle', base, base, 0.09, 0.3);
+    setTimeout(() => this._tone('triangle', base * 1.5, base * 1.5, 0.11, 0.3), 70);
+    if (prism) setTimeout(() => this._tone('triangle', base * 2, base * 2, 0.14, 0.3), 140);
+  }
+
+  /** The special coming online: a rising charge. */
+  specialOn() {
+    this._tone('sawtooth', 220, 1400, 0.28, 0.2);
+    this._noiseBurst(0.2, 0.18, 3200, 1400, 1.5);
+  }
   scrape() { this._noiseBurst(0.3, 0.3, 1400, 200, 6); }
   smallBoom() { this._noiseBurst(0.55, 0.42, 1500, 60); this._tone('triangle', 180, 40, 0.4, 0.2); }
   bigBoom() {
@@ -6147,6 +6582,7 @@ class Input {
     this._lastPress = null;
     this.boosting = false;         // the burn is open
     this.boostHeld = false;        // the BURN button is down
+    this.specialPressed = false;   // the special was asked for, once
     this.boostHeld = false;
     this.motion = 'unavailable';   // unavailable | granted | denied
     this.padName = '';             // the controller in use, if there is one
@@ -6197,6 +6633,7 @@ class Input {
       if ((k === 'shift' || k === 'm' || k === 'enter') && !this.keys.has(k)) {
         this.launchMissiles();
       }
+      if (k === 'x' && !this.keys.has(k)) this.toggleSpecial();
 
       this.keys.add(k);
       if ([' ', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright'].includes(e.key.toLowerCase())) {
@@ -6556,6 +6993,18 @@ class Input {
     this.steerY = sy;
   }
 
+  /** True once per special toggle request, from the button or a key. */
+  takeSpecial() {
+    const v = this.specialPressed;
+    this.specialPressed = false;
+    return v;
+  }
+
+  /** Requests the special weapon toggled. Button and keyboard both land here. */
+  toggleSpecial() {
+    this.specialPressed = true;
+  }
+
   /** True once per missile request, from the button, a key, or a call. */
   takeMissile() {
     const v = this.missilePressed;
@@ -6707,6 +7156,31 @@ const BURN_SPOOL_DOWN = 6;
 const SUPER_MUL = 2.1;        // burning and gated at the same time
 const GATE_TIME = 3;          // seconds a turbo gate is worth, and they add up
 
+// The special weapon. It meters in diamonds, and a diamond is two seconds of
+// fire: three to start, a slow trickle back up to three, diamond gates that
+// stack it to eight, and a prism -- very rare -- that fills it outright. The
+// trickle refills only to base, so passive flying never banks a long burst:
+// anything past three diamonds was flown through a gate to get.
+const DIAMOND_SECONDS = 2;    // one diamond is this much special fire
+const DIAMOND_BASE = 3;       // a run starts here, and the trickle stops here
+const DIAMOND_CAP = 8;        // gates can stack it to here
+const DIAMOND_TRICKLE = 10;   // seconds of flying per diamond earned back
+
+// ARC: the Neon District's weapon. Chain lightning built on paint-to-lock --
+// each zap strikes what the crosshair holds and jumps to whatever is painted
+// or simply near, up to four ships a bolt. Against one target it is a slightly
+// better gun; against a crowd it is the crowd that loses.
+const ARC_CADENCE = 0.16;     // seconds between zaps
+const ARC_DAMAGE = 2;         // per zap, per ship struck
+const ARC_LINKS = 4;          // ships one bolt can chain through
+const ARC_RANGE = 900;        // furthest first strike
+const ARC_JUMP = 260;         // furthest jump between ships
+
+// Each special is its district's color: the diamonds, the bolt, the HUD.
+const SPECIAL_COLORS = {
+  arc: [0.75, 0.4, 1],
+};
+
 // The one heavy thing that lives in the trench with you: two shots and a
 // missile, on a cycle short enough to matter in the three seconds you are
 // inside its reach.
@@ -6825,6 +7299,14 @@ class Game {
     this.burnSpent = false;
     this.gateTime = 0;
     this.speedMul = 1;
+    // The special. Equipped is which weapon; the wardens will hand these out
+    // one at a time once they exist. Until then ARC is fitted for testing.
+    this.special = 'arc';
+    this.diamonds = DIAMOND_BASE;
+    this.specialOn = false;
+    this.specialEntry = 0;      // the meter at activation: a tap commits one
+    this.zapTimer = 0;
+    this.arcs = [];             // live bolts, drawn for a few frames each
     this.pitch = 0;
     this.yaw = 0;
     this.shield = SHIELD_MAX;
@@ -6893,6 +7375,16 @@ class Game {
     this.boost = BOOST_TANK;
     this.burning = false;
     this.burnSpent = false;
+    this.diamonds = DIAMOND_BASE;
+    this.specialOn = false;
+    this.specialEntry = 0;
+    this.zapTimer = 0;
+    this.arcs.length = 0;
+    // The gates that feed the meter wear the equipped weapon's color.
+    const scol = SPECIAL_COLORS[this.special] || [0.75, 0.4, 1];
+    for (const ob of this.level.obstacles) {
+      if (ob.kind === 'diamond' || ob.kind === 'prism') ob.col = scol;
+    }
     this.gateTime = 0;
     this.speedMul = 1;
     this.phase = 'flying';
@@ -6975,6 +7467,19 @@ class Game {
       this.boost = Math.min(BOOST_TANK, this.boost + dt * (BOOST_TANK / BOOST_REFILL));
     }
     this.burning = wantBurn;
+
+    // The special's meter: drains while it is live, trickles back toward base
+    // while it is not, and never trickles past base -- gates do that.
+    if (this.specialOn) {
+      this.diamonds = Math.max(0, this.diamonds - dt / DIAMOND_SECONDS);
+      if (this.diamonds <= 0) {
+        this.specialOn = false;
+        this.say(`${this.special.toUpperCase()} SPENT`, 0.9);
+      }
+    } else if (this.diamonds < DIAMOND_BASE) {
+      this.diamonds = Math.min(DIAMOND_BASE, this.diamonds + dt / DIAMOND_TRICKLE);
+    }
+    if (inp.takeSpecial()) this.toggleSpecial();
 
     // Two independent sources of speed: the tank you hold open, and gate time,
     // which is a stopwatch a turbo gate adds three seconds to. A gate neither
@@ -7196,6 +7701,20 @@ class Game {
         if (!ob.taken && !hitsObstacle(ob, this.time, this.shipX, this.shipY, hx, hy)) {
           ob.taken = true;
           this.takeGate();
+        }
+        continue;
+      }
+      if (ob.kind === 'diamond' || ob.kind === 'prism') {
+        if (!ob.taken && !hitsObstacle(ob, this.time, this.shipX, this.shipY, hx, hy)) {
+          ob.taken = true;
+          if (ob.kind === 'prism') {
+            this.diamonds = DIAMOND_CAP;
+            this.say('PRISM -- FULL CHARGE', 1.1);
+          } else {
+            this.diamonds = Math.min(DIAMOND_CAP, this.diamonds + 1);
+            this.say(`+1 ${this.special.toUpperCase()}`, 0.8);
+          }
+          this.audio.diamond(ob.kind === 'prism');
         }
         continue;
       }
@@ -7929,6 +8448,10 @@ class Game {
 
   /** The machine gun: infinite ammo, finite patience. */
   updateGun(dt, cx, cy) {
+    if (this.specialOn) {
+      this.updateArc(dt, cx, cy);
+      return;
+    }
     const rd = this.rd;
     const firing = this.input.firing && !this.overheated;
 
@@ -7973,6 +8496,106 @@ class Game {
       this.weapons.fireLaser(this._p[0], this._p[1], this._p[2], dx / dl, dy / dl, dz / dl);
     }
     this.audio.gun();
+  }
+
+  /**
+   * The special, committed. Activating swaps the gun for the special shot and
+   * opens the meter; pressing again conserves what is left -- but never all of
+   * it. A tap costs a diamond, so lighting it up is a decision, not a twitch.
+   */
+  toggleSpecial() {
+    if (this.specialOn) {
+      this.specialOn = false;
+      this.diamonds = Math.min(this.diamonds, Math.max(0, this.specialEntry - 1));
+      this.say(`${this.special.toUpperCase()} OFF`, 0.7);
+      return;
+    }
+    if (this.diamonds < 1) {
+      this.say('NO CHARGE', 0.8);
+      return;
+    }
+    this.specialEntry = this.diamonds;
+    this.specialOn = true;
+    this.say(`${this.special.toUpperCase()} ONLINE`, 1);
+    this.audio.specialOn();
+  }
+
+  /**
+   * ARC. The gun becomes chain lightning: each zap strikes what the crosshair
+   * holds and jumps ship to ship from there -- painted targets first, which is
+   * the payoff for flying the paint-to-lock game well. It ignores gun heat;
+   * the diamonds are its whole economy.
+   */
+  updateArc(dt, cx, cy) {
+    const rd = this.rd;
+    if (!this.input.firing) { this.input.takePress(); return; }
+    this.zapTimer -= dt;
+    if (this.input.takePress()) this.zapTimer = 0;
+    if (this.zapTimer > 0) return;
+    this.zapTimer = ARC_CADENCE;
+
+    // Everything a bolt could reach, with what the crosshair holds first and
+    // painted ships ahead of merely visible ones.
+    const cands = [];
+    for (const arr of [this.level.enemies, this.drones]) {
+      for (const e of arr) {
+        if (!e.alive || !e.world || e.kind === 'port') continue;
+        const dz = e.world[2] - this.shipPos[2];
+        const d = Math.hypot(e.world[0] - this.shipPos[0],
+          e.world[1] - this.shipPos[1], dz);
+        if (d > ARC_RANGE || e.los < 0.4) continue;
+        cands.push(e);
+      }
+    }
+    if (!cands.length) return;
+
+    const rank = (e, from) => {
+      const d = Math.hypot(e.world[0] - from[0], e.world[1] - from[1], e.world[2] - from[2]);
+      return d - (this.locks.includes(e) ? 200 : (e.paint || 0) * 120)
+        - (e === this.paintTarget ? 260 : 0);
+    };
+    shipLocalToWorld(this.shipPos, this.basis, 0, -1, 6, this._p);
+    const chain = [];
+    let from = [this._p[0], this._p[1], this._p[2]];
+    const used = new Set();
+    for (let k = 0; k < ARC_LINKS; k++) {
+      let best = null, bv = Infinity;
+      for (const e of cands) {
+        if (used.has(e)) continue;
+        const d = Math.hypot(e.world[0] - from[0], e.world[1] - from[1], e.world[2] - from[2]);
+        if (d > (k === 0 ? ARC_RANGE : ARC_JUMP)) continue;
+        const v = rank(e, from);
+        if (v < bv) { bv = v; best = e; }
+      }
+      if (!best) break;
+      used.add(best);
+      chain.push(best);
+      from = best.world;
+    }
+    if (!chain.length) return;
+
+    // The bolt: a jagged polyline through the chain, alive for a few frames.
+    const pts = [[this._p[0], this._p[1], this._p[2]]];
+    let px = this._p[0], py = this._p[1], pz = this._p[2];
+    for (const e of chain) {
+      const segs = 4;
+      for (let i = 1; i <= segs; i++) {
+        const f = i / segs;
+        const wob = i < segs ? 7 : 0;
+        pts.push([
+          px + (e.world[0] - px) * f + (hash2((this.time * 60) | 0, i * 13 + pts.length) - 0.5) * wob,
+          py + (e.world[1] - py) * f + (hash2((this.time * 60) | 0, i * 29 + pts.length) - 0.5) * wob,
+          pz + (e.world[2] - pz) * f,
+        ]);
+      }
+      px = e.world[0]; py = e.world[1]; pz = e.world[2];
+      e.hp -= ARC_DAMAGE;
+      e.flash = 1;
+      this.particles.burst(e.world[0], e.world[1], e.world[2], 6, 130, 0.8, 0.5, 1, 0.3, 1.5);
+      if (e.hp <= 0) this.destroy(e);
+    }
+    this.arcs.push({ pts, life: 0.09 });
+    this.audio.zap();
   }
 
   /** Everything painted, struck at once. */
@@ -8155,7 +8778,8 @@ class Game {
       if (lt < ob.t || lt > ob.t + ob.dz) continue;
       // A turbo gate is not solid to anything. Its boxes exist only to answer
       // "did the ship go through the hoop", so shots pass straight through it.
-      if (ob.kind === 'boostgate') continue;
+      // The same is true of the gates that feed the special.
+      if (ob.kind === 'boostgate' || ob.kind === 'diamond' || ob.kind === 'prism') continue;
       if (hitsObstacle(ob, this.time, lx, ly)) return true;
     }
     return false;
@@ -8270,6 +8894,17 @@ class Game {
       drawEnemies(rd, tr, [this.level.port], camT, FAR, this.time);
     }
     this.weapons.draw(rd);
+    for (let i = this.arcs.length - 1; i >= 0; i--) {
+      const a = this.arcs[i];
+      a.life -= 0.016;
+      if (a.life <= 0) { this.arcs.splice(i, 1); continue; }
+      const [cr, cg, cb] = SPECIAL_COLORS[this.special] || [0.75, 0.4, 1];
+      const glow = 0.5 + a.life * 6;
+      for (let k = 1; k < a.pts.length; k++) {
+        const u = a.pts[k - 1], v = a.pts[k];
+        rd.line3(u[0], u[1], u[2], v[0], v[1], v[2], 2.2, cr, cg, cb, glow);
+      }
+    }
     this.particles.draw(rd);
 
     if (this.phase !== 'dead' || this.deathTimer < 0.35) {
@@ -8404,6 +9039,7 @@ class Game {
 const $ = (id) => document.getElementById(id);
 
 const BURN_PIPS = 5;   // chevrons on the boost gauge
+const SPEC_PIPS = 8;   // diamonds on the special gauge
 
 class UI {
   constructor(rd, input, audio, game) {
@@ -8483,6 +9119,12 @@ class UI {
       }
     };
     hold('burn', (on) => { this.input.boostHeld = on; });
+    // The special is a toggle, not a hold: press to light it, press to keep
+    // what is left. pointerdown so it lands on touch-down like everything else.
+    $('spec').addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      this.input.toggleSpecial();
+    });
 
     $('calibrate').addEventListener('click', async () => {
       if (this.input.motion !== 'granted') await this.input.requestMotion();
@@ -8553,6 +9195,23 @@ class UI {
     }
     const cls = g.burning ? 'on' : lit === 0 ? 'cooling' : '';
     if (cls !== this._burnCls) { $('burn').className = cls; this._burnCls = cls; }
+  }
+
+  /**
+   * The special's button is its gauge: a row of diamonds in the weapon's
+   * color, whole ones lit, and the partial one the trickle is still earning
+   * left dark. Lit solid while the weapon is live.
+   */
+  syncSpecButton() {
+    const g = this.game;
+    const whole = Math.floor(Math.max(0, g.diamonds ?? 0) + 1e-6);
+    if (whole !== this._specPips) {
+      $('spec').innerHTML = Array.from({ length: SPEC_PIPS }, (_, i) =>
+        `<b class="${i < whole ? 'lit' : ''}">◆</b>`).join('');
+      this._specPips = whole;
+    }
+    const cls = g.specialOn ? 'on' : whole === 0 ? 'cooling' : '';
+    if (cls !== this._specCls) { $('spec').className = cls; this._specCls = cls; }
   }
 
   syncMissileButton() {
@@ -8906,6 +9565,7 @@ function frame(now) {
     game.draw();
     ui.syncMissileButton();
     ui.syncBurnButton();
+    ui.syncSpecButton();
   } else {
     ui.drawBackdrop();
   }

@@ -24,7 +24,8 @@ export function audit(spec) {
   // Turbo gates are not obstructions: nothing about them can hurt the ship, and
   // its boxes are only there to tell flying through the hoop from flying past
   // it. Auditing them as walls would demand a line through every hoop.
-  const obs = lv.obstacles.filter((o) => o.kind !== 'boostgate')
+  const FRIENDLY = new Set(['boostgate', 'diamond', 'prism']);
+  const obs = lv.obstacles.filter((o) => !FRIENDLY.has(o.kind))
     .sort((a, b) => a.t - b.t);
   if (!obs.length) return { ok: true, blocked: [], tight: [] };
 

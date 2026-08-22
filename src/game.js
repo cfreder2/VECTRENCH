@@ -112,6 +112,31 @@ const BURN_SPOOL_DOWN = 6;
 const SUPER_MUL = 2.1;        // burning and gated at the same time
 const GATE_TIME = 3;          // seconds a turbo gate is worth, and they add up
 
+// The special weapon. It meters in diamonds, and a diamond is two seconds of
+// fire: three to start, a slow trickle back up to three, diamond gates that
+// stack it to eight, and a prism -- very rare -- that fills it outright. The
+// trickle refills only to base, so passive flying never banks a long burst:
+// anything past three diamonds was flown through a gate to get.
+const DIAMOND_SECONDS = 2;    // one diamond is this much special fire
+const DIAMOND_BASE = 3;       // a run starts here, and the trickle stops here
+const DIAMOND_CAP = 8;        // gates can stack it to here
+const DIAMOND_TRICKLE = 10;   // seconds of flying per diamond earned back
+
+// ARC: the Neon District's weapon. Chain lightning built on paint-to-lock --
+// each zap strikes what the crosshair holds and jumps to whatever is painted
+// or simply near, up to four ships a bolt. Against one target it is a slightly
+// better gun; against a crowd it is the crowd that loses.
+const ARC_CADENCE = 0.16;     // seconds between zaps
+const ARC_DAMAGE = 2;         // per zap, per ship struck
+const ARC_LINKS = 4;          // ships one bolt can chain through
+const ARC_RANGE = 900;        // furthest first strike
+const ARC_JUMP = 260;         // furthest jump between ships
+
+// Each special is its district's color: the diamonds, the bolt, the HUD.
+export const SPECIAL_COLORS = {
+  arc: [0.75, 0.4, 1],
+};
+
 // The one heavy thing that lives in the trench with you: two shots and a
 // missile, on a cycle short enough to matter in the three seconds you are
 // inside its reach.
@@ -230,6 +255,14 @@ export class Game {
     this.burnSpent = false;
     this.gateTime = 0;
     this.speedMul = 1;
+    // The special. Equipped is which weapon; the wardens will hand these out
+    // one at a time once they exist. Until then ARC is fitted for testing.
+    this.special = 'arc';
+    this.diamonds = DIAMOND_BASE;
+    this.specialOn = false;
+    this.specialEntry = 0;      // the meter at activation: a tap commits one
+    this.zapTimer = 0;
+    this.arcs = [];             // live bolts, drawn for a few frames each
     this.pitch = 0;
     this.yaw = 0;
     this.shield = SHIELD_MAX;
@@ -298,6 +331,16 @@ export class Game {
     this.boost = BOOST_TANK;
     this.burning = false;
     this.burnSpent = false;
+    this.diamonds = DIAMOND_BASE;
+    this.specialOn = false;
+    this.specialEntry = 0;
+    this.zapTimer = 0;
+    this.arcs.length = 0;
+    // The gates that feed the meter wear the equipped weapon's color.
+    const scol = SPECIAL_COLORS[this.special] || [0.75, 0.4, 1];
+    for (const ob of this.level.obstacles) {
+      if (ob.kind === 'diamond' || ob.kind === 'prism') ob.col = scol;
+    }
     this.gateTime = 0;
     this.speedMul = 1;
     this.phase = 'flying';
@@ -380,6 +423,19 @@ export class Game {
       this.boost = Math.min(BOOST_TANK, this.boost + dt * (BOOST_TANK / BOOST_REFILL));
     }
     this.burning = wantBurn;
+
+    // The special's meter: drains while it is live, trickles back toward base
+    // while it is not, and never trickles past base -- gates do that.
+    if (this.specialOn) {
+      this.diamonds = Math.max(0, this.diamonds - dt / DIAMOND_SECONDS);
+      if (this.diamonds <= 0) {
+        this.specialOn = false;
+        this.say(`${this.special.toUpperCase()} SPENT`, 0.9);
+      }
+    } else if (this.diamonds < DIAMOND_BASE) {
+      this.diamonds = Math.min(DIAMOND_BASE, this.diamonds + dt / DIAMOND_TRICKLE);
+    }
+    if (inp.takeSpecial()) this.toggleSpecial();
 
     // Two independent sources of speed: the tank you hold open, and gate time,
     // which is a stopwatch a turbo gate adds three seconds to. A gate neither
@@ -601,6 +657,20 @@ export class Game {
         if (!ob.taken && !hitsObstacle(ob, this.time, this.shipX, this.shipY, hx, hy)) {
           ob.taken = true;
           this.takeGate();
+        }
+        continue;
+      }
+      if (ob.kind === 'diamond' || ob.kind === 'prism') {
+        if (!ob.taken && !hitsObstacle(ob, this.time, this.shipX, this.shipY, hx, hy)) {
+          ob.taken = true;
+          if (ob.kind === 'prism') {
+            this.diamonds = DIAMOND_CAP;
+            this.say('PRISM -- FULL CHARGE', 1.1);
+          } else {
+            this.diamonds = Math.min(DIAMOND_CAP, this.diamonds + 1);
+            this.say(`+1 ${this.special.toUpperCase()}`, 0.8);
+          }
+          this.audio.diamond(ob.kind === 'prism');
         }
         continue;
       }
@@ -1334,6 +1404,10 @@ export class Game {
 
   /** The machine gun: infinite ammo, finite patience. */
   updateGun(dt, cx, cy) {
+    if (this.specialOn) {
+      this.updateArc(dt, cx, cy);
+      return;
+    }
     const rd = this.rd;
     const firing = this.input.firing && !this.overheated;
 
@@ -1378,6 +1452,106 @@ export class Game {
       this.weapons.fireLaser(this._p[0], this._p[1], this._p[2], dx / dl, dy / dl, dz / dl);
     }
     this.audio.gun();
+  }
+
+  /**
+   * The special, committed. Activating swaps the gun for the special shot and
+   * opens the meter; pressing again conserves what is left -- but never all of
+   * it. A tap costs a diamond, so lighting it up is a decision, not a twitch.
+   */
+  toggleSpecial() {
+    if (this.specialOn) {
+      this.specialOn = false;
+      this.diamonds = Math.min(this.diamonds, Math.max(0, this.specialEntry - 1));
+      this.say(`${this.special.toUpperCase()} OFF`, 0.7);
+      return;
+    }
+    if (this.diamonds < 1) {
+      this.say('NO CHARGE', 0.8);
+      return;
+    }
+    this.specialEntry = this.diamonds;
+    this.specialOn = true;
+    this.say(`${this.special.toUpperCase()} ONLINE`, 1);
+    this.audio.specialOn();
+  }
+
+  /**
+   * ARC. The gun becomes chain lightning: each zap strikes what the crosshair
+   * holds and jumps ship to ship from there -- painted targets first, which is
+   * the payoff for flying the paint-to-lock game well. It ignores gun heat;
+   * the diamonds are its whole economy.
+   */
+  updateArc(dt, cx, cy) {
+    const rd = this.rd;
+    if (!this.input.firing) { this.input.takePress(); return; }
+    this.zapTimer -= dt;
+    if (this.input.takePress()) this.zapTimer = 0;
+    if (this.zapTimer > 0) return;
+    this.zapTimer = ARC_CADENCE;
+
+    // Everything a bolt could reach, with what the crosshair holds first and
+    // painted ships ahead of merely visible ones.
+    const cands = [];
+    for (const arr of [this.level.enemies, this.drones]) {
+      for (const e of arr) {
+        if (!e.alive || !e.world || e.kind === 'port') continue;
+        const dz = e.world[2] - this.shipPos[2];
+        const d = Math.hypot(e.world[0] - this.shipPos[0],
+          e.world[1] - this.shipPos[1], dz);
+        if (d > ARC_RANGE || e.los < 0.4) continue;
+        cands.push(e);
+      }
+    }
+    if (!cands.length) return;
+
+    const rank = (e, from) => {
+      const d = Math.hypot(e.world[0] - from[0], e.world[1] - from[1], e.world[2] - from[2]);
+      return d - (this.locks.includes(e) ? 200 : (e.paint || 0) * 120)
+        - (e === this.paintTarget ? 260 : 0);
+    };
+    shipLocalToWorld(this.shipPos, this.basis, 0, -1, 6, this._p);
+    const chain = [];
+    let from = [this._p[0], this._p[1], this._p[2]];
+    const used = new Set();
+    for (let k = 0; k < ARC_LINKS; k++) {
+      let best = null, bv = Infinity;
+      for (const e of cands) {
+        if (used.has(e)) continue;
+        const d = Math.hypot(e.world[0] - from[0], e.world[1] - from[1], e.world[2] - from[2]);
+        if (d > (k === 0 ? ARC_RANGE : ARC_JUMP)) continue;
+        const v = rank(e, from);
+        if (v < bv) { bv = v; best = e; }
+      }
+      if (!best) break;
+      used.add(best);
+      chain.push(best);
+      from = best.world;
+    }
+    if (!chain.length) return;
+
+    // The bolt: a jagged polyline through the chain, alive for a few frames.
+    const pts = [[this._p[0], this._p[1], this._p[2]]];
+    let px = this._p[0], py = this._p[1], pz = this._p[2];
+    for (const e of chain) {
+      const segs = 4;
+      for (let i = 1; i <= segs; i++) {
+        const f = i / segs;
+        const wob = i < segs ? 7 : 0;
+        pts.push([
+          px + (e.world[0] - px) * f + (hash2((this.time * 60) | 0, i * 13 + pts.length) - 0.5) * wob,
+          py + (e.world[1] - py) * f + (hash2((this.time * 60) | 0, i * 29 + pts.length) - 0.5) * wob,
+          pz + (e.world[2] - pz) * f,
+        ]);
+      }
+      px = e.world[0]; py = e.world[1]; pz = e.world[2];
+      e.hp -= ARC_DAMAGE;
+      e.flash = 1;
+      this.particles.burst(e.world[0], e.world[1], e.world[2], 6, 130, 0.8, 0.5, 1, 0.3, 1.5);
+      if (e.hp <= 0) this.destroy(e);
+    }
+    this.arcs.push({ pts, life: 0.09 });
+    this.audio.zap();
   }
 
   /** Everything painted, struck at once. */
@@ -1560,7 +1734,8 @@ export class Game {
       if (lt < ob.t || lt > ob.t + ob.dz) continue;
       // A turbo gate is not solid to anything. Its boxes exist only to answer
       // "did the ship go through the hoop", so shots pass straight through it.
-      if (ob.kind === 'boostgate') continue;
+      // The same is true of the gates that feed the special.
+      if (ob.kind === 'boostgate' || ob.kind === 'diamond' || ob.kind === 'prism') continue;
       if (hitsObstacle(ob, this.time, lx, ly)) return true;
     }
     return false;
@@ -1675,6 +1850,17 @@ export class Game {
       drawEnemies(rd, tr, [this.level.port], camT, FAR, this.time);
     }
     this.weapons.draw(rd);
+    for (let i = this.arcs.length - 1; i >= 0; i--) {
+      const a = this.arcs[i];
+      a.life -= 0.016;
+      if (a.life <= 0) { this.arcs.splice(i, 1); continue; }
+      const [cr, cg, cb] = SPECIAL_COLORS[this.special] || [0.75, 0.4, 1];
+      const glow = 0.5 + a.life * 6;
+      for (let k = 1; k < a.pts.length; k++) {
+        const u = a.pts[k - 1], v = a.pts[k];
+        rd.line3(u[0], u[1], u[2], v[0], v[1], v[2], 2.2, cr, cg, cb, glow);
+      }
+    }
     this.particles.draw(rd);
 
     if (this.phase !== 'dead' || this.deathTimer < 0.35) {

@@ -205,6 +205,28 @@ export class Audio {
   }
   enemyShot() { this._tone('sawtooth', 620, 180, 0.14, 0.1); }
   hit() { this._noiseBurst(0.13, 0.22, 2600, 700, 2); }
+
+  /** The arc: a crackle and a falling whine, over before the next one. */
+  zap() {
+    const v = 0.92 + Math.random() * 0.16;
+    this._noiseBurst(0.06, 0.5, 5200 * v, 900, 2);
+    this._tone('sawtooth', 1900 * v, 240, 0.11, 0.22);
+    this._tone('square', 640 * v, 90, 0.07, 0.14);
+  }
+
+  /** A diamond gate taken: two quick notes up. A prism: three, higher. */
+  diamond(prism = false) {
+    const base = prism ? 880 : 660;
+    this._tone('triangle', base, base, 0.09, 0.3);
+    setTimeout(() => this._tone('triangle', base * 1.5, base * 1.5, 0.11, 0.3), 70);
+    if (prism) setTimeout(() => this._tone('triangle', base * 2, base * 2, 0.14, 0.3), 140);
+  }
+
+  /** The special coming online: a rising charge. */
+  specialOn() {
+    this._tone('sawtooth', 220, 1400, 0.28, 0.2);
+    this._noiseBurst(0.2, 0.18, 3200, 1400, 1.5);
+  }
   scrape() { this._noiseBurst(0.3, 0.3, 1400, 200, 6); }
   smallBoom() { this._noiseBurst(0.55, 0.42, 1500, 60); this._tone('triangle', 180, 40, 0.4, 0.2); }
   bigBoom() {

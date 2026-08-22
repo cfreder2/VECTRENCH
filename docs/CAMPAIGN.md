@@ -27,7 +27,7 @@ Citadel locked in the center until all eight wardens are down.
 | 1 | **RIVERWORKS** | THE ESSES *(exists)* | cyan 0.5 → blue | coolant rivers — snaking bends, slots | **WAVE** |
 | 2 | **FOUNDRY** | REACTOR *(exists)* | gold 0.14 → red 0.0 | the furnace — everything at once, on fire | **MAGMA** |
 | 3 | **OVERGROWTH** | *new* | green 0.33 | a reclaimed district — vines as rings, pinwheels as windmills | **SAW** |
-| 4 | **NEON DISTRICT** | *new* | violet 0.79 | the power grid at night | **ARC** |
+| 4 | **NEON DISTRICT** | NEON DISTRICT *(exists)* | violet 0.74 → 0.86 | the power grid at night | **ARC** *(built)* |
 | 5 | **FREIGHT LOCKS** | BULKHEAD RUN *(exists)* | steel 0.6, desaturated | doors, presses, crushers | **BREACH** |
 | 6 | **GLACIER** | *new* | ice 0.55 + white | a frozen intake — knife-edge slot country | **FREEZE** |
 | 7 | **THE GAUNTLET** | GAUNTLET *(exists)* | gold 0.14 on black | the armory corridor — wall guns the whole way | **RAIL** |
@@ -84,8 +84,13 @@ warden it melts.*
 
 You fly *alongside* each one, 1943-style, in a dedicated arena past the gate.
 Each is its own ship with special attacks — crushing, ramming, missiles,
-spawning escorts you must clear. First-pass identities, to be designed
-properly one at a time:
+spawning escorts you must clear.
+
+**Every warden fights with its own special weapon.** MARIONETTE chains ARC
+lightning at you; FURNACE burns you with MAGMA; BROADSIDE fires the RAIL you
+will take from it. Beating a warden is how the weapon is earned — the fight
+is the demonstration, and what it did to you is what it will do for you.
+First-pass identities, to be designed properly one at a time:
 
 | Warden | District | The fight |
 | --- | --- | --- |
@@ -109,7 +114,7 @@ color — it is the setup. *(See the parking lot.)*
 | Riverworks | **water** — written, assigned |
 | Foundry | **fire** — written, assigned |
 | Overgrowth | to write — pastoral but driving, 6/8 |
-| Neon District | to write — synthwave, chromatic bass |
+| Neon District | **neon** — written, assigned |
 | Freight Locks | to write — industrial ostinato, machine rhythms |
 | Glacier | to write — sparse, crystalline, high arpeggios |
 | The Gauntlet | to write — a relentless march |
@@ -118,7 +123,7 @@ color — it is the setup. *(See the parking lot.)*
 | **Final run** (Citadel) | to write — the biggest track in the game, quoting the anthem's theme |
 | Training | **bumblebee** — where the joke belongs |
 
-Eight to write, four written. The synth has the full NES palette now
+Seven to write, five written. The synth has the full NES palette now
 ([BESTIARY — the music](BESTIARY.md#the-music)); keeping eight districts
 audibly distinct is what the duty cycles, sweeps, and written basslines
 are *for*.
@@ -139,8 +144,9 @@ Noted so it is not lost, deliberately not the current focus:
 The focus now: **the eight levels, their themes, their soundtrack, and the
 special weapon system.** In build order:
 
-1. The diamond meter and one weapon end-to-end (WAVE, since THE ESSES and its
-   song exist) — meter, gates, HUD, the shot.
+1. ~~The diamond meter and one weapon end-to-end~~ — **done**, and it was ARC,
+   not WAVE: the Neon District shipped first as level + song + weapon
+   together, which is the per-district pattern from here on.
 2. The second hue, so districts look like districts.
 3. The remaining districts one at a time, each level + song + weapon together.
 4. The 3×3 select screen and the unlock state.

@@ -403,6 +403,7 @@ none do.
 | `water` | 132bpm, A minor | Eighteen bars. It opens with droplets — short high notes on rising sweeps, which is what a water drop sounds like — falling once over the arpeggio running alone. Then the eight bars that sink and climb back out, and a new eight-bar B section that heads into open water around the circle of fifths — iv–VII–III–VI — rising to the one c6 in the piece and settling home through a ♯7 dominant. The bass is written as a current: quarters that drift through each chord and hand every bar to the next with a passing tone |
 | `anthem` | 152bpm, A minor | Eighteen bars. The opening-theme shape: long notes with big intervals over an arpeggio going four times as fast — the tune sounds unhurried and enormous *because* something underneath it is sprinting. The theme keeps the heroic i–VI–III–VII; a new second strain answers it — VI–VII–i twice, peaking a step higher each phrase to d6, then a rising sweep flare on the dominant, the brass gesture, before the loop is handed back. The bass is written pumping eighths with a walk into every chord change, and the strain earns a backbeat the theme does not have. The first two bars still play once and never return |
 | `fire` | 176bpm, E minor | Sixteen bars with a form, not a loop: a two-bar alarm of rising hardware sweeps that plays once, a driving 3+3+2 theme stated bare then restated with its harmony, a chorus lifting to the relative major, and a climax that runs down the octave at full speed and dive-bombs back into the loop on a falling sweep. The bass is a written gallop — root, rest, root, octave — that walks into every chord change; the drums fill into each section and go double-time under the run, metallic short-register noise ticking through the groove. Its dominant is still a **B7** carrying the D♯ of the harmonic minor, and the chorus's biggest note is a ♭9 over it |
+| `neon` | 138bpm, A minor | Synthwave in the chip idiom: the lament descent — a, g, f, e — pumped in eighths with a chromatic slip into nearly every change. The intro is three rising zap sweeps, arcs jumping a substation; the turnaround dives on one. The lead is the one duty no other song uses — the hollow 50% square over a reedy 25% harmony, the PWM pair — and the metallic short-register noise ticks the off-beats: electricity in the hi-hat |
 
 All three written ones are checked as music before anyone hears them: every bar
 the right length, every token a note, and the strong beats landing on chord
@@ -468,6 +469,39 @@ the trench floor: the sight line clips the rim. Fighting the surface means
 climbing into its fire.
 
 ---
+
+## The special weapon
+
+The gun with a second identity. Each district's warden fights with its own
+special weapon — and beating it takes that weapon from it, fitted to the ship
+from then on. Press SPECIAL and the trigger *is* the special until the meter
+runs out or you press again; the normal gun is untouched underneath and comes
+back the moment it ends. The standard gun still finishes everything — a
+special is a multiplier, never a key.
+
+**The meter is diamonds**, drawn on the SPECIAL button in the weapon's color:
+
+| | |
+| --- | --- |
+| one diamond | **2 seconds** of special fire |
+| a run starts with | **3** |
+| the trickle | one diamond per **10 seconds** of flying, and only back up to three |
+| a `diamond` gate | **+1**, past the ceiling, up to **8** |
+| a `prism` | fills it to **8** |
+| a tap | commits at least one whole diamond — lighting it up is a decision |
+
+### ARC — the Neon District's weapon
+
+Chain lightning, built on paint-to-lock. Each zap (every 0.16s) strikes what
+the crosshair holds and jumps ship to ship from there — painted and locked
+targets pull the bolt first, which is the reward for flying the paint game
+well. Up to **four ships a bolt**, 2 damage each, out to 900 units with 260
+between jumps. It ignores gun heat entirely; the diamonds are its whole
+economy. Against one target it is a slightly better gun. Against a crowd, the
+crowd loses. The port shrugs it off the same way it shrugs off the gun.
+
+MARIONETTE — the Neon warden — fights with ARC itself. What it does to you in
+the arena is exactly what the weapon does for you afterward.
 
 ## Aim, and what speed buys you
 
@@ -562,6 +596,8 @@ does not need the roll at all.
 | <img src="assets/slot-upright.png" width="150"> | `slot` upright | A slit **13** units wide against a ship that is 5 wide on edge and 14 wide level: it only takes the ship **on edge**, with 4 units of room each side |
 | <img src="assets/slot-flat.png" width="150"> | `slot` flat | A slit **18** units tall against a ship 10 tall level and 18 on edge: it only takes the ship **level**, with 4 units above and below |
 | <img src="assets/boostgate.png" width="150"> | `boostgate` | Green, hexagonal, and the only thing out here that helps. Fly through the hoop for +150 and **three seconds of speed**, on a stopwatch of its own: it does not spend the burn tank and does not fill it, so a gate is never wasted on a full one, and a second gate adds three more seconds to whatever is left. Take one while holding the burn as well and the two together make the super burn, 2.1×. Nothing about it is solid — the frame stops neither the ship nor a shot, and clipping it simply means you did not go through |
+| | `diamond` | A diamond-shaped hoop in the equipped special weapon's color. Fly through it for **+1 diamond** on the special's meter — the only way the meter climbs past its base of three, up to the cap of eight. Like the boostgate, nothing about it is solid |
+| | `prism` | A diamond hoop cycling through every color, and very rare — a level places one, if any. Through the hole the special's meter **fills to eight**. Not solid |
 
 ### Moving
 

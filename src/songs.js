@@ -340,6 +340,114 @@ export const SONGS = {
     mix: { lead: 0.34, under: 0.09, arp: 0.032, bass: 0.115, sub: 0.065 },
   },
   /**
+   * NEON. The power grid at night: synthwave in the chip idiom. Sixteen bars
+   * in A minor at 138 -- slower than FIRE on paper and relentless anyway,
+   * because the engine is the bass: the lament descent, a-g-f-e, pumped in
+   * eighths with a chromatic slip into every change. The intro is three zap
+   * sweeps -- arcs jumping a substation -- and the turnaround dives on one.
+   *
+   * The lead is the one duty no other song uses: the plain 50% square, hollow
+   * and cold, which against the reedy harmony underneath is the PWM-synth
+   * sound every night-drive record is built on. Drums are the backbeat with
+   * the metallic short-register noise ticking the off-beats -- electricity in
+   * the hi-hat.
+   */
+  neon: {
+    name: 'NEON',
+    bpm: 138,
+    beats: 16,
+    loopFrom: 2,          // the arcs jump once; the loop is bars 3-16
+    lead: [
+      '-  -  -  -  e5/ .  -  -  -  -  -  -  a5/ .  -  - ',
+      '-  -  b5/ .  -  -  -  -  e5 .  d5 .  c5 .  b4 . ',
+      // A: the hook, low and terse.
+      'a4 .  .  .  e5 .  d5 .  c5 .  .  .  b4 .  c5 . ',
+      'b4 .  .  .  d5 .  .  .  g4 .  .  .  a4 .  b4 . ',
+      'c5 .  .  .  f5 .  e5 .  c5 .  .  .  a4 .  .  . ',
+      'b4 .  .  .  g#4 .  .  .  e4 .  .  .  d5 .  b4 . ',
+      // A restated, climbing out of the basement this time.
+      'a4 .  .  .  e5 .  d5 .  c5 .  .  .  b4 .  c5 . ',
+      'b4 .  .  .  d5 .  g5 .  b5 .  .  .  a5 .  g5 . ',
+      'a5 .  .  .  f5 .  .  .  c5 .  .  .  f5 .  a5 . ',
+      'g#5 .  .  .  e5 .  .  .  b4 .  d5 .  e5 .  g5 . ',
+      // B: the long lights. Held notes over the descent still running below.
+      'a5 .  .  .  .  .  .  .  g5 .  .  .  f5 .  .  . ',
+      'g5 .  .  .  .  .  e5 .  g5 .  .  .  c6 .  .  . ',
+      'a5 .  .  .  f5 .  .  .  d5 .  .  .  e5 .  f5 . ',
+      'e5 .  .  .  .  .  g#5 .  b5 .  .  .  .  .  .  . ',
+      // The run down through the leading tone, and the dive home.
+      'a5 g5 f5 e5 d5 c5 b4 a4 g#4 .  b4 .  e5 .  d5 . ',
+      'b4\\ .  .  .  -  -  -  -  e5 .  d5 .  c5 .  b4 . ',
+    ],
+    lead2: [
+      '-  -  -  -  -  -  -  -  -  -  -  -  -  -  -  - ',
+      '-  -  -  -  -  -  -  -  -  -  -  -  -  -  -  - ',
+      '-  -  -  -  -  -  -  -  -  -  -  -  -  -  -  - ',
+      '-  -  -  -  -  -  -  -  -  -  -  -  -  -  -  - ',
+      '-  -  -  -  -  -  -  -  -  -  -  -  -  -  -  - ',
+      '-  -  -  -  -  -  -  -  -  -  -  -  -  -  -  - ',
+      'e4 .  .  .  c5 .  b4 .  a4 .  .  .  g4 .  a4 . ',
+      'g4 .  .  .  b4 .  d5 .  g5 .  .  .  f5 .  d5 . ',
+      'f5 .  .  .  c5 .  .  .  a4 .  .  .  c5 .  f5 . ',
+      'e5 .  .  .  b4 .  .  .  g#4 .  b4 .  c5 .  e5 . ',
+      'f5 .  .  .  .  .  .  .  e5 .  .  .  c5 .  .  . ',
+      'e5 .  .  .  .  .  c5 .  e5 .  .  .  g5 .  .  . ',
+      'f5 .  .  .  d5 .  .  .  a4 .  .  .  c5 .  d5 . ',
+      'b4 .  .  .  .  .  e5 .  g#5 .  .  .  .  .  .  . ',
+      'c5 .  .  .  .  .  .  .  a4 .  .  .  .  .  .  . ',
+      'g#4\\ .  .  .  -  -  -  -  c5 .  b4 .  a4 .  g#4 . ',
+    ],
+    arp: ['am', 'am',
+      'am', 'g', 'f', 'e7', 'am', 'g', 'f', 'e7',
+      'f', 'c', 'dm', 'e7', 'am', 'e7'],
+    // The lament, pumped: eighths on the root with the octave popping, and a
+    // chromatic slip -- g#, f#, c#, d# -- into nearly every change.
+    bassLine: [
+      'a2 .  .  .  a2 .  .  .  a2 .  .  .  a2 .  .  . ',
+      'a2 .  .  .  a2 .  .  .  a2 .  a2 .  a2 .  g#2 . ',
+      'a2 .  a2 .  a3 .  a2 .  a2 .  a3 .  a2 .  g#2 . ',
+      'g2 .  g2 .  g3 .  g2 .  g2 .  g3 .  g2 .  f#2 . ',
+      'f2 .  f2 .  f3 .  f2 .  f2 .  f3 .  f2 .  f2 . ',
+      'e2 .  e2 .  e3 .  e2 .  e2 .  e3 .  e2 .  g#2 . ',
+      'a2 .  a2 .  a3 .  a2 .  a2 .  a3 .  a2 .  g#2 . ',
+      'g2 .  g2 .  g3 .  g2 .  g2 .  g3 .  g2 .  f#2 . ',
+      'f2 .  f2 .  f3 .  f2 .  f2 .  f3 .  f2 .  e2 . ',
+      'e2 .  e2 .  e3 .  e2 .  g#2 .  b2 .  d3 .  e3 . ',
+      'f2 .  f2 .  f3 .  f2 .  f2 .  f3 .  f2 .  e2 . ',
+      'c3 .  c3 .  c2 .  c3 .  c3 .  c2 .  c3 .  c#3 . ',
+      'd3 .  d3 .  d2 .  d3 .  d3 .  d2 .  d3 .  d#3 . ',
+      'e2 .  e2 .  e3 .  e2 .  e2 .  e3 .  e2 .  e2 . ',
+      'a2 .  a2 .  a3 .  a2 .  g2 .  f2 .  e2 .  d2 . ',
+      'e2 .  e2 .  e3 .  e2 .  e2 .  g#2 .  b2 .  g#2 . ',
+    ],
+    bass: null,
+    // Backbeat with the metallic tick on the off-beats; fills into each
+    // section, double-time under the run.
+    drums: [
+      'k.......k.......',
+      'k.......k...x.x.',
+      'k.h.x.m.k.h.x.m.',
+      'k.h.x.m.k.h.x.m.',
+      'k.h.x.m.k.h.x.m.',
+      'k.h.x.h.x.x.x.x.',
+      'k.h.x.m.k.h.x.m.',
+      'k.h.x.m.k.h.x.m.',
+      'k.h.x.m.k.h.x.m.',
+      'k.h.x.h.x.x.xxxx',
+      'k.h.x.h.kkh.x.h.',
+      'k.h.x.h.kkh.x.h.',
+      'k.h.x.h.kkh.x.h.',
+      'k.h.x.h.k.x.x.x.',
+      'k.x.k.x.k.x.k.x.',
+      'k...x.....x.x.x.',
+    ],
+    // The hollow square lead -- no other song uses 50% -- over a reedy 25%
+    // harmony: the PWM pair, which is the synthwave sound.
+    duty: { lead: 0.5, under: 0.25, arp: 0.5, bass: 0.5 },
+    mix: { lead: 0.3, under: 0.1, arp: 0.06, bass: 0.14, sub: 0.06 },
+  },
+
+  /**
    * ANTHEM. The opening-theme shape: a melody in long notes with big intervals,
    * carried over an arpeggio going four times as fast. That contrast is the
    * whole trick -- the tune sounds unhurried and enormous precisely because

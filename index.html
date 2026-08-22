@@ -161,6 +161,13 @@
     font: inherit; letter-spacing: .14em; border-radius: 10px;
   }
   #burn { padding: 16px 0; font-size: 15px; }
+  #spec { padding: 12px 0; font-size: 13px; letter-spacing: 3px;
+    border-color: #7a3fb8; background: rgba(30,10,50,.35); color: #b06fff; }
+  #spec b { font-weight: 400; color: #3a1f5c; transition: color .12s; }
+  #spec b.lit { color: #c08aff; text-shadow: 0 0 8px rgba(176,111,255,.7); }
+  #spec.on { background: #b06fff; border-color: #b06fff; }
+  #spec.on b { color: #1d0836; text-shadow: none; }
+  #spec.on b.lit { color: #12041f; }
   #burn {
     color: #7dffb0; background: rgba(10,32,20,.55); border: 1px solid #2f8f5c;
     display: flex; align-items: center; justify-content: center; gap: 2px;
@@ -281,6 +288,7 @@
   <div id="flight" class="layer">
     <button id="pause" class="chip">MENU</button>
     <div id="pad">
+      <button id="spec" aria-label="special weapon"></button>
       <button id="burn" aria-label="boost"></button>
       <button id="msl">MISSILES</button>
     </div>
