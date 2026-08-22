@@ -8663,9 +8663,9 @@ const GATE_TIME = 3;          // seconds a turbo gate is worth, and they add up
 // trickle refills only to base, so passive flying never banks a long burst:
 // anything past three diamonds was flown through a gate to get.
 const DIAMOND_SECONDS = 2;    // one diamond is this much special fire
-const DIAMOND_BASE = 3;       // a run starts here, and the trickle stops here
+const DIAMOND_BASE = 3;       // a run starts here, and the recharge stops here
 const DIAMOND_CAP = 8;        // gates can stack it to here
-const DIAMOND_TRICKLE = 10;   // seconds of flying per diamond earned back
+const DIAMOND_RECHARGE = 20;  // seconds from bone dry back to base
 
 // ARC: the Neon District's weapon. Hold SPECIAL and a live stream of chain
 // lightning pours out of the ship: it strikes whatever is closest to the
@@ -8856,7 +8856,6 @@ class Game {
     this.speedMul = 1;
     this.diamonds = DIAMOND_BASE;
     this.specialOn = false;
-    this.specialEntry = 0;      // the meter at activation: a tap commits one
     this.zapTimer = 0;
     this.arcs = [];             // live bolts, drawn for a few frames each
     this.pitch = 0;
@@ -8929,7 +8928,6 @@ class Game {
     this.burnSpent = false;
     this.diamonds = DIAMOND_BASE;
     this.specialOn = false;
-    this.specialEntry = 0;
     this.zapTimer = 0;
     this.arcs.length = 0;
     // The gates that feed the meter wear the equipped weapon's color.
@@ -9033,18 +9031,17 @@ class Game {
     }
     this.burning = wantBurn;
 
-    // The special is held, like the burn: down means firing, up means saved.
-    // Draining dry latches it off until the button is released, and letting
-    // go always costs at least the whole diamond the press opened.
+    // The special is held, like the burn: down is firing, up is saved -- and
+    // the meter is a tank, not a switch. It drains for exactly as long as the
+    // button is down, keeps exactly what is left when it comes up, and from
+    // bone dry recharges back to base in twenty seconds. Draining it dry
+    // latches it off until the button is released, so a held button does not
+    // sputter as the recharge drips in.
     if (!inp.specialHeld) this.specialSpent = false;
     const wantSpecial = !!this.special && inp.specialHeld && !this.specialSpent && this.diamonds > 0;
     if (wantSpecial && !this.specialOn) {
-      this.specialEntry = this.diamonds;
       this.say(`${this.special.toUpperCase()}`, 0.7);
       this.audio.specialOn();
-    }
-    if (!wantSpecial && this.specialOn) {
-      this.diamonds = Math.min(this.diamonds, Math.max(0, this.specialEntry - 1));
     }
     this.specialOn = wantSpecial;
     if (this.specialOn) {
@@ -9054,7 +9051,8 @@ class Game {
         this.say(`${this.special.toUpperCase()} SPENT`, 0.9);
       }
     } else if (this.diamonds < DIAMOND_BASE) {
-      this.diamonds = Math.min(DIAMOND_BASE, this.diamonds + dt / DIAMOND_TRICKLE);
+      this.diamonds = Math.min(DIAMOND_BASE,
+        this.diamonds + dt * (DIAMOND_BASE / DIAMOND_RECHARGE));
     }
 
     // Two independent sources of speed: the tank you hold open, and gate time,

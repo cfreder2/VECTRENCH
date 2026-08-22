@@ -52,15 +52,14 @@ them on the HUD next to the boost chevrons.
 
 - One diamond is **2 seconds** of special fire.
 - A run starts with **3 diamonds** — six seconds. Using it is a big deal.
-- The meter **trickles**: one diamond per 10 seconds of flying, but only up to
-  the starting three. Thirty seconds from empty back to base.
+- The meter **recharges**: from empty back to the base three in 20 seconds,
+  continuously, whenever you are not firing.
 - **Diamond gates** — diamond-shaped, tinted the weapon's color — grant one
   diamond each, instantly, *above* the trickle ceiling, up to a cap of **8**.
 - The **recharge gate** is very rare: fly it and the meter fills to 8.
 - Firing: **hold SPECIAL**, exactly like the burn — down is the special
-  streaming, up is whatever is left, saved. There is no partial diamond spent
-  on a tap: a press commits at least one, and holding it dry latches it off
-  until the next press.
+  streaming and draining, up is exactly what is left, saved. A tank, not a
+  switch. Holding it dry latches it off until the next press.
 
 The wheel below is a damage multiplier (~3×, "melts"), never a key: the
 standard gun finishes every level and every warden. That rule is load-bearing

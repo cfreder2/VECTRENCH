@@ -492,10 +492,10 @@ still finishes everything — a special is a multiplier, never a key.
 | --- | --- |
 | one diamond | **2 seconds** of special fire |
 | a run starts with | **3** |
-| the trickle | one diamond per **10 seconds** of flying, and only back up to three |
-| a `diamond` gate | **+1**, past the ceiling, up to **8** |
+| the drain | continuous: it spends for exactly as long as you hold, and keeps exactly what is left when you let go — a tank, not a switch |
+| the recharge | from bone dry back to base three in **20 seconds**, always ticking when you are not firing |
+| a `diamond` gate | **+1**, past the base, up to **8** |
 | a `prism` | fills it to **8** |
-| a tap | commits at least one whole diamond — lighting it up is a decision |
 | held dry | it latches off; release and press again to relight |
 
 ### ARC — the Neon District's weapon
