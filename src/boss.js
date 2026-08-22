@@ -864,6 +864,9 @@ export const WARDENS = {
       mkPart(b, 'POD', 8);
       b.cannon = { state: 'idle', tIn: 6, charge: 0 };
       b.yaw = 0;               // the superstructure's bearing: 0 is dead aft
+      b.noSight = 0;
+      b.slewFor = 0;
+      b.slewDir = 1;
       b.guardMsg = 'THE TURRET BLOCKS THE SHOT';
       b.debris = [];
       b.missilesLive = [];
@@ -898,7 +901,14 @@ export const WARDENS = {
       // Guns carried onto the far side of the square are masked by the mass
       // of the thing: guarded, silent, and safe until the bearing brings
       // them back around.
-      const want = clamp(Math.atan2(game.shipX - b.x, -(game.t - b.t)), -Math.PI / 2, Math.PI / 2);
+      let want = clamp(Math.atan2(game.shipX - b.x, -(game.t - b.t)), -Math.PI / 2, Math.PI / 2);
+      // A gun that cannot see you is no use to it: if the mask has hidden
+      // every surviving gatling for a few seconds, the bearing slews a
+      // quarter turn to bring one to bear -- and that swing is your window.
+      if (b.slewFor > 0) {
+        b.slewFor -= dt;
+        want = clamp(want + b.slewDir * Math.PI / 2, -Math.PI / 2, Math.PI / 2);
+      }
       const dyaw = clamp(want - b.yaw, -1.5 * dt, 1.5 * dt);
       b.yaw += dyaw;
       const fT = -Math.cos(b.yaw), fX = Math.sin(b.yaw);   // forward, in (t, x)
@@ -929,6 +939,20 @@ export const WARDENS = {
         tr.localToWorld(part.t, part.x, part.y, part.world);
         part.los = 1;
       });
+
+      // A gun that cannot see you is no use to it: if the mask has hidden
+      // every surviving gatling for a few seconds, arm the quarter-turn slew.
+      const aliveGuns = b.parts.some((x) => x.alive && x.label === 'TURRET');
+      const seen = b.parts.some((x) => x.alive && x.label === 'TURRET' && !x.guarded);
+      if (aliveGuns && !seen) b.noSight += dt;
+      else b.noSight = 0;
+      if (b.noSight > 2.2 && b.slewFor <= 0) {
+        b.noSight = 0;
+        b.slewFor = 4;
+        b.slewDir = b.yaw > 0 ? -1 : 1;
+        game.say('IT SWINGS ITS GUNS AROUND', 1.3);
+        game.audio.hit();
+      }
 
       // The road it does not steer around.
       b.timers.junk = (b.timers.junk ?? 0.4) - dt;

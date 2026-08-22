@@ -286,6 +286,18 @@ export class UI {
     this.refreshCampaign();
 
     $('fly').addEventListener('click', () => this.fly());
+    // Straight to the selected level's warden, level untouched -- the tuning
+    // door, and the rematch door.
+    $('boss').addEventListener('click', () => {
+      if (!this.spec || !this.spec.boss) return;
+      this.audio.start();
+      // The fullscreen ask can dawdle; the fight should not wait on it.
+      this.enterFullscreen().catch(() => {});
+      if (this.input.motion === 'granted') this.input.recalibrate();
+      this.game.special = this.campaign.equipped;
+      this.game.startAtBoss();
+      this.show('flight');
+    });
     $('designbtn').addEventListener('click', () => this.design());
 
     for (const ev of ['gamepadconnected', 'gamepaddisconnected']) {
@@ -532,6 +544,7 @@ export class UI {
     this.spec = normalizeSpec(spec);
     this.game.load(this.spec);
     $('fly').disabled = false;
+    $('boss').disabled = !this.spec.boss;
     const lv = this.game.level;
     const counts = [
       `${lv.obstacles.length} obstacles`,

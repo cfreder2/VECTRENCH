@@ -403,6 +403,25 @@ export class Game {
     this.phase = 'flying';
   }
 
+  /**
+   * Straight to the warden: the run starts a breath before the port, already
+   * dead, so the flyout carries you directly into the fight. For tuning the
+   * fights without flying the level every time -- and for anyone who wants
+   * the boss again without the commute.
+   */
+  startAtBoss() {
+    this.reset();
+    const tr = this.track;
+    this.t = Math.max(40, tr.portT - 220);
+    this.shipY = tr.railY(this.t);
+    const port = this.level.port;
+    if (port && this.bossDef) {
+      port.world = port.world || [0, 0, 0];
+      tr.localToWorld(tr.portT, 0, 40, port.world);
+      this.destroy(port);
+    }
+  }
+
   say(msg, secs = 1.8) {
     this.message = msg;
     this.messageTimer = secs;

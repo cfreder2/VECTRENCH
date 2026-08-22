@@ -362,6 +362,7 @@
           <button id="wbtn" class="chip" disabled>MACHINE GUN</button>
           <div class="row">
             <button id="train" class="chip">TRAIN</button>
+            <button id="boss" class="chip" disabled>BOSS</button>
             <button id="fly" class="primary" disabled>FLY</button>
           </div>
         </div>
@@ -8947,6 +8948,25 @@ class Game {
     this.phase = 'flying';
   }
 
+  /**
+   * Straight to the warden: the run starts a breath before the port, already
+   * dead, so the flyout carries you directly into the fight. For tuning the
+   * fights without flying the level every time -- and for anyone who wants
+   * the boss again without the commute.
+   */
+  startAtBoss() {
+    this.reset();
+    const tr = this.track;
+    this.t = Math.max(40, tr.portT - 220);
+    this.shipY = tr.railY(this.t);
+    const port = this.level.port;
+    if (port && this.bossDef) {
+      port.world = port.world || [0, 0, 0];
+      tr.localToWorld(tr.portT, 0, 40, port.world);
+      this.destroy(port);
+    }
+  }
+
   say(msg, secs = 1.8) {
     this.message = msg;
     this.messageTimer = secs;
@@ -11118,6 +11138,18 @@ class UI {
     this.refreshCampaign();
 
     $('fly').addEventListener('click', () => this.fly());
+    // Straight to the selected level's warden, level untouched -- the tuning
+    // door, and the rematch door.
+    $('boss').addEventListener('click', () => {
+      if (!this.spec || !this.spec.boss) return;
+      this.audio.start();
+      // The fullscreen ask can dawdle; the fight should not wait on it.
+      this.enterFullscreen().catch(() => {});
+      if (this.input.motion === 'granted') this.input.recalibrate();
+      this.game.special = this.campaign.equipped;
+      this.game.startAtBoss();
+      this.show('flight');
+    });
     $('designbtn').addEventListener('click', () => this.design());
 
     for (const ev of ['gamepadconnected', 'gamepaddisconnected']) {
@@ -11364,6 +11396,7 @@ class UI {
     this.spec = normalizeSpec(spec);
     this.game.load(this.spec);
     $('fly').disabled = false;
+    $('boss').disabled = !this.spec.boss;
     const lv = this.game.level;
     const counts = [
       `${lv.obstacles.length} obstacles`,
