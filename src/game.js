@@ -138,7 +138,14 @@ const ARC_JUMP = 260;         // furthest jump between ships
 
 // Each special is its district's color: the diamonds, the bolt, the HUD.
 export const SPECIAL_COLORS = {
-  arc: [0.75, 0.4, 1],
+  wave:   [0.31, 0.85, 1],
+  magma:  [1, 0.48, 0.24],
+  saw:    [0.49, 1, 0.42],
+  arc:    [0.75, 0.4, 1],
+  breach: [0.66, 0.72, 0.78],
+  freeze: [0.75, 0.91, 1],
+  rail:   [1, 0.82, 0.31],
+  ghost:  [1, 0.44, 0.85],
 };
 
 /**
@@ -400,6 +407,7 @@ export class Game {
     this.escapeTimer = 0;
     this.lightTimer = 0;
     this.acquired = null;
+    this.lightLead = 0;
     this.phase = 'flying';
   }
 
@@ -780,8 +788,14 @@ export class Game {
       }
     } else if (this.phase === 'lightspeed') {
       // The ship does not fly home; it LEAVES. Speed goes vertical, the arena
-      // streaks past, and the other side of it is the weapon in your hands.
+      // streaks past, and the ship itself blasts out ahead of the camera --
+      // shrinking to a point and gone, the way leaving should look.
       this.lightTimer += dt;
+      // Slow, then violent: at 0.3s the ship has only doubled its distance,
+      // by 1.3s it is a spark, by 1.4s it is nowhere. Linear reads as
+      // 'instantly tiny' because apparent size falls with 1/distance.
+      this.lightLead = (this.lightLead || 0)
+        + (60 + 3000 * this.lightTimer * this.lightTimer) * dt;
       this.speed = Math.min(4200, this.speed * (1 + dt * 3.2));
       this.t += this.speed * dt;
       const tr2 = this.track;
@@ -2183,9 +2197,23 @@ export class Game {
     }
     this.particles.draw(rd);
 
-    if (this.phase !== 'dead' || this.deathTimer < 0.35) {
+    if (this.phase === 'lightspeed') {
+      // Drawn ever further ahead of the camera: perspective does the
+      // shrinking, and past the horizon it simply is not drawn at all.
+      if ((this.lightLead || 0) < 2600) {
+        const tr2 = this.track;
+        let lt = this.t + this.lightLead;
+        if (tr2.arenaLen > 0 && lt > tr2.arenaStart + tr2.arenaLen - 300) {
+          lt = tr2.arenaStart + tr2.arenaLen - 300;   // hold at the horizon
+        }
+        tr2.localToWorld(lt, this.shipX, this.shipY, this._p);
+        drawShip(rd, this._p, this.basis, 1, this.time, 0);
+      }
+    } else if ((this.phase !== 'dead' || this.deathTimer < 0.35)
+        && !(this.phase === 'won' && this.lightLead)) {
       drawShip(rd, this.shipPos, this.basis,
-        clamp((this.speed - 200) / 300, 0, 1), this.time, this.hurt);
+        clamp((this.speed - 200) / 300, 0, 1), this.time, this.hurt,
+        this.specialOn ? SPECIAL_COLORS[this.special] : null);
     }
 
     this.drawOverlay();
@@ -2235,7 +2263,7 @@ export class Game {
     // Clearing a seal means being above the lip by the ship's own half height,
     // which is to say fully out of the trench and fully exposed.
     const sealClear = nextSeal !== undefined && this.shipY >= tr.rim(nextSeal) + 6;
-    drawHud(rd, {
+    if (!(this.phase === 'won' && this.acquired)) drawHud(rd, {
       shield: this.shield,
       shieldMax: this.shieldMax,
       score: this.score,
@@ -2294,16 +2322,20 @@ export class Game {
       drawText(rd, 'SPECIAL WEAPON ACQUIRED', W * 0.5, H * 0.3, 16 * s, 1.8 * s,
         0.8, 0.95, 1, a, 0);
       const pulse = 0.8 + 0.2 * Math.sin(this.time * 6);
-      drawText(rd, this.acquired.toUpperCase(), W * 0.5, H * 0.42, 44 * s, 4.5 * s,
+      drawText(rd, this.acquired.toUpperCase(), W * 0.5, H * 0.36, 44 * s, 4.5 * s,
         wc[0], wc[1], wc[2], a * pulse, 0);
-      // The diamond, because the meter is how you will meet it.
-      const dy = H * 0.53, dr = 14 * s;
-      const D = [[0, -dr], [dr * 0.7, 0], [0, dr], [-dr * 0.7, 0]];
-      for (let k = 0; k < 4; k++) {
-        rd.line2(W * 0.5 + D[k][0], dy + D[k][1], W * 0.5 + D[(k + 1) % 4][0], dy + D[(k + 1) % 4][1],
-          2.2 * s, wc[0], wc[1], wc[2], a, a);
-      }
-      drawText(rd, 'HOLD SPECIAL TO FIRE IT', W * 0.5, H * 0.62, 11 * s, 1.2 * s,
+      // Your ship, turning on the stand, already wearing it: the twin rails
+      // in the weapon's color are the whole reveal.
+      const fr = { r: [...this.camR], u: [...this.camU], f: [...this.camF] };
+      const spin = { r: [0, 0, 0], u: [0, 0, 0], f: [0, 0, 0] };
+      shipBasis(fr, Math.sin(this.time * 0.9) * 0.25, 0.06, this.time * 1.1, spin);
+      const pos = [
+        this.eye[0] + this.camF[0] * 96 - this.camU[0] * 11,
+        this.eye[1] + this.camF[1] * 96 - this.camU[1] * 11,
+        this.eye[2] + this.camF[2] * 96 - this.camU[2] * 11,
+      ];
+      drawShip(rd, pos, spin, 0.35 + 0.1 * Math.sin(this.time * 3), this.time, 0, wc);
+      drawText(rd, 'HOLD SPECIAL TO FIRE IT', W * 0.5, H * 0.68, 11 * s, 1.2 * s,
         1, 0.8, 0.4, a * 0.9, 0);
       drawText(rd, 'TAP TO CONTINUE', W * 0.5, H * 0.72, 13 * s, 1.5 * s,
         0.5, 0.9, 1, a * (0.5 + 0.5 * Math.abs(Math.sin(this.time * 3))), 0);

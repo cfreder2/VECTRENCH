@@ -78,10 +78,22 @@ export function shipLocalToWorld(pos, basis, lx, ly, lz, out) {
 }
 
 
-export function drawShip(rd, pos, basis, thrust, time, hurt) {
+export function drawShip(rd, pos, basis, thrust, time, hurt, weapon) {
   const r = 0.35 + hurt * 0.65;
   const g = 0.95 - hurt * 0.55;
   const b = 1 - hurt * 0.5;
+  // A fitted special, live: the gun line doubles into twin rails in the
+  // weapon's own color, shooting out past the nose from both wing guns.
+  if (weapon) {
+    for (const m of MUZZLES) {
+      shipLocalToWorld(pos, basis, m[0], m[1], m[2], _a);
+      shipLocalToWorld(pos, basis, m[0] * 0.85, m[1], m[2] + 22, _b);
+      rd.line3(_a[0], _a[1], _a[2], _b[0], _b[1], _b[2], 1.7,
+        weapon[0], weapon[1], weapon[2], 0.95);
+      rd.line3(_b[0], _b[1], _b[2], _b[0], _b[1], _b[2], 3.2,
+        weapon[0], weapon[1], weapon[2], 0.8 + 0.2 * Math.sin(time * 12));
+    }
+  }
   for (const pl of SHIP) {
     for (let i = 0; i + 5 < pl.length; i += 3) {
       shipLocalToWorld(pos, basis, pl[i], pl[i + 1], pl[i + 2], _a);
