@@ -244,7 +244,7 @@ const RING_BEAM_DAMAGE = 20;
 // from, and counting down from it sweeps clockwise: twelve, three, six, nine.
 const RING_TOP_ARM = 2;
 
-const RADIUS = { turret: 13, wallgun: 11, emplacement: 21, drone: 11, port: 20, boss: 26, bosspart: 9 };
+const RADIUS = { turret: 13, wallgun: 11, emplacement: 21, drone: 11, port: 20, boss: 26, bosspart: 9, bossmissile: 8 };
 
 export class Game {
   constructor(rd, input, audio) {
@@ -1110,7 +1110,7 @@ export class Game {
     // Project every candidate once. onScreen/sx/sy are read again by the
     // overlay, so this doubles as the frame's visibility pass.
     const cands = [this.level.enemies, this.drones];
-    if (this.boss && this.boss.alive) cands.push(this.boss.parts, [this.boss]);
+    if (this.boss && this.boss.alive) cands.push(this.boss.parts, this.boss.missilesLive || [], [this.boss]);
     if (this.level.port) cands.push([this.level.port]);
     for (const arr of cands) {
       for (const e of arr) {
@@ -1662,7 +1662,7 @@ export class Game {
     // Whatever is in reach at all.
     const cands = [];
     const pools = [this.level.enemies, this.drones];
-    if (this.boss && this.boss.alive) pools.push(this.boss.parts, [this.boss]);
+    if (this.boss && this.boss.alive) pools.push(this.boss.parts, this.boss.missilesLive || [], [this.boss]);
     for (const arr of pools) {
       for (const e of arr) {
         if (!e.alive || !e.world || e.kind === 'port') continue;
@@ -1806,7 +1806,7 @@ export class Game {
     const tr = this.track;
     const targets = [this.level.enemies, this.drones];
     if (this.level.port) targets.push([this.level.port]);
-    if (this.boss && this.boss.alive) targets.push(this.boss.parts, [this.boss]);
+    if (this.boss && this.boss.alive) targets.push(this.boss.parts, this.boss.missilesLive || [], [this.boss]);
 
     // Player lasers.
     for (let i = W.lasers.length - 1; i >= 0; i--) {
@@ -2161,7 +2161,7 @@ export class Game {
       // crosshair so a salvo of eight still reads as one decision.
       const arrs = [this.level.enemies, this.drones];
       if (port) arrs.push([port]);
-      if (this.boss && this.boss.alive) arrs.push(this.boss.parts, [this.boss]);
+      if (this.boss && this.boss.alive) arrs.push(this.boss.parts, this.boss.missilesLive || [], [this.boss]);
       const cx = this.aimSX ?? rd.cx;
       const cy = this.aimSY ?? rd.cy;
       for (const arr of arrs) {

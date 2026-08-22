@@ -169,17 +169,32 @@ deck is silent the magazine opens. FREEZE stops a cycling battery mid-cycle,
 which is why it melts.
 
 ### REVENANT — Void · yields GHOST · melted by RAIL
-The dead district's last war machine: a tank the size of a building, still
-patrolling a road with nothing left on it but wreckage — which it rolls
-over, and the wreckage goes up under the treads as it comes. Six mounts on
-the hull are **the shape**: two machine-gun turrets, two missile launchers,
-two laser pods, each silencing its own weapon when it dies, the cannon
-housing shielded until the deck is stripped. And **the cannon**: on a cycle
-it charges — the muzzle glow swelling, the whole hull shaking harder the
-longer it holds — then sweeps a beam across the entire road that takes half
-a shield in a single touch. The sweep alternates sides and the beam has a
-ceiling: read the wind-up, be high or be past it. RAIL pierces the hull
-armor no other gun cares to argue with, which is why it melts.
+The dead district's last war machine, built to the concept sheet: four tread
+pods with the lines rolling, four gatling turrets, two hex missile pods, and
+the cannon. It drives **backwards** down its dead road, swerving lane to
+lane, crushing the cars and wreckage still parked on it — about one crush a
+second, each one going up under the treads.
+
+**The turrets paint patterns, and the pattern is their number.** Four sweep
+in from the corners and stop short of center — the middle is safe, sit in
+it. Three run a circle. Two draw the X. The last survivor just hunts you.
+Kill turrets and the fight literally changes shape under you.
+
+**The pods volley shotgun spreads** of six slow, pulsing missiles — not
+seekers, just a wall coming at you — and every one of them is a real
+target: paintable, lockable, shootable. A salvo spent on the volley is a
+salvo well spent.
+
+**The cannon is the ultimate.** Six lights on the tail count the charge —
+the "…" from the sheet — while the hull shakes harder the longer it holds.
+Then LOCKED: one second of warning, and the only dodge that saves you is
+the break for dead center, because the three consecutive blasts that follow
+light the whole field except the eye. Thirty a blast, ninety for standing
+anywhere else.
+
+Every mount has its own life bar; the hull opens only when the deck is
+stripped. RAIL pierces the armor no other gun argues with, which is why it
+melts.
 
 ### The ninth fight
 The Citadel's boss is the eight escape pods, assembled. Parked in the
