@@ -244,7 +244,7 @@ const RING_BEAM_DAMAGE = 20;
 // from, and counting down from it sweeps clockwise: twelve, three, six, nine.
 const RING_TOP_ARM = 2;
 
-const RADIUS = { turret: 13, wallgun: 11, emplacement: 21, drone: 11, port: 20, boss: 26 };
+const RADIUS = { turret: 13, wallgun: 11, emplacement: 21, drone: 11, port: 20, boss: 26, bosspart: 9 };
 
 export class Game {
   constructor(rd, input, audio) {
@@ -399,6 +399,8 @@ export class Game {
     this.pod = null;
     this.ascentTimer = 0;
     this.escapeTimer = 0;
+    this.lightTimer = 0;
+    this.acquired = null;
     this.phase = 'flying';
   }
 
@@ -666,6 +668,13 @@ export class Game {
     }
   }
 
+  /** "Why is it not taking damage" -- answered, but never spammed. */
+  sayShield() {
+    if (this.time - (this._shieldSaid || 0) < 3) return;
+    this._shieldSaid = this.time;
+    this.say('THE TENTACLES SHIELD THE CORE', 1.4);
+  }
+
   /**
    * The warden's arc strike, landed. The aim was frozen at the telegraph, so
    * a strike that hits means the ship stood still through the whole charge.
@@ -725,10 +734,30 @@ export class Game {
         this.pod.world[2] += this.pod.vel[2] * dt;
         this.pod.vel[1] += 60 * dt;
       }
-      if (this.escapeTimer > 3.4) {
+      if (this.escapeTimer > 2.4) {
+        this.phase = 'lightspeed';
+        this.lightTimer = 0;
+        this.say('', 0.1);
+        this.audio.lightspeed();
+      }
+    } else if (this.phase === 'lightspeed') {
+      // The ship does not fly home; it LEAVES. Speed goes vertical, the arena
+      // streaks past, and the other side of it is the weapon in your hands.
+      this.lightTimer += dt;
+      this.speed = Math.min(4200, this.speed * (1 + dt * 3.2));
+      this.t += this.speed * dt;
+      const tr2 = this.track;
+      if (tr2.arenaLen > 0 && this.t > tr2.arenaStart + tr2.arenaLen - 400) {
+        this.t -= tr2.arenaLen - 1300;
+        this.particles.clear();
+      }
+      this.shipY = lerp(this.shipY, tr2.rim(this.t) + 34, dt);
+      this.shake = Math.min(1, this.lightTimer * 0.7);
+      if (this.lightTimer > 1.7) {
         this.phase = 'won';
-        this.say('THE POD GOT AWAY', 3);
-        this.audio.win();
+        this.winTimer = 0;
+        this.acquired = this.bossDef && this.bossDef.weapon ? this.bossDef.weapon : null;
+        this.audio.weaponGet();
       }
     }
     this.exposed = false;
@@ -1064,7 +1093,7 @@ export class Game {
     // Project every candidate once. onScreen/sx/sy are read again by the
     // overlay, so this doubles as the frame's visibility pass.
     const cands = [this.level.enemies, this.drones];
-    if (this.boss && this.boss.alive) cands.push([this.boss]);
+    if (this.boss && this.boss.alive) cands.push([this.boss], this.boss.parts);
     if (this.level.port) cands.push([this.level.port]);
     for (const arr of cands) {
       for (const e of arr) {
@@ -1616,7 +1645,7 @@ export class Game {
     // Whatever is in reach at all.
     const cands = [];
     const pools = [this.level.enemies, this.drones];
-    if (this.boss && this.boss.alive) pools.push([this.boss]);
+    if (this.boss && this.boss.alive) pools.push([this.boss], this.boss.parts);
     for (const arr of pools) {
       for (const e of arr) {
         if (!e.alive || !e.world || e.kind === 'port') continue;
@@ -1695,6 +1724,10 @@ export class Game {
     if (this.zapTimer > 0 || !chain.length) return;
     this.zapTimer = ARC_TICK;
     chain.forEach((e, k) => {
+      if (e.kind === 'boss' && e.shielded) {
+        this.particles.burst(e.world[0], e.world[1], e.world[2], 4, 110, 0.5, 0.8, 1, 0.3, 1.2);
+        return;
+      }
       // The wheel: a warden's own weapon half-hurts it; the one it is weak to
       // melts it, three to one. Everything else is just damage.
       const wheel = e.kind !== 'boss' ? 1
@@ -1752,7 +1785,7 @@ export class Game {
     const tr = this.track;
     const targets = [this.level.enemies, this.drones];
     if (this.level.port) targets.push([this.level.port]);
-    if (this.boss && this.boss.alive) targets.push([this.boss]);
+    if (this.boss && this.boss.alive) targets.push([this.boss], this.boss.parts);
 
     // Player lasers.
     for (let i = W.lasers.length - 1; i >= 0; i--) {
@@ -1770,6 +1803,12 @@ export class Game {
           if (e.kind === 'port') {
             this.particles.burst(s.x, s.y, s.z, 6, 90, 0.6, 0.85, 1, 0.3, 1.4);
             this.say('GUNS WONT BREACH IT', 1.2);
+            break;
+          }
+          // The core holds while its pods do: hits splash off the lattice.
+          if (e.kind === 'boss' && e.shielded) {
+            this.particles.burst(s.x, s.y, s.z, 6, 110, 0.5, 0.8, 1, 0.3, 1.4);
+            this.sayShield();
             break;
           }
           e.hp -= 1;
@@ -1848,6 +1887,12 @@ export class Game {
           // was dead 697 units out, having fired eight shells from maximum
           // range and landed none of them. It was not a threat because it was
           // never alive while you were close.
+          if (tg.kind === 'boss' && tg.shielded) {
+            this.boomAt([m.x, m.y, m.z], 20, 130, 0.5, 0.8, 1, 0.5);
+            this.sayShield();
+            W.missiles.splice(i, 1);
+            break;
+          }
           tg.hp -= MISSILE_DAMAGE;
           tg.flash = 1;
           if (tg.hp <= 0) this.destroy(tg);
@@ -1965,6 +2010,13 @@ export class Game {
         this.say('DIRECT HIT', 5);
         this.audio.win();
       }
+    } else if (e.kind === 'bosspart') {
+      const left = this.boss ? this.boss.parts.filter((x) => x.alive).length : 0;
+      this.say(left > 0 ? `TENTACLE DOWN -- ${left} LEFT` : 'THE CORE IS OPEN', 1.4);
+      if (left === 0 && this.boss) {
+        this.boss.flash = 1;
+        this.audio.specialOn();
+      }
     } else if (e.kind === 'boss') {
       // The warden dies; the pilot does not. An escape pod flies out and gets
       // away, which the campaign has plans for.
@@ -2026,6 +2078,20 @@ export class Game {
       drawEnemies(rd, tr, [this.level.port], camT, FAR, this.time);
     }
     this.weapons.draw(rd);
+    if (this.phase === 'lightspeed') {
+      // Radial star-streaks from the vanishing point, longer as it winds up.
+      const k = clamp(this.lightTimer / 1.4, 0, 1);
+      for (let i = 0; i < 46; i++) {
+        const a = hash2(i, 7) * TAU;
+        const r0 = (0.06 + hash2(i, 11) * 0.4) * rd.height;
+        const r1 = r0 + (14 + hash2(i, 13) * 130 * k) * rd.scale * (0.4 + k);
+        const wob = ((this.time * (3 + hash2(i, 17) * 4)) % 1);
+        rd.line2(rd.cx + Math.cos(a) * (r0 + wob * 40 * rd.scale * k),
+          rd.cy + Math.sin(a) * (r0 + wob * 40 * rd.scale * k) * 0.8,
+          rd.cx + Math.cos(a) * r1, rd.cy + Math.sin(a) * r1 * 0.8,
+          1.6 * rd.scale, 0.8, 0.95, 1, 0.15 + k * 0.6, 0.7);
+      }
+    }
     if (this.boss && this.boss.alive) drawWarden(rd, this.boss, tr, this.time);
     if (this.pod && (this.phase === 'escape' || this.phase === 'won')) drawPod(rd, this.pod);
     for (let i = this.arcs.length - 1; i >= 0; i--) {
@@ -2058,12 +2124,13 @@ export class Game {
     const tr = this.track;
     const port = this.level.port;
 
-    if (this.phase === 'flying') {
+    if (this.phase === 'flying' || this.phase === 'boss') {
       // Every lockable thing on screen gets a box; the one being painted fills
       // up; the ones already locked are drawn held, with a tether back to the
       // crosshair so a salvo of eight still reads as one decision.
       const arrs = [this.level.enemies, this.drones];
       if (port) arrs.push([port]);
+      if (this.boss && this.boss.alive) arrs.push([this.boss], this.boss.parts);
       const cx = this.aimSX ?? rd.cx;
       const cy = this.aimSY ?? rd.cy;
       for (const arr of arrs) {
@@ -2128,7 +2195,10 @@ export class Game {
       time: this.time,
       message: this.message,
       boss: this.boss && this.boss.alive && this.phase === 'boss'
-        ? { name: this.boss.name, frac: this.boss.hp / this.boss.maxHp, flash: this.boss.flash }
+        ? { name: this.boss.name, frac: this.boss.hp / this.boss.maxHp,
+          flash: this.boss.flash, shielded: this.boss.shielded,
+          parts: this.boss.parts.filter((x) => x.alive).length,
+          partsMax: this.boss.parts.length }
         : null,
     });
 
@@ -2140,6 +2210,30 @@ export class Game {
     const s = rd.scale;
     const W = rd.width, H = rd.height;
     const won = this.phase === 'won';
+    if (won && this.acquired) {
+      // The weapon-get screen: the fanfare is already playing under it.
+      const wait = this.winTimer;
+      if (wait < 0.4) return;
+      const a = clamp((wait - 0.4) / 0.5, 0, 1);
+      const wc = SPECIAL_COLORS[this.acquired] || [0.75, 0.4, 1];
+      drawText(rd, 'SPECIAL WEAPON ACQUIRED', W * 0.5, H * 0.3, 16 * s, 1.8 * s,
+        0.8, 0.95, 1, a, 0);
+      const pulse = 0.8 + 0.2 * Math.sin(this.time * 6);
+      drawText(rd, this.acquired.toUpperCase(), W * 0.5, H * 0.42, 44 * s, 4.5 * s,
+        wc[0], wc[1], wc[2], a * pulse, 0);
+      // The diamond, because the meter is how you will meet it.
+      const dy = H * 0.53, dr = 14 * s;
+      const D = [[0, -dr], [dr * 0.7, 0], [0, dr], [-dr * 0.7, 0]];
+      for (let k = 0; k < 4; k++) {
+        rd.line2(W * 0.5 + D[k][0], dy + D[k][1], W * 0.5 + D[(k + 1) % 4][0], dy + D[(k + 1) % 4][1],
+          2.2 * s, wc[0], wc[1], wc[2], a, a);
+      }
+      drawText(rd, 'HOLD SPECIAL TO FIRE IT', W * 0.5, H * 0.62, 11 * s, 1.2 * s,
+        1, 0.8, 0.4, a * 0.9, 0);
+      drawText(rd, 'TAP TO CONTINUE', W * 0.5, H * 0.72, 13 * s, 1.5 * s,
+        0.5, 0.9, 1, a * (0.5 + 0.5 * Math.abs(Math.sin(this.time * 3))), 0);
+      return;
+    }
     const title = won ? 'RUN COMPLETE' : this.phase === 'dead' ? 'DESTROYED' : 'PORT MISSED';
     const col = won ? [0.5, 1, 0.8] : [1, 0.4, 0.3];
     const wait = won ? this.winTimer : this.deathTimer || this.winTimer;

@@ -233,6 +233,52 @@ export class Audio {
     if (prism) setTimeout(() => this._tone('triangle', base * 2, base * 2, 0.14, 0.3), 140);
   }
 
+  /** The exit: everything winds up and out. */
+  lightspeed() {
+    this._tone('sawtooth', 160, 2400, 1.5, 0.22);
+    this._tone('square', 80, 1200, 1.5, 0.12);
+    this._noiseBurst(1.5, 0.3, 900, 8000, 0.8);
+  }
+
+  /**
+   * The weapon-get fanfare: the one melody in the game that is not in the
+   * score book, because it is not a song -- it is a jingle, and a jingle is
+   * an event. Rising arpeggio twice, then the long note with the harmony a
+   * third under it. About three seconds, played over a quiet screen.
+   */
+  weaponGet() {
+    if (!this.ctx || !this.enabled) return;
+    const ctx = this.ctx;
+    const t0 = ctx.currentTime + 0.05;
+    const note = (f, at, dur, gain, type = 'square') => {
+      const o = ctx.createOscillator();
+      o.type = type;
+      o.frequency.setValueAtTime(f, t0 + at);
+      const g = ctx.createGain();
+      g.gain.setValueAtTime(0, t0 + at);
+      g.gain.linearRampToValueAtTime(gain, t0 + at + 0.01);
+      g.gain.setValueAtTime(gain, t0 + at + dur - 0.03);
+      g.gain.exponentialRampToValueAtTime(0.0001, t0 + at + dur);
+      o.connect(g);
+      g.connect(this.master);
+      o.start(t0 + at);
+      o.stop(t0 + at + dur + 0.05);
+      o.onended = () => { try { g.disconnect(); } catch {} };
+    };
+    // e5 g5 b5 e6, twice, quick -- then d6 c6, and the held e6 over c6.
+    const E5 = 659.26, G5 = 783.99, B5 = 987.77, E6 = 1318.5, D6 = 1174.7, C6 = 1046.5;
+    let at = 0;
+    for (let r = 0; r < 2; r++) {
+      for (const f of [E5, G5, B5, E6]) { note(f, at, 0.11, 0.16); at += 0.09; }
+      at += 0.06;
+    }
+    note(D6, at, 0.14, 0.16); at += 0.14;
+    note(C6, at, 0.14, 0.16); at += 0.14;
+    note(E6, at, 1.1, 0.18);
+    note(C6, at, 1.1, 0.1);          // the third under, the harmony
+    note(E5 / 2, at, 1.1, 0.12, 'triangle');   // and the floor
+  }
+
   /** The special coming online: a rising charge. */
   specialOn() {
     this._tone('sawtooth', 220, 1400, 0.28, 0.2);

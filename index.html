@@ -151,7 +151,9 @@
     display: grid; grid-template-columns: 1fr; gap: 8px;
     width: min(46vw, 260px);
   }
-  #pad > button {
+  #padrow { display: flex; gap: 8px; }
+  #padrow > button { flex: 1; min-width: 0; }
+  #pad button {
     pointer-events: auto; touch-action: none;
     /* Held buttons on iOS: without the webkit spellings, a long press starts
        selecting the label and puts the magnifier and the selection handles over
@@ -321,9 +323,11 @@
   <div id="flight" class="layer">
     <button id="pause" class="chip">MENU</button>
     <div id="pad">
-      <button id="spec" aria-label="special weapon"></button>
-      <button id="burn" aria-label="boost"></button>
       <button id="msl">MISSILES</button>
+      <div id="padrow">
+        <button id="spec" aria-label="special weapon"></button>
+        <button id="burn" aria-label="boost"></button>
+      </div>
     </div>
   </div>
 </div>

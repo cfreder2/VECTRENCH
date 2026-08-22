@@ -527,13 +527,23 @@ thirds of its health, and an arena that loops invisibly because it is flat
 and straight on purpose. A new warden is a block of numbers and a draw
 function, not a new system.
 
-**MARIONETTE** — the Neon warden, and the first one built — hangs from light
-cables and swings across the arena. It telegraphs an ARC strike with a
-blazing core for 0.85 seconds and lands it where you *were* — moving after
-the tell is the whole answer — fires seeker pairs from its second third,
-spawns drone escorts throughout, and in its last third drops to ship height
-and sweeps. Its own weapon half-hurts it; SAW, when it exists, will melt it.
-When it dies, an escape pod flies out and gets away. That is the setup.
+**MARIONETTE** — the Neon warden, and the first one built — is a floating
+core ringed by **six tentacle pods**, each a small lockable target of its
+own. The pods are what spawn the drone escorts, and while any pod lives the
+core is **shielded**: guns splash off, missiles refuse the lock, and a
+lattice drawn between the live pods says so on sight. Break the ring — the
+HUD counts the pods down as diamonds going dark — and the core opens, the
+bar lights, and the duel starts: it drops to ship height and sweeps.
+
+Its ARC strike telegraphs for 0.85 seconds, and the aim **follows you**
+through the charge, freezing only for the last 0.3 — the core burns
+white-hot at that instant, and that is the moment to move. Dodging early
+buys nothing; the late sidestep is the skill.
+
+When it dies, an escape pod flies out and gets away — and then the ship
+goes to **lightspeed**: the arena streaks past, and the other side of it is
+the SPECIAL WEAPON ACQUIRED screen, fanfare and all, with the weapon already
+fitted by the time the menu returns.
 
 ## Aim, and what speed buys you
 

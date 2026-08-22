@@ -179,14 +179,34 @@ export function drawHud(rd, st) {
   rd.line2(px, py, px + pw * pk, py, 2.6 * s, CYAN[0], CYAN[1], CYAN[2], 1, 1);
   rd.line2(px + pw * pk, py - 8 * s, px + pw * pk, py + 8 * s, 2 * s, 1, 1, 1, 1, 1);
 
-  // --- the warden, when there is one: name and health, top center ---
+  // --- the warden, when there is one: name, its ring of pods, its core ---
   if (st.boss) {
     const bw = W * 0.34;
     const bx = (W - bw) * 0.5;
     const by = pad + 14 * s;
     const bcol = st.boss.flash > 0 ? [1, 1, 1] : [0.78, 0.42, 1];
     drawText(rd, st.boss.name, W * 0.5, by, 11 * s, 1.3 * s, bcol[0], bcol[1], bcol[2], 0.95, 0);
-    bar(rd, bx, by + 7 * s, bw, 8 * s, clamp(st.boss.frac, 0, 1), 16, bcol, s);
+    // The pods first: the part of the fight you are actually in. Diamonds,
+    // going dark one by one -- the progress the eye needs.
+    for (let i = 0; i < (st.boss.partsMax || 0); i++) {
+      const on = i < st.boss.parts;
+      const px = W * 0.5 + (i - (st.boss.partsMax - 1) / 2) * 16 * s;
+      const py = by + 10 * s;
+      const r = 4.4 * s;
+      const D = [[0, -r], [r * 0.75, 0], [0, r], [-r * 0.75, 0]];
+      for (let k = 0; k < 4; k++) {
+        rd.line2(px + D[k][0], py + D[k][1], px + D[(k + 1) % 4][0], py + D[(k + 1) % 4][1],
+          1.5 * s, 1, 0.55, 0.25, on ? 0.95 : 0.18, on ? 0.95 : 0.18);
+      }
+    }
+    // The core bar: dim behind the lattice, lit the moment it is open.
+    const open = !st.boss.shielded;
+    bar(rd, bx, by + 18 * s, bw, 8 * s, clamp(st.boss.frac, 0, 1), 16,
+      open ? bcol : [bcol[0] * 0.4, bcol[1] * 0.4, bcol[2] * 0.4], s);
+    if (!open) {
+      drawText(rd, 'CORE SHIELDED', W * 0.5, by + 33 * s, 8 * s, 0.9 * s,
+        0.5, 0.8, 1, 0.65, 0);
+    }
   }
 
   // --- cockpit frame ---
