@@ -327,22 +327,41 @@ export class UI {
    * rather than one the game prefers: it reads fine both ways, and the one
    * thing that does not read fine is the layout turning over mid-flight.
    */
-  async goFullscreen() {
+  /**
+   * Full screen, attempted every way the platform might spell it, and then
+   * VERIFIED against what the document says -- iPhones in particular will
+   * take the call, reject the promise, and leave you exactly where you were,
+   * and a handler that swallows that has a button that "does nothing".
+   * When nothing works, the honest answer is the home screen: the page is a
+   * proper web app now, so opened from an icon it runs without any chrome.
+   */
+  async enterFullscreen() {
+    if (navigator.standalone
+      || matchMedia('(display-mode: standalone), (display-mode: fullscreen)').matches) {
+      return 'standalone';
+    }
+    if (document.fullscreenElement || document.webkitFullscreenElement) return 'in';
     const el = document.getElementById('stage');
-    // An iPhone has no Fullscreen API for anything that is not a video, so this
-    // used to skip silently and then report success. What actually works there
-    // is the home screen: the page is already marked as app-capable, so opened
-    // from an icon it runs without Safari's chrome, which is the real thing.
-    if (!el.requestFullscreen) {
-      this.status(navigator.standalone
-        ? 'already full screen -- you are running it from the home screen'
-        : 'this browser has no full screen. On iPhone: Share, then ADD TO HOME SCREEN, and open it from there');
+    const req = el.requestFullscreen || el.webkitRequestFullscreen;
+    if (req) {
+      try { await req.call(el, { navigationUI: 'hide' }); } catch {
+        // Some engines choke on the options dictionary; ask again plainly.
+        try { await req.call(el); } catch { /* verified below */ }
+      }
+      await new Promise((r) => setTimeout(r, 150));
+      if (document.fullscreenElement || document.webkitFullscreenElement) return 'in';
+    }
+    return 'no';
+  }
+
+  async goFullscreen() {
+    const got = await this.enterFullscreen();
+    if (got === 'standalone') {
+      this.status('already full screen -- you are running it from the home screen');
       return;
     }
-    try {
-      if (!document.fullscreenElement) await el.requestFullscreen({ navigationUI: 'hide' });
-    } catch {
-      this.status('the browser refused full screen');
+    if (got === 'no') {
+      this.status('this browser will not go full screen. On iPhone: Share, then ADD TO HOME SCREEN, and open it from there');
       return;
     }
     const type = (screen.orientation && screen.orientation.type)
@@ -587,12 +606,7 @@ export class UI {
     // Fullscreen is worth asking for and harmless when refused. Orientation is
     // not asked for at all: the game reads either way up, and pinning it fought
     // whichever way the player was already holding the phone.
-    try {
-      const el = document.getElementById('stage');
-      if (!document.fullscreenElement && el.requestFullscreen) {
-        await el.requestFullscreen({ navigationUI: 'hide' });
-      }
-    } catch { /* browsers may refuse; the game plays fine regardless */ }
+    try { await this.enterFullscreen(); } catch { /* the game plays fine regardless */ }
     if (this.input.motion === 'granted') this.input.recalibrate();
     this.game.special = this.campaign.equipped;
     this.game.reset();
