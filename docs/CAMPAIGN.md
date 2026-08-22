@@ -180,12 +180,14 @@ down — until it cracks and the core stands exposed for a five-second window,
 then it seals and regrows and asks again. Missiles crack armor eight times
 faster than guns.
 
-**The cannon is the lighthouse.** Six tail-lights count the charge while the
-hull shakes; LOCKED buys you one second; then the whole superstructure
-SPINS, pouring a solid ship-wide beam through the full arc of the road.
-Thirty if it crosses you; the dry eye at dead center is ringed in green
-while the weather rages. RAIL pierces the armor without asking, which is
-why it melts.
+**The cannon locks, and then it lands.** Six tail-lights count the charge
+while the hull shakes; then BEAM LOCKED — the mark is taken where you are,
+drawn in blinking red with a tracking line back to the muzzle — and one
+second is what you get to roll off it. Then BOOF, BOOF, BOOF: three thick
+columns of light on the mark, each a whole-body impact with a subwoofer
+thump, twenty-eight apiece for standing on it and nothing at all for
+having left. RAIL pierces the armor without asking, which is why it
+melts.
 
 ### The ninth fight
 The Citadel's boss is the eight escape pods, assembled. Parked in the

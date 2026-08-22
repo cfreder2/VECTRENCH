@@ -861,7 +861,7 @@ export const WARDENS = {
       b.exposedFor = 0;
       b.cannon = { state: 'idle', tIn: 6, charge: 0 };
       b.yaw = 0;
-      b.rangeT = 640;
+      b.rangeT = 560;
       b.laneSide = 1;
       b.debris = [];
       b.missilesLive = [];
@@ -899,10 +899,10 @@ export const WARDENS = {
 
       // The stand-off, spent by intent: long for cannon work, long to give a
       // battery wave its air, closer when the gun drones are on the wing.
-      let wantRange = 640;
-      if (c.state !== 'idle') wantRange = 840;
-      else if (b.waveType === 'battery') wantRange = 780;
-      else wantRange = 560;
+      let wantRange = 560;
+      if (c.state !== 'idle') wantRange = 700;
+      else if (b.waveType === 'battery') wantRange = 660;
+      else wantRange = 470;
       b.rangeT = lerp(b.rangeT, wantRange, dt * 1.1);
 
       b.swerveIn -= dt;
@@ -1078,44 +1078,39 @@ export const WARDENS = {
         if (c.tIn <= 0) {
           c.state = 'locked';
           c.tIn = 1.0;
-          game.say('LOCKED -- BREAK FOR CENTER', 1.2);
-          game.audio.zap();
         }
       } else if (c.state === 'locked') {
+        // The mark is taken at the moment of the call: BEAM LOCKED, one
+        // second, and the spot it locked is the spot to not be. Roll.
+        if (!c.lock) {
+          c.lock = { x: game.shipX, y: game.shipY };
+          game.say('BEAM LOCKED -- ROLL', 1.1);
+          game.audio.zap();
+        }
         c.tIn -= dt;
         if (c.tIn <= 0) {
           c.state = 'firing';
-          c.dir = b.yaw >= 0 ? -1 : 1;
-          b.yaw = -c.dir * Math.PI / 2;
-          c.spun = 0;
-          c.total = Math.PI;
-          c.hit = false;
-          c.rebeamed = false;
-          game.shake = Math.min(1.8, game.shake + 0.9);
-          game.audio.beam();
+          c.shots = 3;
+          c.nextShot = 0;
         }
       } else {
-        // The spin: the whole superstructure whirls, the beam solid the
-        // entire way across. The eye at center is the only dry ground.
-        const rate = c.total / 1.8;
-        c.spun += rate * dt;
-        b.yaw = clamp(-c.dir * Math.PI / 2 + c.dir * c.spun, -Math.PI / 2, Math.PI / 2);
-        if (!c.rebeamed && c.spun > c.total * 0.45) {
-          c.rebeamed = true;
-          game.audio.beam();
+        // BOOF. BOOF. BOOF. Three columns of light on the mark, each one a
+        // whole-body impact -- dodged entirely by not being there.
+        c.nextShot -= dt;
+        if (c.nextShot <= 0 && c.shots > 0) {
+          c.shots -= 1;
+          c.nextShot = 0.45;
+          c.flashAt = game.time;
+          const d = Math.hypot(game.shipX - c.lock.x, game.shipY - c.lock.y);
+          if (d < 34) game.damage(28);
+          game.shake = Math.min(1.9, game.shake + 0.85);
+          game.audio.boof();
         }
-        const shipBearing = Math.atan2(dpX, -dpT);
-        const off = Math.abs(shipBearing - b.yaw);
-        const inEye = Math.hypot(game.shipX - C.x, game.shipY - C.y) < 26;
-        if (off < 0.055 && !inEye) {
-          if (!c.hit) { c.hit = true; game.damage(30); }
-        } else {
-          c.hit = false;
-        }
-        if (c.spun >= c.total) {
+        if (c.shots <= 0 && c.nextShot <= -0.35) {
           c.state = 'idle';
           c.tIn = 8 - st * 2;
           c.charge = 0;
+          c.lock = null;
         }
       }
     },
@@ -1303,30 +1298,43 @@ export const WARDENS = {
         }
       }
 
-      // --- the lighthouse, while it spins ---------------------------------
-      if (c.state === 'firing') {
+      // --- the beam: the mark while locked, the columns while it lands ----
+      const tS = b.tShip ?? b.t - 560;
+      if (c.state === 'locked' && c.lock) {
+        // The tracking line and the mark: exactly where, in red, blinking.
+        const blink = Math.sin(time * 22) > 0 ? 1 : 0.45;
         const mz = [0, 0, 0];
         tr.localToWorld(b.t + 136 * A.fT, X + 136 * A.fX, Y + 62, mz);
-        const flick = 0.85 + 0.15 * Math.sin(time * 40);
-        // Five parallel rails of beam, ship-wide, floor to weather ceiling.
-        for (let k = -2; k <= 2; k++) {
-          const off = k * 11;
-          tr.localToWorld(b.t + 950 * A.fT + off * A.sT, X + 950 * A.fX + off * A.sX, 8, p);
-          tr.localToWorld(b.t + 950 * A.fT + off * A.sT, X + 950 * A.fX + off * A.sX, 118, q);
-          rd.line3(mz[0], mz[1], mz[2], p[0], p[1], p[2], k === 0 ? 3 : 6.5,
-            1, k === 0 ? 1 : 0.45, k === 0 ? 0.9 : 0.9, (k === 0 ? 1 : 0.5) * flick);
-          rd.line3(mz[0], mz[1], mz[2], q[0], q[1], q[2], k === 0 ? 2 : 4.5,
-            1, k === 0 ? 1 : 0.5, 0.95, (k === 0 ? 0.9 : 0.4) * flick);
-        }
-        // The dry eye, ringed so the refuge reads while the weather rages.
-        if (b.eye) {
-          const tS = b.tShip ?? b.t - 640;
-          for (let k = 0; k < 12; k++) {
-            const a0 = (k / 12) * TAU, a1 = ((k + 1) / 12) * TAU;
-            tr.localToWorld(tS, b.eye.x + Math.cos(a0) * 26, b.eye.y + Math.sin(a0) * 22, p);
-            tr.localToWorld(tS, b.eye.x + Math.cos(a1) * 26, b.eye.y + Math.sin(a1) * 22, q);
-            rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], 2, 0.5, 1, 0.8, 0.8);
+        tr.localToWorld(tS, c.lock.x, c.lock.y, q);
+        rd.line3(mz[0], mz[1], mz[2], q[0], q[1], q[2], 1.4, 1, 0.25, 0.25, 0.55 * blink);
+        for (const r of [34, 20]) {
+          for (let k = 0; k < 10; k++) {
+            const a0 = (k / 10) * TAU, a1 = ((k + 0.7) / 10) * TAU;
+            tr.localToWorld(tS, c.lock.x + Math.cos(a0) * r, c.lock.y + Math.sin(a0) * r, p);
+            tr.localToWorld(tS, c.lock.x + Math.cos(a1) * r, c.lock.y + Math.sin(a1) * r, q);
+            rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], 2.4, 1, 0.3, 0.3, blink);
           }
+        }
+      }
+      if (c.state === 'firing' && c.lock && c.flashAt && time - c.flashAt < 0.34) {
+        // The column: seven rails fused into one thick shaft of light from
+        // the muzzle to the mark, a blown-out core, and the impact blooming.
+        const k2 = 1 - (time - c.flashAt) / 0.34;
+        const mz = [0, 0, 0];
+        tr.localToWorld(b.t + 136 * A.fT, X + 136 * A.fX, Y + 62, mz);
+        for (let k = -3; k <= 3; k++) {
+          tr.localToWorld(tS, c.lock.x + k * 4.6, c.lock.y, q);
+          rd.line3(mz[0], mz[1], mz[2], q[0], q[1], q[2], k === 0 ? 4 : 8,
+            1, k === 0 ? 1 : 0.5, k === 0 ? 0.95 : 0.9, (k === 0 ? 1 : 0.55) * k2);
+        }
+        tr.localToWorld(tS, c.lock.x, c.lock.y, q);
+        rd.line3(q[0], q[1], q[2], q[0], q[1], q[2], 30 * k2 + 8, 1, 0.8, 0.6, k2);
+        const bloom = (1 - k2) * 46 + 20;
+        for (let k = 0; k < 12; k++) {
+          const a0 = (k / 12) * TAU, a1 = ((k + 1) / 12) * TAU;
+          tr.localToWorld(tS, c.lock.x + Math.cos(a0) * bloom, c.lock.y + Math.sin(a0) * bloom, p);
+          tr.localToWorld(tS, c.lock.x + Math.cos(a1) * bloom, c.lock.y + Math.sin(a1) * bloom, q);
+          rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], 3, 1, 0.65, 0.35, k2);
         }
       }
 

@@ -236,6 +236,16 @@ export class Audio {
   }
 
   /**
+   * The cannon's impact: the BOOF. A subwoofer thump, a slam of noise, and a
+   * short bark of beam -- built to land three in a row.
+   */
+  boof() {
+    this._tone('sine', 72, 32, 0.5, 0.6);
+    this._noiseBurst(0.34, 0.5, 900, 55, 1);
+    this._tone('sawtooth', 640, 110, 0.3, 0.22);
+  }
+
+  /**
    * The cannon's beam: the big descending BLERRRR. A saw tearing down two
    * octaves with a square under it and a throat of noise -- held just under
    * a second, so three consecutive blasts overlap into something obscene.
