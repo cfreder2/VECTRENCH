@@ -1094,14 +1094,39 @@ export const WARDENS = {
           c.tIn = 1.0;
         }
       } else if (c.state === 'locked') {
-        // The mark is taken at the moment of the call: BEAM LOCKED, one
-        // second, and the spot it locked is the spot to not be. Roll.
+        // The long warning. For 1.3 seconds the mark FOLLOWS the ship under
+        // the klaxon -- running does nothing yet, get your thumbs ready.
+        // Then it freezes, the boops double, and the frozen mark is the spot
+        // to not be: a full 1.2 seconds, enough to double-tap a barrel roll.
         if (!c.lock) {
           c.lock = { x: game.shipX, y: game.shipY };
-          game.say('BEAM LOCKED -- ROLL', 1.1);
-          game.audio.zap();
+          c.tIn = 2.5;
+          c.frozen = false;
+          c.boopIn = 0;
+          c.sirenIn = 0;
+          game.say('WARNING -- TURRET LOCK', 1.2);
         }
         c.tIn -= dt;
+        if (!c.frozen) {
+          if (c.tIn > 1.2) {
+            c.lock.x = game.shipX;
+            c.lock.y = game.shipY;
+          } else {
+            c.frozen = true;
+            game.say('LOCK ON -- BREAK ROLL', 1.1);
+            game.audio.zap();
+          }
+        }
+        c.boopIn -= dt;
+        if (c.boopIn <= 0) {
+          c.boopIn = c.frozen ? 0.2 : 0.42;
+          game.audio.lockWarn(c.frozen);
+        }
+        c.sirenIn -= dt;
+        if (c.sirenIn <= 0) {
+          c.sirenIn = 0.55;
+          game.audio.klaxon();
+        }
         if (c.tIn <= 0) {
           c.state = 'firing';
           c.shots = 3;
@@ -1326,18 +1351,23 @@ export const WARDENS = {
       // --- the beam: the mark while locked, the columns while it lands ----
       const tS = b.tShip ?? b.t - 560;
       if ((c.state === 'locked' || c.state === 'firing') && c.lock) {
-        // The tracking line and the mark: exactly where, in red, blinking.
-        const blink = Math.sin(time * 22) > 0 ? 1 : 0.45;
+        // The mark: amber and steady while it still follows you, red and
+        // blinking once it has frozen and the spot is the spot.
+        const frozen = c.frozen || c.state === 'firing';
+        const blink = !frozen ? 0.85 : Math.sin(time * 22) > 0 ? 1 : 0.45;
+        const cg = frozen ? 0.3 : 0.62;
+        const cb = frozen ? 0.3 : 0.15;
         const mz = [0, 0, 0];
         tr.localToWorld(b.t + 136 * A.fT, X + 136 * A.fX, Y + 62, mz);
         tr.localToWorld(tS, c.lock.x, c.lock.y, q);
-        rd.line3(mz[0], mz[1], mz[2], q[0], q[1], q[2], 1.4, 1, 0.25, 0.25, 0.55 * blink);
+        rd.line3(mz[0], mz[1], mz[2], q[0], q[1], q[2], 1.4, 1, cg, cb, 0.55 * blink);
         for (const r of [34, 20]) {
           for (let k = 0; k < 10; k++) {
-            const a0 = (k / 10) * TAU, a1 = ((k + 0.7) / 10) * TAU;
+            const rot = frozen ? 0 : time * 1.7;
+            const a0 = rot + (k / 10) * TAU, a1 = rot + ((k + 0.7) / 10) * TAU;
             tr.localToWorld(tS, c.lock.x + Math.cos(a0) * r, c.lock.y + Math.sin(a0) * r, p);
             tr.localToWorld(tS, c.lock.x + Math.cos(a1) * r, c.lock.y + Math.sin(a1) * r, q);
-            rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], 2.4, 1, 0.3, 0.3, blink);
+            rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], 2.4, 1, cg, cb, blink);
           }
         }
       }

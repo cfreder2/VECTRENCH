@@ -7975,6 +7975,17 @@ class Audio {
    * The cannon's impact: the BOOF. A subwoofer thump, a slam of noise, and a
    * short bark of beam -- built to land three in a row.
    */
+  /** One warning boop. Urgent ones sit higher and shorter: boop, boop, BOOP. */
+  lockWarn(urgent = false) {
+    this._tone('square', urgent ? 960 : 700, urgent ? 940 : 690, urgent ? 0.07 : 0.1, 0.3);
+  }
+
+  /** One cycle of the turret's klaxon: a falling whoop. Repeated, it is a siren. */
+  klaxon() {
+    this._tone('sawtooth', 660, 420, 0.5, 0.14);
+    this._tone('square', 330, 210, 0.5, 0.08);
+  }
+
   boof() {
     this._tone('sine', 72, 32, 0.5, 0.6);
     this._noiseBurst(0.34, 0.5, 900, 55, 1);

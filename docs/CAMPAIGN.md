@@ -192,14 +192,17 @@ then it seals and regrows and asks again. Missiles crack armor eight times
 faster than guns.
 
 **The cannon locks, and then it lands.** Six tail-lights count the charge
-while the hull shakes; then BEAM LOCKED — the mark is taken where you are,
-drawn in blinking red with a tracking line back to the muzzle — and one
-second is what you get to roll off it. Then BOOF, BOOF, BOOF — and after
-each impact the mark JUMPS to wherever you are now, so every shot is its
-own lock and its own roll. Keep moving and none of them ever owns you;
-stop, or let it walk you into a wall, and the next one does. Twenty-eight
-apiece. RAIL pierces the armor without asking, which is why it
-melts.
+while the hull shakes; then WARNING — TURRET LOCK, and the klaxon starts.
+For 1.3 seconds the mark **follows** you — amber, steady, boop … boop …
+boop — running does nothing yet except get your thumbs ready. Then LOCK
+ON — BREAK ROLL: the mark freezes where you were, goes red and blinking,
+the boops double, and the frozen spot is the spot to not be — a full 1.2
+seconds, enough to double-tap a barrel roll out of it. Then BOOF, BOOF,
+BOOF — and after each impact the mark JUMPS to wherever you are now, so
+every shot is its own lock and its own roll. Keep moving and none of them
+ever owns you; stop, or let it walk you into a wall, and the next one
+does. Twenty-eight apiece. RAIL pierces the armor without asking, which
+is why it melts.
 
 ### The ninth fight
 The Citadel's boss is the eight escape pods, assembled. Parked in the
