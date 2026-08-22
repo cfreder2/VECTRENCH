@@ -23,7 +23,7 @@ const DIST = join(here, '..', 'dist');
 // is not hoisted, so terrain.js must already be evaluated.
 const ORDER = [
   'math.js', 'collide.js', 'font.js', 'renderer.js',
-  'spec.js', 'levels.js',
+  'spec.js', 'levels.js', 'campaign.js',
   'track.js', 'level.js', 'terrain.js', 'entities.js',
   'hud.js', 'nes.js', 'songs.js', 'music.js', 'audio.js', 'input.js',
   'game.js', 'ui.js', 'main.js',

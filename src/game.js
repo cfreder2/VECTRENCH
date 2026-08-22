@@ -272,6 +272,10 @@ export class Game {
     this._l = [0, 0, 0];
 
     this.phase = 'idle';
+    // The fitted special weapon is equipment, not run state: a reset starts
+    // the level over, it does not strip the ship. The UI sets this from what
+    // the campaign has earned; null until a warden has handed one over.
+    this.special = null;
     this.spec = null;
     this.track = null;
     this.level = null;
@@ -306,9 +310,6 @@ export class Game {
     this.burnSpent = false;
     this.gateTime = 0;
     this.speedMul = 1;
-    // The special. Equipped is which weapon; the wardens will hand these out
-    // one at a time once they exist. Until then ARC is fitted for testing.
-    this.special = 'arc';
     this.diamonds = DIAMOND_BASE;
     this.specialOn = false;
     this.specialEntry = 0;      // the meter at activation: a tap commits one
@@ -483,7 +484,7 @@ export class Game {
     // Draining dry latches it off until the button is released, and letting
     // go always costs at least the whole diamond the press opened.
     if (!inp.specialHeld) this.specialSpent = false;
-    const wantSpecial = inp.specialHeld && !this.specialSpent && this.diamonds > 0;
+    const wantSpecial = !!this.special && inp.specialHeld && !this.specialSpent && this.diamonds > 0;
     if (wantSpecial && !this.specialOn) {
       this.specialEntry = this.diamonds;
       this.say(`${this.special.toUpperCase()}`, 0.7);

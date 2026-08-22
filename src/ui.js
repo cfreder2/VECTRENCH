@@ -12,8 +12,16 @@
 import { decodeSpec, normalizeSpec } from './spec.js';
 import { PREBUILT } from './levels.js';
 import { drawSchematic } from './hud.js';
+import { drawText } from './font.js';
+import { Campaign, DISTRICTS, WEAPONS } from './campaign.js';
 
 const $ = (id) => document.getElementById(id);
+
+/** '#b06fff' -> [0.69, 0.44, 1], for drawing DOM-side colors on the canvas. */
+function hexRgb(css) {
+  const n = parseInt(css.slice(1), 16);
+  return [(n >> 16 & 255) / 255, (n >> 8 & 255) / 255, (n & 255) / 255];
+}
 
 const BURN_PIPS = 5;   // chevrons on the boost gauge
 const SPEC_PIPS = 8;   // diamonds on the special gauge
@@ -25,6 +33,7 @@ export class UI {
     this.audio = audio;
     this.game = game;
     this.screen = 'boot';
+    this.campaign = new Campaign();
     this.spec = null;
     this.busy = false;
     this.dirty = true;
@@ -59,7 +68,14 @@ export class UI {
 
   bindAll() {
     this.buttons = [];
-    for (const lv of PREBUILT) this.addLevel(lv, $('prebuilt'));
+    this.buildGrid();
+    this.buildRack();
+    this.refreshCampaign();
+    // Campaign levels live in the grid; the shelf keeps training and customs.
+    const inGrid = new Set(DISTRICTS.map((d) => d.level).filter(Boolean));
+    for (const lv of PREBUILT) {
+      if (!inGrid.has(lv.spec.name)) this.addLevel(lv, $('prebuilt'));
+    }
 
     $('fly').addEventListener('click', () => this.fly());
     $('full').addEventListener('click', () => this.goFullscreen());
@@ -177,6 +193,12 @@ export class UI {
    */
   syncSpecButton() {
     const g = this.game;
+    const has = !!g.special;
+    if (has !== this._specHas) {
+      $('spec').style.display = has ? '' : 'none';
+      this._specHas = has;
+    }
+    if (!has) return;
     const whole = Math.floor(Math.max(0, g.diamonds ?? 0) + 1e-6);
     if (whole !== this._specPips) {
       $('spec').innerHTML = Array.from({ length: SPEC_PIPS }, (_, i) =>
@@ -291,6 +313,98 @@ export class UI {
     this.status(`${this.spec.name} -- ${Math.round(this.game.track.total)} units`);
   }
 
+  /**
+   * The 3x3: eight districts around the edge, the Citadel sealed in the
+   * center. A cell with a level selects it like any shelf button; a cell
+   * without one is the map being honest about what is still coming.
+   */
+  buildGrid() {
+    const grid = $('grid');
+    this.cells = {};
+    for (const d of DISTRICTS) {
+      const b = document.createElement('button');
+      b.className = 'cell' + (d.center ? ' center' : '');
+      b.style.borderColor = d.css + '55';
+      const lv = d.level ? PREBUILT.find((l) => l.spec.name === d.level) : null;
+      if (d.center) {
+        b.innerHTML = `<span class="dname" style="color:${d.css}">${d.name}</span>
+          <span class="dsub" id="citadelsub"></span>`;
+        b.addEventListener('click', () => {
+          this.status(this.campaign.wardensDown()
+            ? 'the citadel is not built yet -- soon'
+            : `sealed -- ${this.campaign.clearedCount()} of ${DISTRICTS.filter((x) => x.level && !x.center).length} wardens down`);
+        });
+      } else if (lv) {
+        b.innerHTML = `<span class="dname" style="color:${d.css}">${d.name}</span>
+          <span class="dsub">${lv.label}</span>`;
+        b.addEventListener('click', () => {
+          for (const o of this.buttons) o.classList.toggle('on', o === b);
+          this.setSpec(lv.spec, [d.name, lv.blurb].filter(Boolean));
+        });
+        this.buttons.push(b);
+      } else {
+        b.classList.add('locked');
+        b.innerHTML = `<span class="dname" style="color:${d.css}">${d.name}</span>
+          <span class="dsub">offline</span>`;
+        b.addEventListener('click', () => this.status(`${d.name.toLowerCase()} is not built yet`));
+      }
+      this.cells[d.id] = { el: b, district: d };
+      grid.appendChild(b);
+    }
+    this.refreshCampaign();
+  }
+
+  /** The eight weapon slots: earned ones equip, the rest say how to earn. */
+  buildRack() {
+    const rack = $('rack');
+    this.slots = {};
+    for (const [key, w] of Object.entries(WEAPONS)) {
+      const b = document.createElement('button');
+      b.className = 'wslot';
+      b.textContent = w.name;
+      b.addEventListener('click', () => {
+        if (this.campaign.equip(key)) {
+          this.refreshCampaign();
+          this.status(`${w.name} fitted`);
+        } else {
+          const holder = DISTRICTS.find((d) => {
+            const lv = d.level && PREBUILT.find((l) => l.spec.name === d.level);
+            return lv && lv.spec.boss && lv.spec.boss.weapon === key;
+          });
+          this.status(holder
+            ? `${w.name.toLowerCase()} -- beat the ${holder.name.toLowerCase()} warden to take it`
+            : `${w.name.toLowerCase()} -- its warden is not built yet`);
+        }
+      });
+      this.slots[key] = b;
+      rack.appendChild(b);
+    }
+  }
+
+  /** Cleared badges, the Citadel's count, and the rack's states -- from truth. */
+  refreshCampaign() {
+    const c = this.campaign;
+    for (const { el, district } of Object.values(this.cells || {})) {
+      if (district.level) el.classList.toggle('cleared', c.isCleared(district.level));
+    }
+    const sub = $('citadelsub');
+    if (sub) {
+      const total = DISTRICTS.filter((d) => d.level && !d.center).length;
+      sub.textContent = c.wardensDown() ? 'UNSEALED' : `SEALED ${c.clearedCount()}/${total}`;
+    }
+    for (const [key, b] of Object.entries(this.slots || {})) {
+      const earned = c.weapons.includes(key);
+      b.classList.toggle('locked', !earned);
+      b.classList.toggle('on', c.equipped === key);
+      b.style.background = c.equipped === key ? WEAPONS[key].css : '';
+      b.style.borderColor = earned ? WEAPONS[key].css : '';
+      b.style.color = c.equipped === key ? '#04140b' : earned ? WEAPONS[key].css : '';
+    }
+    $('racknote').textContent = c.weapons.length
+      ? `fitted: ${WEAPONS[c.equipped].name} -- hold SPECIAL in flight`
+      : 'beat a warden to take its weapon';
+  }
+
   /** One button on the shelf. The chosen one stays lit, so the shelf is the state. */
   addLevel(lv, into) {
     const b = document.createElement('button');
@@ -301,6 +415,7 @@ export class UI {
       for (const o of this.buttons) o.classList.toggle('on', o === b);
       this.setSpec(lv.spec, [lv.label, lv.blurb].filter(Boolean));
     });
+    if (this.campaign.isCleared(lv.spec.name)) b.classList.add('cleared');
     into.appendChild(b);
     this.buttons.push(b);
     return b;
@@ -396,6 +511,7 @@ export class UI {
       }
     } catch { /* browsers may refuse; the game plays fine regardless */ }
     if (this.input.motion === 'granted') this.input.recalibrate();
+    this.game.special = this.campaign.equipped;
     this.game.reset();
     this.audio.musicStart(this.spec.music);
     this.show('flight');
@@ -403,8 +519,17 @@ export class UI {
 
   toMenu() {
     this.audio.musicStart('anthem');
+    if (this.game.phase === 'won' && this.spec) {
+      const got = this.campaign.markCleared(this.spec);
+      this.refreshCampaign();
+      this.show('design');
+      this.status(got.weapon
+        ? `warden down -- ${WEAPONS[got.weapon].name} is yours`
+        : `${this.spec.name} -- cleared`);
+      return;
+    }
     this.show('design');
-    this.status(`${this.spec.name} -- ${this.game.phase === 'won' ? 'cleared' : 'ready'}`);
+    this.status(`${this.spec.name} -- ready`);
   }
 
   /**
@@ -414,15 +539,58 @@ export class UI {
    */
   drawBackdrop() {
     const rd = this.rd;
-    if (this.screen === 'design' && !this.dirty) return;
-    this.dirty = false;
+    // The design screen redraws every frame now: the ship on it is alive.
+    if (this.screen === 'design') this.dirty = false;
+    else if (!this.dirty) return;
+    else this.dirty = false;
     rd.beginFrame(1);
     if (this.screen === 'design' && this.game.track) {
-      drawSchematic(rd, this.game.track, this.game.level, 1, this.freeBand());
+      const band = this.freeBand();
+      const strip = 64 * rd.scale;
+      if (band.y1 - band.y0 > 190 * rd.scale) {
+        this.drawShipCard(band.y0, strip);
+        band.y0 += strip;
+      }
+      drawSchematic(rd, this.game.track, this.game.level, 1, band);
     } else if (this.screen === 'boot') {
       this.drawBootGrid();
     }
     rd.endFrame();
+  }
+
+  /**
+   * Your ship, on the shelf above the map: the interceptor in top view, the
+   * fitted special worn as its trim. A hangar, four lines wide.
+   */
+  drawShipCard(y0, h) {
+    const rd = this.rd;
+    const s = rd.scale;
+    const cx = rd.width * 0.5;
+    const cy = y0 + h * 0.52;
+    const t = performance.now() / 1000;
+    const sway = Math.sin(t * 1.4) * 3 * s;
+    const wkey = this.campaign.equipped;
+    const wc = wkey ? hexRgb(WEAPONS[wkey].css) : [0.35, 0.6, 0.7];
+
+    const S = 1.35 * s;
+    const N = [cx + sway, cy - 15 * S];
+    const L = [cx + sway - 13 * S, cy + 11 * S];
+    const R = [cx + sway + 13 * S, cy + 11 * S];
+    const T = [cx + sway, cy + 6 * S];
+    for (const [a, b] of [[N, L], [L, T], [T, R], [R, N]]) {
+      rd.line2(a[0], a[1], b[0], b[1], 1.8 * s, 0.45, 0.95, 1, 0.95, 0.95);
+    }
+    // The engine, flickering; the wingtips, in the weapon's color.
+    const jet = (6 + Math.sin(t * 23) * 2.5) * S;
+    rd.line2(T[0] - 3 * S, T[1] + 2 * S, T[0] - 3 * S, T[1] + jet, 1.4 * s, 1, 0.72, 0.2, 0.8, 0.1);
+    rd.line2(T[0] + 3 * S, T[1] + 2 * S, T[0] + 3 * S, T[1] + jet, 1.4 * s, 1, 0.72, 0.2, 0.8, 0.1);
+    for (const W of [L, R]) {
+      rd.line2(W[0], W[1], W[0], W[1] - 5 * S, 2.4 * s, wc[0], wc[1], wc[2], wkey ? 1 : 0.35, wkey ? 1 : 0.35);
+    }
+
+    drawText(rd, 'INTERCEPTOR', cx - 100 * s, cy + 3 * s, 9 * s, 1.1 * s, 0.35, 0.6, 0.7, 0.9, 1);
+    const label = wkey ? WEAPONS[wkey].name : 'NO SPECIAL';
+    drawText(rd, label, cx + 100 * s, cy + 3 * s, 9 * s, 1.1 * s, wc[0], wc[1], wc[2], wkey ? 1 : 0.5);
   }
 
   /**

@@ -193,6 +193,28 @@
   #msl:active { background: rgba(255,183,77,0.45); }
   #flight.on { display: block; }
   #err { color: var(--red); font-size: 11px; line-height: 1.6; }
+  #grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+  .cell {
+    font: inherit; text-align: left; padding: 9px 10px; border-radius: 8px;
+    background: rgba(10, 24, 34, .45); border: 1px solid #1d3a4c; color: #9fc2d0;
+    cursor: pointer; letter-spacing: .08em; min-height: 58px;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .cell .dname { display: block; font-size: 11px; letter-spacing: .14em; }
+  .cell .dsub { display: block; font-size: 9px; margin-top: 4px; opacity: .65; }
+  .cell.locked { opacity: .38; cursor: default; }
+  .cell.on { background: rgba(111, 230, 255, .14); box-shadow: 0 0 10px rgba(111, 230, 255, .25) inset; }
+  .cell.cleared .dname::after { content: ' \2713'; color: #6dffa8; }
+  .cell.center { text-align: center; border-style: dashed; }
+  #rack { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+  .wslot {
+    font: inherit; padding: 8px 4px; border-radius: 8px; text-align: center;
+    background: rgba(10, 24, 34, .45); border: 1px solid #1d3a4c; color: #9fc2d0;
+    font-size: 11px; letter-spacing: .12em; cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .wslot.locked { opacity: .32; cursor: default; }
+  .wslot.on { color: #04140b; }
 </style>
 </head>
 <body>
@@ -218,17 +240,28 @@
     <div id="spacer"></div>
     <div id="sheet">
       <div class="foldable">
-        <label>SELECT YOUR LEVEL</label>
-        <div class="row" id="prebuilt"></div>
-        <div class="row" id="customrow" hidden>
-          <span class="note">YOUR LEVELS</span>
-        </div>
-        <div class="row" id="custom"></div>
+        <label>THE DISTRICTS</label>
+        <div id="grid"></div>
       </div>
       <div class="row">
         <button id="fly" class="primary" disabled>FLY</button>
         <button id="full" class="chip">FULL SCREEN</button>
       </div>
+      <div class="foldable">
+        <label>SPECIAL WEAPON</label>
+        <div id="rack"></div>
+        <div class="note" id="racknote">beat a warden to take its weapon</div>
+      </div>
+      <details class="foldable">
+        <summary>TRAINING &amp; YOUR LEVELS</summary>
+        <div class="body">
+          <div class="row" id="prebuilt"></div>
+          <div class="row" id="customrow" hidden>
+            <span class="note">YOUR LEVELS</span>
+          </div>
+          <div class="row" id="custom"></div>
+        </div>
+      </details>
       <div class="foldable" id="designpanel">
         <label for="prose">DESIGN A NEW LEVEL</label>
         <textarea id="prose" spellcheck="false"

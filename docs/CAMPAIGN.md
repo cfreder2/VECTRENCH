@@ -19,8 +19,10 @@ core, where the thing that built the wardens is waiting.
 
 ## The nine levels
 
-The select screen is the 3×3 grid: eight districts around the edge, the
-Citadel locked in the center until all eight wardens are down.
+The select screen is the 3×3 grid — built and live on the home screen: eight
+districts around the edge, the Citadel sealed in the center until every
+warden is down. Cleared districts wear their mark forever and stay replayable;
+districts not yet built sit dark on the map, which is honest.
 
 | # | District | Level | Hue | The district's job | Weapon earned |
 | --- | --- | --- | --- | --- | --- |
@@ -150,7 +152,13 @@ special weapon system.** In build order:
    together, which is the per-district pattern from here on.
 2. The second hue, so districts look like districts.
 3. The remaining districts one at a time, each level + song + weapon together.
-4. The 3×3 select screen and the unlock state.
+4. ~~The 3×3 select screen and the unlock state~~ — **done**: the home screen
+   is the grid — eight districts around a sealed Citadel counting wardens
+   down, cells cleared forever in localStorage and freely replayable, the
+   weapon rack under it, and the ship above the map wearing whatever is
+   fitted. Beating a warden's district hands its weapon over on the spot;
+   until the first one falls, the ship flies clean and the SPECIAL button
+   does not exist.
 5. ~~The boss arena machinery~~ — **done**: `boss` in a spec grows the arena,
    the ascent, the fight, the escape pod, and the boss theme; MARIONETTE is
    the first warden flying it. The remaining wardens, one at a time.
