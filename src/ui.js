@@ -166,6 +166,36 @@ class Preview {
     this.sized = false;
   }
 
+  /**
+   * One frame of a level, as an image: the postcard the idle square shows.
+   * Rendered a third of the way in, where a level looks like itself, and read
+   * back in the same task, before the browser can clear the buffer.
+   */
+  snapshot(spec) {
+    const tr = new Track(spec);
+    const terrain = new TerrainRenderer(tr);
+    this.rd.resize(240, 240, 240_000);
+    const t = tr.total * 0.33;
+    const y = tr.railY(t) + 14;
+    tr.frameAt(Math.max(1, t - 26), this.frame);
+    tr.localToWorldF(this.frame, 0, y + 12, this.eye);
+    tr.frameAt(Math.min(tr.total, t + 130), this.lookFrame);
+    tr.localToWorldF(this.lookFrame, 0, tr.railY(t + 130) + 8, this.look);
+    const f = [this.look[0] - this.eye[0], this.look[1] - this.eye[1], this.look[2] - this.eye[2]];
+    const fl = Math.hypot(f[0], f[1], f[2]) || 1;
+    f[0] /= fl; f[1] /= fl; f[2] /= fl;
+    const up = this.frame.u;
+    const r = [up[1] * f[2] - up[2] * f[1], up[2] * f[0] - up[0] * f[2], up[0] * f[1] - up[1] * f[0]];
+    const rl = Math.hypot(r[0], r[1], r[2]) || 1;
+    r[0] /= rl; r[1] /= rl; r[2] /= rl;
+    const u = [f[1] * r[2] - f[2] * r[1], f[2] * r[0] - f[0] * r[2], f[0] * r[1] - f[1] * r[0]];
+    this.rd.beginFrame(1);
+    this.rd.setCamera(this.eye, r, u, f, 1.1, 2600);
+    terrain.draw(this.rd, t, false, 0.5, 1);
+    this.rd.endFrame();
+    return this.canvas.toDataURL('image/png');
+  }
+
   tick() {
     if (!this.track || !this.canvas.isConnected) return;
     const now = performance.now() / 1000;
@@ -440,6 +470,7 @@ export class UI {
       this.controlHint = 'no tilt: drag one finger to steer, touch with a second to fire';
     }
     this.show('design');
+    this.buildThumbs();
     this.loadCustom();
     if (!this.spec) {
       // Open on a finished level, so the next tap can be FLY.
@@ -539,7 +570,9 @@ export class UI {
             : `sealed -- ${this.campaign.clearedCount()} of ${DISTRICTS.filter((x) => x.level && !x.center).length} wardens down`);
         });
       } else if (lv) {
-        b.innerHTML = `<span class="dname">${d.name}</span>
+        b.innerHTML = `<img class="thumb" alt="" hidden>
+          <span class="veil"></span>
+          <span class="dname">${d.name}</span>
           <span class="dsub">${lv.label}</span>`;
         b.addEventListener('click', () => {
           for (const o of this.buttons) o.classList.toggle('on', o === b);
@@ -592,6 +625,28 @@ export class UI {
       x.hidden = !x.hidden;
       $('setup').textContent = x.hidden ? 'SETUP' : 'CLOSE';
     });
+  }
+
+  /**
+   * Every level square gets its still: one hidden renderer walks the levels,
+   * takes a frame of each, and bakes it into the cell as an image. Spread a
+   * beat apart so the menu never hitches while they develop.
+   */
+  async buildThumbs() {
+    if (this._thumbed) return;
+    this._thumbed = true;
+    let shooter;
+    try { shooter = new Preview(); } catch { return; }
+    for (const { el, district } of Object.values(this.cells)) {
+      const lv = district.level && PREBUILT.find((l) => l.spec.name === district.level);
+      const img = el.querySelector('img.thumb');
+      if (!lv || !img) continue;
+      await new Promise((r) => setTimeout(r, 40));
+      try {
+        img.src = shooter.snapshot(normalizeSpec(lv.spec));
+        img.hidden = false;
+      } catch { /* a square without its postcard still works */ }
+    }
   }
 
   /** The chosen square starts flying its level. One preview, moved around. */
