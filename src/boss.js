@@ -1034,26 +1034,40 @@ export const WARDENS = {
         return true;
       });
 
-      // --- the road it does not steer around ------------------------------
+      // --- the wreckage on the road: terrain, not theater ------------------
+      // Varied rectangles strewn across the low air. The tank ignores them;
+      // YOU cannot -- clip one and it costs you, which is why the floor-skim
+      // escape does not exist here. This fight is flown in the air.
       b.timers.junk = (b.timers.junk ?? 0.4) - dt;
-      if (b.timers.junk <= 0 && b.debris.length < 12) {
-        b.timers.junk = 0.55;
-        const car = hash2((game.time * 19) | 0, 5) < 0.4;
+      if (b.timers.junk <= 0 && b.debris.length < 14) {
+        b.timers.junk = 0.5;
+        const roll = hash2((game.time * 19) | 0, 5);
+        const kind = roll < 0.3 ? 'car' : roll < 0.62 ? 'slab' : 'post';
+        let x = (hash2((game.time * 19) | 0, 7) * 2 - 1) * (hw - 26);
+        if (Math.abs(x - b.xT) < 50) x = -x * 0.7;   // keep out of its lane
         b.debris.push({
-          t: b.t + 240 + hash2((game.time * 19) | 0, 3) * 520,
-          x: (hash2((game.time * 19) | 0, 7) * 2 - 1) * (hw - 30),
-          size: car ? 12 : 5 + hash2((game.time * 19) | 0, 11) * 6,
-          car,
+          t: b.t + 240 + hash2((game.time * 19) | 0, 3) * 560,
+          x,
+          w: kind === 'slab' ? 18 + hash2((game.time * 19) | 0, 13) * 14
+            : kind === 'car' ? 10 : 5 + hash2((game.time * 19) | 0, 13) * 4,
+          h: kind === 'post' ? 26 + hash2((game.time * 19) | 0, 17) * 20
+            : kind === 'car' ? 12 : 9 + hash2((game.time * 19) | 0, 17) * 8,
+          car: kind === 'car',
+          hit: false,
         });
       }
       b.debris = b.debris.filter((d) => {
         if (d.t < game.t - 120) return false;
-        if (Math.abs(b.t - d.t) < 175 && Math.abs(b.x - d.x) < 66) {
+        if (!d.hit && Math.abs(game.t - d.t) < 12
+            && Math.abs(game.shipX - d.x) < d.w + 7
+            && game.shipY < d.h + 5) {
+          d.hit = true;
+          game.damage(16);
           const w = [0, 0, 0];
-          tr.localToWorld(d.t, d.x, 8, w);
-          game.boomAt(w, d.car ? 34 : 20, d.car ? 190 : 140, 1, 0.6, 0.25, 0.8);
+          tr.localToWorld(d.t, d.x, d.h * 0.5, w);
+          game.boomAt(w, 22, 150, 1, 0.6, 0.3, 0.7);
           game.audio.smallBoom();
-          return false;
+          game.say('WRECKAGE', 0.8);
         }
         return true;
       });
@@ -1343,14 +1357,28 @@ export const WARDENS = {
         }
       }
 
-      // --- the road ---------------------------------------------------------
+      // --- the road: rectangles of every proportion, sitting where they
+      // died. The front face is the warning; the top edge gives it depth. ---
       for (const d of b.debris) {
-        square(rd, tr, d.t, d.x, 8, d.size, [0.85, 0.45, 0.8], 1.3, 0.7);
+        const dc = [0.85, 0.45, 0.8];
+        for (const [x0, y0, x1, y1] of [
+          [-d.w, 0, d.w, 0], [d.w, 0, d.w, d.h], [d.w, d.h, -d.w, d.h], [-d.w, d.h, -d.w, 0],
+        ]) {
+          tr.localToWorld(d.t, d.x + x0, y0, p);
+          tr.localToWorld(d.t, d.x + x1, y1, q);
+          rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], 1.5, dc[0], dc[1], dc[2], 0.8);
+        }
+        tr.localToWorld(d.t, d.x - d.w, d.h, p);
+        tr.localToWorld(d.t + 12, d.x - d.w * 0.7, d.h, q);
+        rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], 1.2, dc[0], dc[1], dc[2], 0.55);
+        tr.localToWorld(d.t, d.x + d.w, d.h, p);
+        tr.localToWorld(d.t + 12, d.x + d.w * 0.7, d.h, q);
+        rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], 1.2, dc[0], dc[1], dc[2], 0.55);
         if (d.car) {
-          tr.localToWorld(d.t - d.size * 0.7, d.x, 3, p);
-          rd.line3(p[0], p[1], p[2], p[0], p[1], p[2], 3, 0.85, 0.45, 0.8, 0.7);
-          tr.localToWorld(d.t + d.size * 0.7, d.x, 3, q);
-          rd.line3(q[0], q[1], q[2], q[0], q[1], q[2], 3, 0.85, 0.45, 0.8, 0.7);
+          tr.localToWorld(d.t, d.x - d.w * 0.5, 2, p);
+          rd.line3(p[0], p[1], p[2], p[0], p[1], p[2], 3, dc[0], dc[1], dc[2], 0.7);
+          tr.localToWorld(d.t, d.x + d.w * 0.5, 2, q);
+          rd.line3(q[0], q[1], q[2], q[0], q[1], q[2], 3, dc[0], dc[1], dc[2], 0.7);
         }
       }
       coreGlow(rd, tr, b, time, col);

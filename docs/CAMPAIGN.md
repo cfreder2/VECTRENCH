@@ -169,8 +169,11 @@ deck is silent the magazine opens. FREEZE stops a cycling battery mid-cycle,
 which is why it melts.
 
 ### REVENANT — Void · yields GHOST · melted by RAIL
-The dead district's last war machine, driving backwards down a road it
-crushes as it goes. The hull carries no guns any more: it **launches** them —
+The dead district's last war machine, driving backwards down a road strewn
+with the district's wreckage — slabs, posts, dead cars, rectangles of every
+proportion in the low air. The tank ignores them; **you cannot**: clip one
+and it costs you, so the floor-skim escape does not exist here. This fight
+is flown in the air. The hull carries no guns any more: it **launches** them —
 waves of aerial escorts circling it, machine-gun drones then missile
 batteries, cycling every sixteen seconds, killed ones replaced from the
 launch bays. Clearing the sky is pressure relief, never progress.
