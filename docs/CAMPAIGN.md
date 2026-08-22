@@ -86,28 +86,102 @@ warden it melts.*
 ## The wardens
 
 You fly *alongside* each one, 1943-style, in a dedicated arena past the gate.
-Each is its own ship with special attacks — crushing, ramming, missiles,
-spawning escorts you must clear.
+Every warden fights with its own special weapon — the fight is the
+demonstration, and what it did to you is what it will do for you once you
+take it. And every fight has a **shape**: a visible structure you break
+before the kill shot exists, because MARIONETTE taught us that progress the
+eye can count is what makes a boss a fight instead of a health bar. When a
+warden dies, an escape pod flies out and gets away — that is not color, it
+is the setup *(see the parking lot)*.
 
-**Every warden fights with its own special weapon.** MARIONETTE chains ARC
-lightning at you; FURNACE burns you with MAGMA; BROADSIDE fires the RAIL you
-will take from it. Beating a warden is how the weapon is earned — the fight
-is the demonstration, and what it did to you is what it will do for you.
-First-pass identities, to be designed properly one at a time:
+The machinery is generic and proven; each warden below is a block of
+numbers, a draw function, and an attack script. MARIONETTE flies today; the
+rest are the briefs we build against.
 
-| Warden | District | The fight |
-| --- | --- | --- |
-| **HYDRA** | Riverworks | a segmented river monitor that weaves the bends and crushes you against them; the weak segment cycles |
-| **FURNACE** | Reactor | the core on rails — vents plasma walls, rams |
-| **MANTIS** | Overgrowth | scythe blades, spawns seed drones that must be shot |
-| **MARIONETTE** | Neon | hangs from light-cables strung across the trench and swings |
-| **PORTCULLIS** | Bulkhead | a flying gate that screens itself with doors; crush attack |
-| **AVALANCHE** | Glacier | a ram ship shedding regrowing ice plates |
-| **BROADSIDE** | The Gauntlet | a gun-deck frigate flying parallel — the wall-of-fire fight |
-| **REVENANT** | Void | phases through the surface and ambushes |
+### HYDRA — Riverworks · yields WAVE · melted by GHOST
+A river monitor in segments, and the one fight that stays **in the trench**:
+the arena is its river, widened, and the thing weaves bend to bend trying to
+put its body between you and the gap. It raises WAVE walls — rising sheets
+of light with one hole — timed to arrive as the bends do. **The shape:** its
+spine. Segments glow weak one at a time, back to front; each one broken
+shortens it, and a shorter HYDRA corners harder. GHOST reaches through hull
+and water alike, which is why it melts; guns must wait for the glowing
+segment to surface.
 
-**When a warden dies, an escape pod flies out and gets away.** That is not
-color — it is the setup. *(See the parking lot.)*
+### FURNACE — Reactor · yields MAGMA · melted by WAVE
+The core on rails, dragging its heat with it over open foundry ground. It
+vents MAGMA — hanging clouds of burning flak that stay where they were
+poured, damage over time for as long as you fly in them — and it rams on a
+straight telegraphed line when you linger level with it. **The shape:** four
+heat regulators around the core. Each one broken makes the venting wilder
+but the core hotter and more exposed; all four down and it runs glowing,
+shedding fire, killable. WAVE douses a vent cloud on contact, which is why
+it melts.
+
+### MANTIS — Overgrowth · yields SAW · melted by MAGMA
+A scythe ship over the canopy. It throws SAW — returning blades that cross
+the arena in a flat arc and come back along a different line, so every throw
+is dodged twice — and it seeds the air with drone pods that hatch if you
+leave them. **The shape:** the two scythe arms. Each arm is its own target;
+one arm down halves the blade throws, both down and the body fights alone —
+and desperate, ramming in figure-eights. The arms regrow once, at half
+strength, so the fight teaches you its rhythm and then asks again faster.
+MAGMA burns growth, which is why it melts.
+
+### MARIONETTE — Neon · yields ARC · melted by SAW · **built**
+The one that flies today. A floating core ringed by six tentacle pods; the
+pods spawn the escorts and hold the shield lattice — the core refuses locks
+and sheds gunfire until the ring is broken, and the HUD counts the pods down
+as diamonds going dark. Its ARC strike telegraphs for 0.85 seconds and the
+aim FOLLOWS you, freezing only for the last 0.3 — the core burns white at
+the lock, and the late sidestep is the skill. Seeker pairs from its second
+third; a low sweep once the core is open. SAW severs what it hangs from,
+which is why it melts.
+
+### PORTCULLIS — Bulkhead · yields BREACH · melted by ARC
+A flying gate: a bulkhead that got up. It screens itself behind its own
+doors and fights by **closing the arena** — sliding wall sections in from
+the sides so the open ground becomes a slot you thread while it shells the
+gap with BREACH charges that detonate in a spread behind their point of
+impact. **The shape:** the door panels, exactly like the bulkhead panels the
+whole game has taught — shoot the panels to strip its screen, one face at a
+time, until the hinge is bare. ARC conducts across a closed door and finds
+the works behind it, which is why it melts.
+
+### AVALANCHE — Glacier · yields FREEZE · melted by BREACH
+A ram ship armored in ice that grows back. It fights close: long telegraphed
+rams the width of the arena, shard bursts on the turn, and FREEZE beams that
+stiffen your controls for a heartbeat if they touch you — the one attack in
+the game aimed at the pilot rather than the ship, always telegraphed, always
+a lane you can leave. **The shape:** the armor. Plates crack and shed under
+fire and regrow from the edges, so the fight is a race for the gap you just
+made; BREACH shatters every plate at once, which is why it melts. Under the
+ice it is small, fast, and fragile.
+
+### BROADSIDE — Gauntlet · yields RAIL · melted by FREEZE
+A gun-deck frigate that takes up station beside you and simply *fires*: the
+wall-of-fire fight. Its deck guns cycle in ranks, and from its second third
+it adds RAIL — piercing lances the length of the arena, lanes that flash
+before they fire, the whole fight becoming a grid of places not to be.
+**The shape:** the deck itself. Every battery is a target; every battery
+down is one less stream in the wall, and the HUD counts the deck. When the
+deck is silent the magazine opens. FREEZE stops a cycling battery mid-cycle,
+which is why it melts.
+
+### REVENANT — Void · yields GHOST · melted by RAIL
+The ambusher, in the emptiest arena in the game — DEAD AIR's silence with
+nothing to hide behind except not-being-there. It phases: untargetable,
+unhittable, a shimmer sliding under the surface — then it solidifies to
+strike, and for that window it is real. Its GHOST shots rise through the
+floor beneath you, telegraphed by the shimmer converging. **The shape:** the
+windows. It must become real to hurt you, and every strike you dodge is a
+strike you can answer; the fight is patience, bait, and punish. RAIL is the
+one thing that catches it mid-phase — a lance does not care whether the
+target is entirely there — which is why it melts.
+
+### The ninth fight
+The Citadel's boss is the eight escape pods, assembled. Parked in the
+parking lot until the eight wardens fly.
 
 ## The music map
 

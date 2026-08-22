@@ -531,7 +531,10 @@ The machinery is generic — an entity the existing paint, lock, laser, and
 missile systems already understand, attack clocks that tighten as it loses
 thirds of its health, and an arena that loops invisibly because it is flat
 and straight on purpose. A new warden is a block of numbers and a draw
-function, not a new system.
+function, not a new system. The full roster — all eight wardens, their
+fights' shapes, and the wheel that connects them — is designed in
+[CAMPAIGN.md](CAMPAIGN.md#the-wardens); this file documents the ones that
+exist in code.
 
 **MARIONETTE** — the Neon warden, and the first one built — is a floating
 core ringed by **six tentacle pods**, each a small lockable target of its
