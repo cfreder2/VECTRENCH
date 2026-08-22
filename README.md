@@ -17,6 +17,14 @@ A vector-graphics rails shooter in a canyon.  The goal of this was to experiment
 
 **[Play it](https://cfreder2.github.io/VECTRENCH/)**
 
+## Hearing the music
+
+[**jukebox.html**](https://cfreder2.github.io/VECTRENCH/jukebox.html) plays the
+stage themes outside the game, with the mix and the tempo live on sliders and a
+readout of which bar and chord you are in. It is how the songs get written: put
+it on a phone speaker, drag the balance until the tune sits on top, and copy the
+numbers back into the song's `mix`.
+
 ## Running it locally
 
 It is a static page with no build step and no dependencies. Serve the directory

@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>VECTRENCH — jukebox</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#02060a">
+<style>
+  :root { --cyan: #6fe6ff; --amber: #ffb74d; --dim: #5b8494; --line: #123244; --green: #6dffa8; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 18px; background: #02060a; color: var(--cyan);
+    font: 13px/1.6 ui-monospace, SFMono-Regular, Menlo, monospace;
+    letter-spacing: 0.06em; -webkit-text-size-adjust: 100%;
+  }
+  h1 { font-size: 15px; font-weight: 400; letter-spacing: 0.3em; margin: 0 0 4px; }
+  .sub { color: var(--dim); font-size: 11px; margin-bottom: 18px; }
+  .card { border: 1px solid var(--line); border-radius: 8px; padding: 14px; margin-bottom: 12px; }
+  .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  button {
+    font: inherit; letter-spacing: 0.12em; padding: 12px 16px; border-radius: 8px;
+    background: rgba(111,230,255,0.08); color: var(--cyan);
+    border: 1px solid #2f6f9f; cursor: pointer; touch-action: manipulation;
+    -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent;
+  }
+  button.on { background: var(--green); border-color: var(--green); color: #04140b; }
+  button.stop { color: var(--amber); border-color: rgba(255,183,77,0.5); }
+  .name { color: var(--amber); letter-spacing: 0.2em; }
+  .meta { color: var(--dim); font-size: 11px; }
+  label { display: flex; align-items: center; gap: 8px; color: var(--dim); font-size: 11px; }
+  input[type=range] { flex: 1; min-width: 120px; accent-color: #2f8f5c; }
+  .val { color: var(--cyan); min-width: 3.2em; text-align: right; }
+  #now { font-size: 11px; color: var(--dim); min-height: 3.4em; white-space: pre; overflow-x: auto; }
+  .bar { color: var(--dim); }
+  .bar b { color: var(--green); font-weight: 400; }
+</style>
+</head>
+<body>
+<h1>JUKEBOX</h1>
+<div class="sub">the stage themes, out of the game. tap a song.</div>
+<div id="songs"></div>
+
+<div class="card">
+  <div class="meta" style="margin-bottom:10px">MIX — drag while it plays</div>
+  <div id="mix"></div>
+  <div class="row" style="margin-top:10px">
+    <label>TEMPO <input type="range" id="tempo" min="60" max="200" step="1"><span class="val" id="tempoval">—</span></label>
+  </div>
+</div>
+
+<div class="card">
+  <div class="meta">PLAYING</div>
+  <div id="now">nothing yet</div>
+</div>
+
+<script type="module">
+import { SONGS } from './src/songs.js';
+import { Music } from './src/music.js';
+
+let ctx = null;
+let music = null;
+let current = null;
+
+const $ = (id) => document.getElementById(id);
+const VOICES = [['lead', 'LEAD'], ['under', '2ND PULSE'], ['arp', 'ARPEGGIO'], ['bass', 'BASS'], ['sub', 'TRIANGLE']];
+
+function boot() {
+  if (ctx) return;
+  const AC = window.AudioContext || window.webkitAudioContext;
+  ctx = new AC();
+  const master = ctx.createGain();
+  master.gain.value = 0.55;
+  const comp = ctx.createDynamicsCompressor();
+  comp.threshold.value = -12;
+  comp.ratio.value = 8;
+  master.connect(comp);
+  comp.connect(ctx.destination);
+  const len = Math.floor(ctx.sampleRate * 2);
+  const buf = ctx.createBuffer(1, len, ctx.sampleRate);
+  const d = buf.getChannelData(0);
+  for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+  music = new Music(ctx, master, buf);
+}
+
+for (const [key, song] of Object.entries(SONGS)) {
+  const card = document.createElement('div');
+  card.className = 'card';
+  card.innerHTML = `<div class="row">
+      <button data-song="${key}">PLAY</button>
+      <span class="name">${song.name}</span>
+    </div>
+    <div class="meta">${song.bpm}bpm &middot; ${song.beats} to the bar &middot; ${song.lead.length} bars
+      &middot; ${(song.lead.length * song.beats * 60 / song.bpm / 4).toFixed(1)}s loop
+      &middot; ${song.arp ? 'arpeggio: ' + song.arp.join(' ') : 'no arpeggio'}</div>`;
+  $('songs').appendChild(card);
+}
+
+for (const [key, label] of VOICES) {
+  const row = document.createElement('label');
+  row.innerHTML = `${label.padEnd(10, ' ')}<input type="range" data-mix="${key}" min="0" max="0.4" step="0.005"><span class="val" data-val="${key}">—</span>`;
+  $('mix').appendChild(row);
+}
+
+function syncMix() {
+  if (!music) return;
+  for (const [key] of VOICES) {
+    document.querySelector(`[data-mix="${key}"]`).value = music.mix[key];
+    document.querySelector(`[data-val="${key}"]`).textContent = music.mix[key].toFixed(3);
+  }
+  $('tempo').value = music.song.bpm;
+  $('tempoval').textContent = `${music.song.bpm}`;
+}
+
+document.addEventListener('click', (e) => {
+  const key = e.target.dataset && e.target.dataset.song;
+  if (!key) return;
+  boot();
+  if (ctx.state === 'suspended') ctx.resume();
+  const wasPlaying = current === key && music.playing;
+  music.stop();
+  document.querySelectorAll('[data-song]').forEach((b) => {
+    b.classList.remove('on'); b.textContent = 'PLAY';
+  });
+  if (wasPlaying) { current = null; return; }
+  music.setSong(key);
+  music.setLevel(1);
+  music.start();
+  current = key;
+  e.target.classList.add('on');
+  e.target.textContent = 'STOP';
+  syncMix();
+});
+
+$('mix').addEventListener('input', (e) => {
+  const key = e.target.dataset.mix;
+  if (!key || !music) return;
+  music.mix[key] = +e.target.value;
+  document.querySelector(`[data-val="${key}"]`).textContent = (+e.target.value).toFixed(3);
+});
+
+$('tempo').addEventListener('input', (e) => {
+  if (!music) return;
+  music.stepTime = 60 / +e.target.value / 4;
+  $('tempoval').textContent = e.target.value;
+});
+
+// A readout of where the loop is, and what is sounding.
+setInterval(() => {
+  if (!music || !music.playing) return;
+  const i = music.step;
+  const bar = ((i / music.beats) | 0) + 1;
+  const beat = i % music.beats;
+  const song = music.song;
+  const line = song.lead[bar - 1].trim().split(/\s+/)
+    .map((t, k) => (k === beat ? `<b>${t}</b>` : t)).join(' ');
+  $('now').innerHTML = `<span class="bar">bar ${bar} of ${song.lead.length}`
+    + (song.arp ? `   chord ${song.arp[(bar - 1) % song.arp.length]}` : '')
+    + `\n${line}</span>`;
+}, 60);
+</script>
+</body>
+</html>
