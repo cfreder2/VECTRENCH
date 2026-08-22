@@ -111,7 +111,7 @@ color — it is the setup. *(See the parking lot.)*
 
 | Track | Status |
 | --- | --- |
-| Title / select screen | **anthem** — written |
+| Title / select screen | **anthem** — written, playing: it starts on the first screen after the opening tap and returns whenever a run ends |
 | Riverworks | **water** — written, assigned |
 | Foundry | **fire** — written, assigned |
 | Overgrowth | to write — pastoral but driving, 6/8 |

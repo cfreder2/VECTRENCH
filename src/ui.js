@@ -203,6 +203,11 @@ export class UI {
   /** First real gesture: unlock audio and ask for the motion sensor. */
   async begin() {
     this.audio.start();
+    // The title theme, from the first screen that follows a tap -- the tap is
+    // what the browser's autoplay rules were waiting for. ANTHEM is the
+    // campaign's opening music; a run swaps to its own song, and the menu
+    // takes this back up on return.
+    this.audio.musicStart('anthem');
     $('bootnote').textContent = 'requesting motion access...';
     await this.input.requestMotion();
     this.motionState();
@@ -397,7 +402,7 @@ export class UI {
   }
 
   toMenu() {
-    this.audio.musicStop();
+    this.audio.musicStart('anthem');
     this.show('design');
     this.status(`${this.spec.name} -- ${this.game.phase === 'won' ? 'cleared' : 'ready'}`);
   }
