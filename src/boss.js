@@ -1181,9 +1181,15 @@ export const WARDENS = {
       seg(140, -48, 34, 140, 48, 34, 2.2);
 
       // --- four tread pods, racetracks rolling ----------------------------
+      // Tucked against the skirt and bolted to it: a tread that floats off
+      // the hull is not a tread, it is litter.
+      const wrap = (v, n) => ((v % n) + n) % n;
       for (const [pt, sxs] of [[-115, -1], [-115, 1], [95, -1], [95, 1]]) {
-        const px = sxs * 74;
-        const face = sxs * 7;
+        const px = sxs * 58;
+        const face = sxs * 9;
+        for (const at of [-30, 30]) {
+          seg(pt + at, sxs * 60, 8, pt + at, px + face, 17, 1.6, dim, 0.85);
+        }
         for (const [rl, ry0, ry1] of [[52, 8, 26], [40, 12, 22]]) {
           seg(pt - rl, px + face, ry0, pt + rl, px + face, ry0, 2, col, 0.95);
           seg(pt - rl, px + face, ry1, pt + rl, px + face, ry1, 2, col, 0.95);
@@ -1193,9 +1199,9 @@ export const WARDENS = {
           seg(pt + rl + 7, px + face, (ry0 + ry1) / 2, pt + rl, px + face, ry1, 2, col, 0.95);
         }
         for (let k = 0; k < 5; k++) {
-          const roll = ((b.t * 0.14 + k * 21) % 100) - 50;
+          const roll = wrap(b.t * 0.14 + k * 21, 88) - 44;
           seg(pt + roll, px + face, 26, pt + roll + 8, px + face, 26, 1.7, [1, 0.5, 0.9], 0.85);
-          const roll2 = ((-b.t * 0.14 + k * 21) % 100) - 50;
+          const roll2 = wrap(-b.t * 0.14 + k * 21, 88) - 44;
           seg(pt + roll2, px + face, 8, pt + roll2 + 8, px + face, 8, 1.7, [1, 0.5, 0.9], 0.85);
         }
       }

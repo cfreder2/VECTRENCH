@@ -400,10 +400,11 @@ const SUBJECTS = [
       b.cannon.charge = 0.4;
       b.yaw = 0.5;
       b.asm = { fT: -Math.cos(0.5), fX: Math.sin(0.5), sT: Math.sin(0.5), sX: Math.cos(0.5) };
+      // Wreckage in its current form: varied rectangles -- slab, car, post.
       b.debris = [
-        { t: 250, x: 34, size: 8 },
-        { t: 360, x: -28, size: 12, car: true },
-        { t: 470, x: 8, size: 6 },
+        { t: 250, x: 34, w: 24, h: 12, hit: false },
+        { t: 360, x: -28, w: 10, h: 12, car: true, hit: false },
+        { t: 470, x: 8, w: 6, h: 34, hit: false },
       ];
     }),
   },
