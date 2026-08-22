@@ -96,12 +96,8 @@ export class UI {
       }
     };
     hold('burn', (on) => { this.input.boostHeld = on; });
-    // The special is a toggle, not a hold: press to light it, press to keep
-    // what is left. pointerdown so it lands on touch-down like everything else.
-    $('spec').addEventListener('pointerdown', (e) => {
-      e.preventDefault();
-      this.input.toggleSpecial();
-    });
+    // The special is held exactly like the burn: down is firing, up is saved.
+    hold('spec', (on) => { this.input.specialBtn(on); });
 
     $('calibrate').addEventListener('click', async () => {
       if (this.input.motion !== 'granted') await this.input.requestMotion();

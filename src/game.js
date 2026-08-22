@@ -7,6 +7,7 @@
 // when you let go.
 
 import { clamp, lerp, approach, hash2, smoothstep, TAU } from './math.js';
+import { makeWarden, updateWarden, drawWarden, drawPod } from './boss.js';
 import { Track, makeFrame } from './track.js';
 import { buildLevel } from './level.js';
 import { TerrainRenderer, CANYON } from './terrain.js';
@@ -122,13 +123,16 @@ const DIAMOND_BASE = 3;       // a run starts here, and the trickle stops here
 const DIAMOND_CAP = 8;        // gates can stack it to here
 const DIAMOND_TRICKLE = 10;   // seconds of flying per diamond earned back
 
-// ARC: the Neon District's weapon. Chain lightning built on paint-to-lock --
-// each zap strikes what the crosshair holds and jumps to whatever is painted
-// or simply near, up to four ships a bolt. Against one target it is a slightly
-// better gun; against a crowd it is the crowd that loses.
-const ARC_CADENCE = 0.16;     // seconds between zaps
-const ARC_DAMAGE = 2;         // per zap, per ship struck
-const ARC_LINKS = 4;          // ships one bolt can chain through
+// ARC: the Neon District's weapon. Hold SPECIAL and a live stream of chain
+// lightning pours out of the ship: it strikes whatever is closest to the
+// crosshair, then whatever is closest to *that*, and so on -- three jumps at
+// most, each landing softer than the last. The bolt itself is rebuilt every
+// frame, so it crackles; damage lands on a fixed tick underneath, so the DPS
+// is exact no matter the framerate.
+const ARC_TICK = 0.12;        // seconds between damage ticks
+const ARC_DAMAGE = 2;         // at the head of the chain, per tick
+const ARC_FALLOFF = 0.65;     // each jump lands this fraction of the last
+const ARC_LINKS = 4;          // the first strike plus three jumps
 const ARC_RANGE = 900;        // furthest first strike
 const ARC_JUMP = 260;         // furthest jump between ships
 
@@ -136,6 +140,51 @@ const ARC_JUMP = 260;         // furthest jump between ships
 export const SPECIAL_COLORS = {
   arc: [0.75, 0.4, 1],
 };
+
+/**
+ * A lightning path from a to b: subdivided, with the displacement flipping
+ * side at every vertex -- which is what makes it a zigzag rather than a
+ * wobble -- plus a couple of short dead-end branches. Reseeded by the caller
+ * every frame, so a standing bolt crackles instead of hanging like a wire.
+ */
+export function boltPath(a, b, seed) {
+  const dx = b[0] - a[0], dy = b[1] - a[1], dz = b[2] - a[2];
+  const len = Math.hypot(dx, dy, dz) || 1;
+  // Two axes perpendicular to the bolt, for the zigzag to live in.
+  let ux = -dy, uy = dx, uz = 0;
+  let ul = Math.hypot(ux, uy, uz);
+  if (ul < 0.01) { ux = 1; uy = 0; uz = 0; ul = 1; }
+  ux /= ul; uy /= ul; uz /= ul;
+  const vx = (dy * uz - dz * uy) / len;
+  const vy = (dz * ux - dx * uz) / len;
+  const vz = (dx * uy - dy * ux) / len;
+
+  const segs = Math.max(5, Math.min(9, Math.round(len / 55)));
+  const amp = Math.min(16, len * 0.09);
+  const pts = [[a[0], a[1], a[2]]];
+  const branches = [];
+  for (let i = 1; i < segs; i++) {
+    const f = i / segs;
+    const side = (i % 2 ? 1 : -1) * (0.5 + hash2(seed, i * 7));
+    const slip = (hash2(seed, i * 13) - 0.5) * 0.8;
+    const px = a[0] + dx * f + ux * amp * side + vx * amp * slip;
+    const py = a[1] + dy * f + uy * amp * side + vy * amp * slip;
+    const pz = a[2] + dz * f + uz * amp * side + vz * amp * slip;
+    pts.push([px, py, pz]);
+    // A branch: a short fork off this vertex, going nowhere on purpose.
+    if (hash2(seed, i * 29) < 0.3) {
+      const bl = amp * (0.8 + hash2(seed, i * 31));
+      const bs = hash2(seed, i * 37) - 0.5;
+      branches.push([[px, py, pz], [
+        px + ux * bl * bs * 2 + dx / segs * 0.4,
+        py + uy * bl * bs * 2 + dy / segs * 0.4,
+        pz + uz * bl * bs * 2 + dz / segs * 0.4,
+      ]]);
+    }
+  }
+  pts.push([b[0], b[1], b[2]]);
+  return { pts, branches };
+}
 
 // The one heavy thing that lives in the trench with you: two shots and a
 // missile, on a cycle short enough to matter in the three seconds you are
@@ -195,7 +244,7 @@ const RING_BEAM_DAMAGE = 20;
 // from, and counting down from it sweeps clockwise: twelve, three, six, nine.
 const RING_TOP_ARM = 2;
 
-const RADIUS = { turret: 13, wallgun: 11, emplacement: 21, drone: 11, port: 20 };
+const RADIUS = { turret: 13, wallgun: 11, emplacement: 21, drone: 11, port: 20, boss: 26 };
 
 export class Game {
   constructor(rd, input, audio) {
@@ -230,6 +279,7 @@ export class Game {
 
   load(spec) {
     this.spec = spec;
+    this.bossDef = spec.boss || null;
     this.track = new Track(spec);
     this.level = buildLevel(spec, this.track);
     this.terrain = new TerrainRenderer(this.track);
@@ -239,6 +289,7 @@ export class Game {
   reset() {
     const tr = this.track;
     this.t = 40;
+    this.speed = this.spec.speed.start;
     this.shipX = 0;
     this.shipY = tr.railY(this.t);
     this.velX = 0;
@@ -343,6 +394,10 @@ export class Game {
     }
     this.gateTime = 0;
     this.speedMul = 1;
+    this.boss = null;
+    this.pod = null;
+    this.ascentTimer = 0;
+    this.escapeTimer = 0;
     this.phase = 'flying';
   }
 
@@ -364,7 +419,7 @@ export class Game {
     }
     this.hurt = Math.max(0, this.hurt - dt * 3);
     this.calm = Math.max(0, (this.calm || 0) - dt);
-    if (this.phase === 'flying' && !this.exposed && this.calm <= 0
+    if ((this.phase === 'flying' || this.phase === 'boss') && !this.exposed && this.calm <= 0
         && this.shield < SHIELD_MAX) {
       this.shield = Math.min(SHIELD_MAX, this.shield + SHIELD_REGEN * dt);
     }
@@ -372,7 +427,7 @@ export class Game {
     this.lockedFlash = Math.max(0, this.lockedFlash - dt * 2);
     for (const e of this.level.enemies) if (e.flash > 0) e.flash -= dt * 6;
 
-    const flying = this.phase === 'flying';
+    const flying = this.phase === 'flying' || this.phase === 'boss';
 
     if (flying) this.updateShip(dt);
     else this.updateOutro(dt);
@@ -424,18 +479,29 @@ export class Game {
     }
     this.burning = wantBurn;
 
-    // The special's meter: drains while it is live, trickles back toward base
-    // while it is not, and never trickles past base -- gates do that.
+    // The special is held, like the burn: down means firing, up means saved.
+    // Draining dry latches it off until the button is released, and letting
+    // go always costs at least the whole diamond the press opened.
+    if (!inp.specialHeld) this.specialSpent = false;
+    const wantSpecial = inp.specialHeld && !this.specialSpent && this.diamonds > 0;
+    if (wantSpecial && !this.specialOn) {
+      this.specialEntry = this.diamonds;
+      this.say(`${this.special.toUpperCase()}`, 0.7);
+      this.audio.specialOn();
+    }
+    if (!wantSpecial && this.specialOn) {
+      this.diamonds = Math.min(this.diamonds, Math.max(0, this.specialEntry - 1));
+    }
+    this.specialOn = wantSpecial;
     if (this.specialOn) {
       this.diamonds = Math.max(0, this.diamonds - dt / DIAMOND_SECONDS);
       if (this.diamonds <= 0) {
-        this.specialOn = false;
+        this.specialSpent = true;
         this.say(`${this.special.toUpperCase()} SPENT`, 0.9);
       }
     } else if (this.diamonds < DIAMOND_BASE) {
       this.diamonds = Math.min(DIAMOND_BASE, this.diamonds + dt / DIAMOND_TRICKLE);
     }
-    if (inp.takeSpecial()) this.toggleSpecial();
 
     // Two independent sources of speed: the tank you hold open, and gate time,
     // which is a stopwatch a turbo gate adds three seconds to. A gate neither
@@ -561,7 +627,55 @@ export class Game {
     this.checkPortBeams();
     this.spawnDrones();
     this.updateDrones(dt);
-    this.checkFinish();
+    if (this.phase === 'boss') this.updateArena(dt);
+    else this.checkFinish();
+  }
+
+  /**
+   * The boss fight's frame: the warden ticks, the surface rule is suspended
+   * (there is nothing up here to hide from -- the warden IS the surface), and
+   * the arena loops. The loop is a plain translation: the stretch is straight
+   * and uniform, so sliding everything back by a constant is invisible.
+   */
+  updateArena(dt) {
+    const tr = this.track;
+    this.exposed = false;
+    if (this.boss && this.boss.alive) updateWarden(this.boss, dt, this);
+
+    const wrapEnd = tr.arenaStart + tr.arenaLen - 400;
+    if (this.t > wrapEnd) {
+      const W = tr.arenaLen - 1300;
+      tr.localToWorld(this.t, 0, 0, this._p);
+      const a0 = this._p[0], a1 = this._p[1], a2 = this._p[2];
+      tr.localToWorld(this.t - W, 0, 0, this._p);
+      const dx = this._p[0] - a0, dy = this._p[1] - a1, dz = this._p[2] - a2;
+      this.t -= W;
+      if (this.boss) this.boss.t -= W;
+      for (const d of this.drones) d.t -= W;
+      for (const key of ['lasers', 'bolts', 'seekers', 'missiles']) {
+        for (const m of this.weapons[key] || []) {
+          m.x += dx; m.y += dy; m.z += dz;
+          if ('px' in m) { m.px += dx; m.py += dy; m.pz += dz; }
+        }
+      }
+      // Cosmetic world-space debris does not survive the seam; nobody sees a
+      // spark blink out mid-dogfight.
+      this.particles.clear();
+      this.arcs.length = 0;
+    }
+  }
+
+  /**
+   * The warden's arc strike, landed. The aim was frozen at the telegraph, so
+   * a strike that hits means the ship stood still through the whole charge.
+   */
+  wardenBolt(b, aim, dmg) {
+    const bolt = boltPath(b.world, aim, (this.time * 53) | 0);
+    bolt.life = 0.14;
+    this.arcs.push(bolt);
+    this.particles.burst(aim[0], aim[1], aim[2], 10, 160, 0.8, 0.5, 1, 0.4, 1.6);
+    this.audio.zap();
+    if (dmg > 0) this.damage(dmg);
   }
 
   updateOutro(dt) {
@@ -584,12 +698,44 @@ export class Game {
       this.speed = lerp(this.speed, 300, dt);
       this.t += this.speed * dt;
       this.shipY = lerp(this.shipY, this.ceiling, dt * 0.8);
+    } else if (this.phase === 'ascent') {
+      // The climb the win used to be -- but now it is an entrance. The warden
+      // music is already going; control comes back the moment you level off.
+      this.ascentTimer += dt;
+      this.speed = lerp(this.speed, 320, dt * 0.8);
+      this.t += this.speed * dt;
+      const want = this.track.rim(this.t) + 30;
+      this.shipY = lerp(this.shipY, want, dt * 1.2);
+      this.bank = approach(this.bank, 0, 2, dt);
+      if (this.ascentTimer > 2.6) {
+        this.phase = 'boss';
+        this.shield = Math.min(this.shieldMax, this.shield + 25);
+        this.say(this.boss ? this.boss.name : 'THE WARDEN', 2.2);
+      }
+    } else if (this.phase === 'escape') {
+      // The pod gets away. That is not mercy; it is the setup.
+      this.escapeTimer += dt;
+      this.speed = lerp(this.speed, 300, dt * 0.5);
+      this.t += this.speed * dt;
+      this.shipY = lerp(this.shipY, this.track.rim(this.t) + 30, dt);
+      if (this.pod) {
+        this.pod.world[0] += this.pod.vel[0] * dt;
+        this.pod.world[1] += this.pod.vel[1] * dt;
+        this.pod.world[2] += this.pod.vel[2] * dt;
+        this.pod.vel[1] += 60 * dt;
+      }
+      if (this.escapeTimer > 3.4) {
+        this.phase = 'won';
+        this.say('THE POD GOT AWAY', 3);
+        this.audio.win();
+      }
     }
     this.exposed = false;
     this.updateDrones(dt);
   }
 
   checkFinish() {
+    if (this.phase === 'boss') return;
     const tr = this.track;
     const port = this.level.port;
     if (port && !port.alive && this.phase === 'flying') return;
@@ -608,7 +754,7 @@ export class Game {
 
   damage(amount, flash = true) {
     this.calm = SHIELD_CALM;
-    if (this.phase !== 'flying') return;
+    if (this.phase !== 'flying' && this.phase !== 'boss') return;
     this.shield -= amount;
     if (flash) {
       this.hurt = 1;
@@ -730,7 +876,7 @@ export class Game {
       const d = this.drones[i];
       if (!d.alive || d.t < this.t - 90) continue;
       // Drones close on the player: they advance slower than the ship does.
-      d.t += this.speed * 0.42 * dt;
+      d.t += this.speed * (d.pace || 0.42) * dt;
       d.phase += dt * 1.7;
       const hw = tr.halfWidth(d.t);
       const rim = tr.rim(d.t);
@@ -917,6 +1063,7 @@ export class Game {
     // Project every candidate once. onScreen/sx/sy are read again by the
     // overlay, so this doubles as the frame's visibility pass.
     const cands = [this.level.enemies, this.drones];
+    if (this.boss && this.boss.alive) cands.push([this.boss]);
     if (this.level.port) cands.push([this.level.port]);
     for (const arr of cands) {
       for (const e of arr) {
@@ -1455,102 +1602,108 @@ export class Game {
   }
 
   /**
-   * The special, committed. Activating swaps the gun for the special shot and
-   * opens the meter; pressing again conserves what is left -- but never all of
-   * it. A tap costs a diamond, so lighting it up is a decision, not a twitch.
-   */
-  toggleSpecial() {
-    if (this.specialOn) {
-      this.specialOn = false;
-      this.diamonds = Math.min(this.diamonds, Math.max(0, this.specialEntry - 1));
-      this.say(`${this.special.toUpperCase()} OFF`, 0.7);
-      return;
-    }
-    if (this.diamonds < 1) {
-      this.say('NO CHARGE', 0.8);
-      return;
-    }
-    this.specialEntry = this.diamonds;
-    this.specialOn = true;
-    this.say(`${this.special.toUpperCase()} ONLINE`, 1);
-    this.audio.specialOn();
-  }
-
-  /**
-   * ARC. The gun becomes chain lightning: each zap strikes what the crosshair
-   * holds and jumps ship to ship from there -- painted targets first, which is
-   * the payoff for flying the paint-to-lock game well. It ignores gun heat;
-   * the diamonds are its whole economy.
+   * ARC. Held, not toggled: a live stream. The chain starts at whatever is
+   * closest to the crosshair -- the cursor picks the head -- and each jump
+   * goes to whatever is closest to the last ship struck, three jumps at most,
+   * each landing at ${ARC_FALLOFF} of the one before. The bolt is torn down
+   * and rebuilt every frame so it crackles; damage lands on its own tick.
    */
   updateArc(dt, cx, cy) {
     const rd = this.rd;
-    if (!this.input.firing) { this.input.takePress(); return; }
-    this.zapTimer -= dt;
-    if (this.input.takePress()) this.zapTimer = 0;
-    if (this.zapTimer > 0) return;
-    this.zapTimer = ARC_CADENCE;
+    this.input.takePress();
 
-    // Everything a bolt could reach, with what the crosshair holds first and
-    // painted ships ahead of merely visible ones.
+    // Whatever is in reach at all.
     const cands = [];
-    for (const arr of [this.level.enemies, this.drones]) {
+    const pools = [this.level.enemies, this.drones];
+    if (this.boss && this.boss.alive) pools.push([this.boss]);
+    for (const arr of pools) {
       for (const e of arr) {
         if (!e.alive || !e.world || e.kind === 'port') continue;
-        const dz = e.world[2] - this.shipPos[2];
         const d = Math.hypot(e.world[0] - this.shipPos[0],
-          e.world[1] - this.shipPos[1], dz);
+          e.world[1] - this.shipPos[1], e.world[2] - this.shipPos[2]);
         if (d > ARC_RANGE || e.los < 0.4) continue;
         cands.push(e);
       }
     }
-    if (!cands.length) return;
 
-    const rank = (e, from) => {
-      const d = Math.hypot(e.world[0] - from[0], e.world[1] - from[1], e.world[2] - from[2]);
-      return d - (this.locks.includes(e) ? 200 : (e.paint || 0) * 120)
-        - (e === this.paintTarget ? 260 : 0);
+    // The head of the chain is the cursor's choice: nearest to the aim ray,
+    // not nearest to the ship -- pointing at a far gun arcs the far gun.
+    const kx = (cx - rd.cx) / rd.focal;
+    const ky = -(cy - rd.cy) / rd.focal;
+    let ax = this.camF[0] + this.camR[0] * kx + this.camU[0] * ky;
+    let ay = this.camF[1] + this.camR[1] * kx + this.camU[1] * ky;
+    let az = this.camF[2] + this.camR[2] * kx + this.camU[2] * ky;
+    const al = Math.hypot(ax, ay, az) || 1;
+    ax /= al; ay /= al; az /= al;
+    const offRay = (e) => {
+      const wx = e.world[0] - this.eye[0];
+      const wy = e.world[1] - this.eye[1];
+      const wz = e.world[2] - this.eye[2];
+      const along = wx * ax + wy * ay + wz * az;
+      if (along < 20) return Infinity;
+      return Math.hypot(wx - ax * along, wy - ay * along, wz - az * along);
     };
-    shipLocalToWorld(this.shipPos, this.basis, 0, -1, 6, this._p);
-    const chain = [];
-    let from = [this._p[0], this._p[1], this._p[2]];
-    const used = new Set();
-    for (let k = 0; k < ARC_LINKS; k++) {
-      let best = null, bv = Infinity;
-      for (const e of cands) {
-        if (used.has(e)) continue;
-        const d = Math.hypot(e.world[0] - from[0], e.world[1] - from[1], e.world[2] - from[2]);
-        if (d > (k === 0 ? ARC_RANGE : ARC_JUMP)) continue;
-        const v = rank(e, from);
-        if (v < bv) { bv = v; best = e; }
-      }
-      if (!best) break;
-      used.add(best);
-      chain.push(best);
-      from = best.world;
-    }
-    if (!chain.length) return;
 
-    // The bolt: a jagged polyline through the chain, alive for a few frames.
-    const pts = [[this._p[0], this._p[1], this._p[2]]];
-    let px = this._p[0], py = this._p[1], pz = this._p[2];
-    for (const e of chain) {
-      const segs = 4;
-      for (let i = 1; i <= segs; i++) {
-        const f = i / segs;
-        const wob = i < segs ? 7 : 0;
-        pts.push([
-          px + (e.world[0] - px) * f + (hash2((this.time * 60) | 0, i * 13 + pts.length) - 0.5) * wob,
-          py + (e.world[1] - py) * f + (hash2((this.time * 60) | 0, i * 29 + pts.length) - 0.5) * wob,
-          pz + (e.world[2] - pz) * f,
-        ]);
-      }
-      px = e.world[0]; py = e.world[1]; pz = e.world[2];
-      e.hp -= ARC_DAMAGE;
-      e.flash = 1;
-      this.particles.burst(e.world[0], e.world[1], e.world[2], 6, 130, 0.8, 0.5, 1, 0.3, 1.5);
-      if (e.hp <= 0) this.destroy(e);
+    const chain = [];
+    let head = null, hv = Infinity;
+    for (const e of cands) {
+      const v = offRay(e);
+      if (v < hv) { hv = v; head = e; }
     }
-    this.arcs.push({ pts, life: 0.09 });
+    if (head) {
+      chain.push(head);
+      const used = new Set(chain);
+      let from = head;
+      while (chain.length < ARC_LINKS) {
+        let best = null, bv = Infinity;
+        for (const e of cands) {
+          if (used.has(e)) continue;
+          const d = Math.hypot(e.world[0] - from.world[0],
+            e.world[1] - from.world[1], e.world[2] - from.world[2]);
+          if (d < bv && d <= ARC_JUMP) { bv = d; best = e; }
+        }
+        if (!best) break;
+        used.add(best);
+        chain.push(best);
+        from = best;
+      }
+    }
+
+    // The bolt, rebuilt from scratch this frame -- the rebuild is the crackle.
+    shipLocalToWorld(this.shipPos, this.basis, 0, -1, 6, this._p);
+    if (chain.length) {
+      let from = [this._p[0], this._p[1], this._p[2]];
+      const seed = (this.time * 47) | 0;
+      for (let k = 0; k < chain.length; k++) {
+        const bolt = boltPath(from, chain[k].world, seed + k * 101);
+        bolt.life = 0.05;
+        this.arcs.push(bolt);
+        from = chain[k].world;
+      }
+    }
+
+    // The crackle: fast, irregular, only while the stream is live.
+    this.crackleIn = (this.crackleIn || 0) - dt;
+    if (this.crackleIn <= 0) {
+      this.crackleIn = 0.03 + hash2((this.time * 83) | 0, 3) * 0.06;
+      this.audio.crackle();
+    }
+
+    // Damage, on its own clock, softer with every jump.
+    this.zapTimer -= dt;
+    if (this.zapTimer > 0 || !chain.length) return;
+    this.zapTimer = ARC_TICK;
+    chain.forEach((e, k) => {
+      // The wheel: a warden's own weapon half-hurts it; the one it is weak to
+      // melts it, three to one. Everything else is just damage.
+      const wheel = e.kind !== 'boss' ? 1
+        : this.special === e.def.weakTo ? 3
+        : this.special === e.def.weapon ? 0.5 : 1;
+      e.hp -= ARC_DAMAGE * Math.pow(ARC_FALLOFF, k) * wheel;
+      e.flash = 1;
+      this.particles.burst(e.world[0], e.world[1], e.world[2], 5, 120, 0.8, 0.5, 1, 0.3, 1.4);
+      if (e.hp <= 0) this.destroy(e);
+    });
     this.audio.zap();
   }
 
@@ -1598,6 +1751,7 @@ export class Game {
     const tr = this.track;
     const targets = [this.level.enemies, this.drones];
     if (this.level.port) targets.push([this.level.port]);
+    if (this.boss && this.boss.alive) targets.push([this.boss]);
 
     // Player lasers.
     for (let i = W.lasers.length - 1; i >= 0; i--) {
@@ -1786,7 +1940,7 @@ export class Game {
       e.world = [0, 0, 0];
       this.track.localToWorld(e.t, e.x, e.y, e.world);
     }
-    const big = e.kind === 'port' || e.kind === 'emplacement';
+    const big = e.kind === 'port' || e.kind === 'emplacement' || e.kind === 'boss';
     this.boomAt(e.world, big ? 90 : 34, big ? 300 : 170,
       1, e.kind === 'port' ? 0.85 : 0.55, 0.25, big ? 1.6 : 0.8);
     if (big) {
@@ -1796,10 +1950,31 @@ export class Game {
       this.audio.smallBoom();
     }
     if (e.kind === 'port') {
-      this.phase = 'won';
       this.score += 5000;
-      this.say('DIRECT HIT', 5);
-      this.audio.win();
+      if (this.bossDef) {
+        // The door is down and the flyout is no longer an ending: the climb
+        // out of the canyon carries you into the arena, and the music turns.
+        this.phase = 'ascent';
+        this.ascentTimer = 0;
+        this.boss = makeWarden(this.bossDef, this.track.arenaStart);
+        this.say('DIRECT HIT -- SOMETHING IS UP THERE', 3.5);
+        this.audio.musicStart('boss');
+      } else {
+        this.phase = 'won';
+        this.say('DIRECT HIT', 5);
+        this.audio.win();
+      }
+    } else if (e.kind === 'boss') {
+      // The warden dies; the pilot does not. An escape pod flies out and gets
+      // away, which the campaign has plans for.
+      this.phase = 'escape';
+      this.escapeTimer = 0;
+      this.pod = {
+        world: [e.world[0], e.world[1], e.world[2]],
+        vel: [40, 90, 220],
+      };
+      this.say('WARDEN DOWN', 2.5);
+      this.shake = Math.min(1.8, this.shake + 1.2);
     } else if (e.kind === 'panel') {
       // The last panel drops the bulkhead. This is the other way through, and
       // the reason a bulkhead is a decision: climb into the guns, or stay low
@@ -1850,6 +2025,8 @@ export class Game {
       drawEnemies(rd, tr, [this.level.port], camT, FAR, this.time);
     }
     this.weapons.draw(rd);
+    if (this.boss && this.boss.alive) drawWarden(rd, this.boss, tr, this.time);
+    if (this.pod && (this.phase === 'escape' || this.phase === 'won')) drawPod(rd, this.pod);
     for (let i = this.arcs.length - 1; i >= 0; i--) {
       const a = this.arcs[i];
       a.life -= 0.016;
@@ -1859,6 +2036,9 @@ export class Game {
       for (let k = 1; k < a.pts.length; k++) {
         const u = a.pts[k - 1], v = a.pts[k];
         rd.line3(u[0], u[1], u[2], v[0], v[1], v[2], 2.2, cr, cg, cb, glow);
+      }
+      for (const [u, v] of a.branches || []) {
+        rd.line3(u[0], u[1], u[2], v[0], v[1], v[2], 1.2, cr, cg, cb, glow * 0.7);
       }
     }
     this.particles.draw(rd);
@@ -1946,9 +2126,12 @@ export class Game {
       portT: tr.portT,
       time: this.time,
       message: this.message,
+      boss: this.boss && this.boss.alive && this.phase === 'boss'
+        ? { name: this.boss.name, frac: this.boss.hp / this.boss.maxHp, flash: this.boss.flash }
+        : null,
     });
 
-    if (this.phase !== 'flying') this.drawResult();
+    if (this.phase === 'won' || this.phase === 'dead' || this.phase === 'ended') this.drawResult();
   }
 
   drawResult() {

@@ -6575,6 +6575,17 @@ class Audio {
   enemyShot() { this._tone('sawtooth', 620, 180, 0.14, 0.1); }
   hit() { this._noiseBurst(0.13, 0.22, 2600, 700, 2); }
 
+  /**
+   * One spark of a live arc stream: tiny, bright, and randomized, fired
+   * thirty-odd times a second while the weapon is held. The crackle is the
+   * irregularity -- evenly spaced ticks read as a motor, not lightning.
+   */
+  crackle() {
+    const v = 0.7 + Math.random() * 0.6;
+    this._noiseBurst(0.025 + Math.random() * 0.02, 0.32, 7200 * v, 2400, 3);
+    if (Math.random() < 0.35) this._tone('square', 2400 * v, 300, 0.04, 0.08);
+  }
+
   /** The arc: a crackle and a falling whine, over before the next one. */
   zap() {
     const v = 0.92 + Math.random() * 0.16;
@@ -6746,7 +6757,7 @@ class Input {
     this._lastPress = null;
     this.boosting = false;         // the burn is open
     this.boostHeld = false;        // the BURN button is down
-    this.specialPressed = false;   // the special was asked for, once
+    this.specBtnHeld = false;      // the SPECIAL button is down
     this.boostHeld = false;
     this.motion = 'unavailable';   // unavailable | granted | denied
     this.padName = '';             // the controller in use, if there is one
@@ -6797,7 +6808,6 @@ class Input {
       if ((k === 'shift' || k === 'm' || k === 'enter') && !this.keys.has(k)) {
         this.launchMissiles();
       }
-      if (k === 'x' && !this.keys.has(k)) this.toggleSpecial();
 
       this.keys.add(k);
       if ([' ', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright'].includes(e.key.toLowerCase())) {
@@ -7064,6 +7074,7 @@ class Input {
     // taking. So it is a button you hold, a key, or a face button on a pad.
     this.rolling = false;
     this.boosting = this.boostHeld;
+    this.specialHeld = this.specBtnHeld;
     if (Math.abs(this.steerX) > 0.15) this.rollDir = Math.sign(this.steerX);
     // The second tap starts the roll the instant it lands, not once it has
     // been held long enough to prove it is a hold. Waiting for that put 340ms
@@ -7140,6 +7151,7 @@ class Input {
       this._padMissile = launch;
       if (held(2)) this.rolling = true;                 // X / Square: on edge
       if (held(3)) this.boosting = true;                // Y / Triangle: burn
+      if (held(2)) this.specialHeld = true;             // X / Square: the special
     }
 
     const k = this.keys;
@@ -7152,21 +7164,15 @@ class Input {
     if (k.has(' ')) { if (!this.firing) this.justPressed = true; this.firing = true; }
     if (k.has('q') || k.has('e') || k.has('control')) this.rolling = true;
     if (k.has('b')) this.boosting = true;
+    if (k.has('x')) this.specialHeld = true;
 
     this.steerX = sx;
     this.steerY = sy;
   }
 
-  /** True once per special toggle request, from the button or a key. */
-  takeSpecial() {
-    const v = this.specialPressed;
-    this.specialPressed = false;
-    return v;
-  }
-
-  /** Requests the special weapon toggled. Button and keyboard both land here. */
-  toggleSpecial() {
-    this.specialPressed = true;
+  /** The special is held, like the burn: this is the button being down. */
+  specialBtn(on = true) {
+    this.specBtnHeld = on;
   }
 
   /** True once per missile request, from the button, a key, or a call. */
@@ -7331,13 +7337,16 @@ const DIAMOND_BASE = 3;       // a run starts here, and the trickle stops here
 const DIAMOND_CAP = 8;        // gates can stack it to here
 const DIAMOND_TRICKLE = 10;   // seconds of flying per diamond earned back
 
-// ARC: the Neon District's weapon. Chain lightning built on paint-to-lock --
-// each zap strikes what the crosshair holds and jumps to whatever is painted
-// or simply near, up to four ships a bolt. Against one target it is a slightly
-// better gun; against a crowd it is the crowd that loses.
-const ARC_CADENCE = 0.16;     // seconds between zaps
-const ARC_DAMAGE = 2;         // per zap, per ship struck
-const ARC_LINKS = 4;          // ships one bolt can chain through
+// ARC: the Neon District's weapon. Hold SPECIAL and a live stream of chain
+// lightning pours out of the ship: it strikes whatever is closest to the
+// crosshair, then whatever is closest to *that*, and so on -- three jumps at
+// most, each landing softer than the last. The bolt itself is rebuilt every
+// frame, so it crackles; damage lands on a fixed tick underneath, so the DPS
+// is exact no matter the framerate.
+const ARC_TICK = 0.12;        // seconds between damage ticks
+const ARC_DAMAGE = 2;         // at the head of the chain, per tick
+const ARC_FALLOFF = 0.65;     // each jump lands this fraction of the last
+const ARC_LINKS = 4;          // the first strike plus three jumps
 const ARC_RANGE = 900;        // furthest first strike
 const ARC_JUMP = 260;         // furthest jump between ships
 
@@ -7345,6 +7354,51 @@ const ARC_JUMP = 260;         // furthest jump between ships
 const SPECIAL_COLORS = {
   arc: [0.75, 0.4, 1],
 };
+
+/**
+ * A lightning path from a to b: subdivided, with the displacement flipping
+ * side at every vertex -- which is what makes it a zigzag rather than a
+ * wobble -- plus a couple of short dead-end branches. Reseeded by the caller
+ * every frame, so a standing bolt crackles instead of hanging like a wire.
+ */
+function boltPath(a, b, seed) {
+  const dx = b[0] - a[0], dy = b[1] - a[1], dz = b[2] - a[2];
+  const len = Math.hypot(dx, dy, dz) || 1;
+  // Two axes perpendicular to the bolt, for the zigzag to live in.
+  let ux = -dy, uy = dx, uz = 0;
+  let ul = Math.hypot(ux, uy, uz);
+  if (ul < 0.01) { ux = 1; uy = 0; uz = 0; ul = 1; }
+  ux /= ul; uy /= ul; uz /= ul;
+  const vx = (dy * uz - dz * uy) / len;
+  const vy = (dz * ux - dx * uz) / len;
+  const vz = (dx * uy - dy * ux) / len;
+
+  const segs = Math.max(5, Math.min(9, Math.round(len / 55)));
+  const amp = Math.min(16, len * 0.09);
+  const pts = [[a[0], a[1], a[2]]];
+  const branches = [];
+  for (let i = 1; i < segs; i++) {
+    const f = i / segs;
+    const side = (i % 2 ? 1 : -1) * (0.5 + hash2(seed, i * 7));
+    const slip = (hash2(seed, i * 13) - 0.5) * 0.8;
+    const px = a[0] + dx * f + ux * amp * side + vx * amp * slip;
+    const py = a[1] + dy * f + uy * amp * side + vy * amp * slip;
+    const pz = a[2] + dz * f + uz * amp * side + vz * amp * slip;
+    pts.push([px, py, pz]);
+    // A branch: a short fork off this vertex, going nowhere on purpose.
+    if (hash2(seed, i * 29) < 0.3) {
+      const bl = amp * (0.8 + hash2(seed, i * 31));
+      const bs = hash2(seed, i * 37) - 0.5;
+      branches.push([[px, py, pz], [
+        px + ux * bl * bs * 2 + dx / segs * 0.4,
+        py + uy * bl * bs * 2 + dy / segs * 0.4,
+        pz + uz * bl * bs * 2 + dz / segs * 0.4,
+      ]]);
+    }
+  }
+  pts.push([b[0], b[1], b[2]]);
+  return { pts, branches };
+}
 
 // The one heavy thing that lives in the trench with you: two shots and a
 // missile, on a cycle short enough to matter in the three seconds you are
@@ -7449,6 +7503,7 @@ class Game {
   reset() {
     const tr = this.track;
     this.t = 40;
+    this.speed = this.spec.speed.start;
     this.shipX = 0;
     this.shipY = tr.railY(this.t);
     this.velX = 0;
@@ -7638,18 +7693,29 @@ class Game {
     }
     this.burning = wantBurn;
 
-    // The special's meter: drains while it is live, trickles back toward base
-    // while it is not, and never trickles past base -- gates do that.
+    // The special is held, like the burn: down means firing, up means saved.
+    // Draining dry latches it off until the button is released, and letting
+    // go always costs at least the whole diamond the press opened.
+    if (!inp.specialHeld) this.specialSpent = false;
+    const wantSpecial = inp.specialHeld && !this.specialSpent && this.diamonds > 0;
+    if (wantSpecial && !this.specialOn) {
+      this.specialEntry = this.diamonds;
+      this.say(`${this.special.toUpperCase()}`, 0.7);
+      this.audio.specialOn();
+    }
+    if (!wantSpecial && this.specialOn) {
+      this.diamonds = Math.min(this.diamonds, Math.max(0, this.specialEntry - 1));
+    }
+    this.specialOn = wantSpecial;
     if (this.specialOn) {
       this.diamonds = Math.max(0, this.diamonds - dt / DIAMOND_SECONDS);
       if (this.diamonds <= 0) {
-        this.specialOn = false;
+        this.specialSpent = true;
         this.say(`${this.special.toUpperCase()} SPENT`, 0.9);
       }
     } else if (this.diamonds < DIAMOND_BASE) {
       this.diamonds = Math.min(DIAMOND_BASE, this.diamonds + dt / DIAMOND_TRICKLE);
     }
-    if (inp.takeSpecial()) this.toggleSpecial();
 
     // Two independent sources of speed: the tank you hold open, and gate time,
     // which is a stopwatch a turbo gate adds three seconds to. A gate neither
@@ -7818,18 +7884,9 @@ class Game {
    * a strike that hits means the ship stood still through the whole charge.
    */
   wardenBolt(b, aim, dmg) {
-    const pts = [[b.world[0], b.world[1], b.world[2]]];
-    const segs = 7;
-    for (let i = 1; i <= segs; i++) {
-      const f = i / segs;
-      const wob = i < segs ? 9 : 0;
-      pts.push([
-        b.world[0] + (aim[0] - b.world[0]) * f + (hash2((this.time * 60) | 0, i * 17) - 0.5) * wob,
-        b.world[1] + (aim[1] - b.world[1]) * f + (hash2((this.time * 60) | 0, i * 31) - 0.5) * wob,
-        b.world[2] + (aim[2] - b.world[2]) * f,
-      ]);
-    }
-    this.arcs.push({ pts, life: 0.14 });
+    const bolt = boltPath(b.world, aim, (this.time * 53) | 0);
+    bolt.life = 0.14;
+    this.arcs.push(bolt);
     this.particles.burst(aim[0], aim[1], aim[2], 10, 160, 0.8, 0.5, 1, 0.4, 1.6);
     this.audio.zap();
     if (dmg > 0) this.damage(dmg);
@@ -8033,7 +8090,7 @@ class Game {
       const d = this.drones[i];
       if (!d.alive || d.t < this.t - 90) continue;
       // Drones close on the player: they advance slower than the ship does.
-      d.t += this.speed * 0.42 * dt;
+      d.t += this.speed * (d.pace || 0.42) * dt;
       d.phase += dt * 1.7;
       const hw = tr.halfWidth(d.t);
       const rim = tr.rim(d.t);
@@ -8759,109 +8816,108 @@ class Game {
   }
 
   /**
-   * The special, committed. Activating swaps the gun for the special shot and
-   * opens the meter; pressing again conserves what is left -- but never all of
-   * it. A tap costs a diamond, so lighting it up is a decision, not a twitch.
-   */
-  toggleSpecial() {
-    if (this.specialOn) {
-      this.specialOn = false;
-      this.diamonds = Math.min(this.diamonds, Math.max(0, this.specialEntry - 1));
-      this.say(`${this.special.toUpperCase()} OFF`, 0.7);
-      return;
-    }
-    if (this.diamonds < 1) {
-      this.say('NO CHARGE', 0.8);
-      return;
-    }
-    this.specialEntry = this.diamonds;
-    this.specialOn = true;
-    this.say(`${this.special.toUpperCase()} ONLINE`, 1);
-    this.audio.specialOn();
-  }
-
-  /**
-   * ARC. The gun becomes chain lightning: each zap strikes what the crosshair
-   * holds and jumps ship to ship from there -- painted targets first, which is
-   * the payoff for flying the paint-to-lock game well. It ignores gun heat;
-   * the diamonds are its whole economy.
+   * ARC. Held, not toggled: a live stream. The chain starts at whatever is
+   * closest to the crosshair -- the cursor picks the head -- and each jump
+   * goes to whatever is closest to the last ship struck, three jumps at most,
+   * each landing at ${ARC_FALLOFF} of the one before. The bolt is torn down
+   * and rebuilt every frame so it crackles; damage lands on its own tick.
    */
   updateArc(dt, cx, cy) {
     const rd = this.rd;
-    if (!this.input.firing) { this.input.takePress(); return; }
-    this.zapTimer -= dt;
-    if (this.input.takePress()) this.zapTimer = 0;
-    if (this.zapTimer > 0) return;
-    this.zapTimer = ARC_CADENCE;
+    this.input.takePress();
 
-    // Everything a bolt could reach, with what the crosshair holds first and
-    // painted ships ahead of merely visible ones.
+    // Whatever is in reach at all.
     const cands = [];
     const pools = [this.level.enemies, this.drones];
     if (this.boss && this.boss.alive) pools.push([this.boss]);
     for (const arr of pools) {
       for (const e of arr) {
         if (!e.alive || !e.world || e.kind === 'port') continue;
-        const dz = e.world[2] - this.shipPos[2];
         const d = Math.hypot(e.world[0] - this.shipPos[0],
-          e.world[1] - this.shipPos[1], dz);
+          e.world[1] - this.shipPos[1], e.world[2] - this.shipPos[2]);
         if (d > ARC_RANGE || e.los < 0.4) continue;
         cands.push(e);
       }
     }
-    if (!cands.length) return;
 
-    const rank = (e, from) => {
-      const d = Math.hypot(e.world[0] - from[0], e.world[1] - from[1], e.world[2] - from[2]);
-      return d - (this.locks.includes(e) ? 200 : (e.paint || 0) * 120)
-        - (e === this.paintTarget ? 260 : 0);
+    // The head of the chain is the cursor's choice: nearest to the aim ray,
+    // not nearest to the ship -- pointing at a far gun arcs the far gun.
+    const kx = (cx - rd.cx) / rd.focal;
+    const ky = -(cy - rd.cy) / rd.focal;
+    let ax = this.camF[0] + this.camR[0] * kx + this.camU[0] * ky;
+    let ay = this.camF[1] + this.camR[1] * kx + this.camU[1] * ky;
+    let az = this.camF[2] + this.camR[2] * kx + this.camU[2] * ky;
+    const al = Math.hypot(ax, ay, az) || 1;
+    ax /= al; ay /= al; az /= al;
+    const offRay = (e) => {
+      const wx = e.world[0] - this.eye[0];
+      const wy = e.world[1] - this.eye[1];
+      const wz = e.world[2] - this.eye[2];
+      const along = wx * ax + wy * ay + wz * az;
+      if (along < 20) return Infinity;
+      return Math.hypot(wx - ax * along, wy - ay * along, wz - az * along);
     };
-    shipLocalToWorld(this.shipPos, this.basis, 0, -1, 6, this._p);
-    const chain = [];
-    let from = [this._p[0], this._p[1], this._p[2]];
-    const used = new Set();
-    for (let k = 0; k < ARC_LINKS; k++) {
-      let best = null, bv = Infinity;
-      for (const e of cands) {
-        if (used.has(e)) continue;
-        const d = Math.hypot(e.world[0] - from[0], e.world[1] - from[1], e.world[2] - from[2]);
-        if (d > (k === 0 ? ARC_RANGE : ARC_JUMP)) continue;
-        const v = rank(e, from);
-        if (v < bv) { bv = v; best = e; }
-      }
-      if (!best) break;
-      used.add(best);
-      chain.push(best);
-      from = best.world;
-    }
-    if (!chain.length) return;
 
-    // The bolt: a jagged polyline through the chain, alive for a few frames.
-    const pts = [[this._p[0], this._p[1], this._p[2]]];
-    let px = this._p[0], py = this._p[1], pz = this._p[2];
-    for (const e of chain) {
-      const segs = 4;
-      for (let i = 1; i <= segs; i++) {
-        const f = i / segs;
-        const wob = i < segs ? 7 : 0;
-        pts.push([
-          px + (e.world[0] - px) * f + (hash2((this.time * 60) | 0, i * 13 + pts.length) - 0.5) * wob,
-          py + (e.world[1] - py) * f + (hash2((this.time * 60) | 0, i * 29 + pts.length) - 0.5) * wob,
-          pz + (e.world[2] - pz) * f,
-        ]);
+    const chain = [];
+    let head = null, hv = Infinity;
+    for (const e of cands) {
+      const v = offRay(e);
+      if (v < hv) { hv = v; head = e; }
+    }
+    if (head) {
+      chain.push(head);
+      const used = new Set(chain);
+      let from = head;
+      while (chain.length < ARC_LINKS) {
+        let best = null, bv = Infinity;
+        for (const e of cands) {
+          if (used.has(e)) continue;
+          const d = Math.hypot(e.world[0] - from.world[0],
+            e.world[1] - from.world[1], e.world[2] - from.world[2]);
+          if (d < bv && d <= ARC_JUMP) { bv = d; best = e; }
+        }
+        if (!best) break;
+        used.add(best);
+        chain.push(best);
+        from = best;
       }
-      px = e.world[0]; py = e.world[1]; pz = e.world[2];
+    }
+
+    // The bolt, rebuilt from scratch this frame -- the rebuild is the crackle.
+    shipLocalToWorld(this.shipPos, this.basis, 0, -1, 6, this._p);
+    if (chain.length) {
+      let from = [this._p[0], this._p[1], this._p[2]];
+      const seed = (this.time * 47) | 0;
+      for (let k = 0; k < chain.length; k++) {
+        const bolt = boltPath(from, chain[k].world, seed + k * 101);
+        bolt.life = 0.05;
+        this.arcs.push(bolt);
+        from = chain[k].world;
+      }
+    }
+
+    // The crackle: fast, irregular, only while the stream is live.
+    this.crackleIn = (this.crackleIn || 0) - dt;
+    if (this.crackleIn <= 0) {
+      this.crackleIn = 0.03 + hash2((this.time * 83) | 0, 3) * 0.06;
+      this.audio.crackle();
+    }
+
+    // Damage, on its own clock, softer with every jump.
+    this.zapTimer -= dt;
+    if (this.zapTimer > 0 || !chain.length) return;
+    this.zapTimer = ARC_TICK;
+    chain.forEach((e, k) => {
       // The wheel: a warden's own weapon half-hurts it; the one it is weak to
       // melts it, three to one. Everything else is just damage.
-      const mul = e.kind !== 'boss' ? 1
+      const wheel = e.kind !== 'boss' ? 1
         : this.special === e.def.weakTo ? 3
         : this.special === e.def.weapon ? 0.5 : 1;
-      e.hp -= ARC_DAMAGE * mul;
+      e.hp -= ARC_DAMAGE * Math.pow(ARC_FALLOFF, k) * wheel;
       e.flash = 1;
-      this.particles.burst(e.world[0], e.world[1], e.world[2], 6, 130, 0.8, 0.5, 1, 0.3, 1.5);
+      this.particles.burst(e.world[0], e.world[1], e.world[2], 5, 120, 0.8, 0.5, 1, 0.3, 1.4);
       if (e.hp <= 0) this.destroy(e);
-    }
-    this.arcs.push({ pts, life: 0.09 });
+    });
     this.audio.zap();
   }
 
@@ -9195,6 +9251,9 @@ class Game {
         const u = a.pts[k - 1], v = a.pts[k];
         rd.line3(u[0], u[1], u[2], v[0], v[1], v[2], 2.2, cr, cg, cb, glow);
       }
+      for (const [u, v] of a.branches || []) {
+        rd.line3(u[0], u[1], u[2], v[0], v[1], v[2], 1.2, cr, cg, cb, glow * 0.7);
+      }
     }
     this.particles.draw(rd);
 
@@ -9413,12 +9472,8 @@ class UI {
       }
     };
     hold('burn', (on) => { this.input.boostHeld = on; });
-    // The special is a toggle, not a hold: press to light it, press to keep
-    // what is left. pointerdown so it lands on touch-down like everything else.
-    $('spec').addEventListener('pointerdown', (e) => {
-      e.preventDefault();
-      this.input.toggleSpecial();
-    });
+    // The special is held exactly like the burn: down is firing, up is saved.
+    hold('spec', (on) => { this.input.specialBtn(on); });
 
     $('calibrate').addEventListener('click', async () => {
       if (this.input.motion !== 'granted') await this.input.requestMotion();

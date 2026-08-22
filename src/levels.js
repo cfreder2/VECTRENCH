@@ -18,6 +18,7 @@ export const PREBUILT = [
       "finale": "port",
       "armedPort": false,
       "music": "bumblebee",
+      "boss": null,
       "sections": [
         {
           "name": "open air",
@@ -303,6 +304,7 @@ export const PREBUILT = [
       "finale": "port",
       "armedPort": false,
       "music": "bumblebee",
+      "boss": null,
       "sections": [
         {
           "name": "open approach",
@@ -468,6 +470,7 @@ export const PREBUILT = [
       "finale": "port",
       "armedPort": false,
       "music": "bumblebee",
+      "boss": null,
       "sections": [
         {
           "name": "wide mouth",
@@ -663,6 +666,7 @@ export const PREBUILT = [
       "finale": "port",
       "armedPort": false,
       "music": "fire",
+      "boss": null,
       "sections": [
         {
           "name": "the descent",
@@ -882,6 +886,7 @@ export const PREBUILT = [
       "finale": "port",
       "armedPort": false,
       "music": "bumblebee",
+      "boss": null,
       "sections": [
         {
           "name": "the drop",
@@ -1048,6 +1053,7 @@ export const PREBUILT = [
       "finale": "port",
       "armedPort": false,
       "music": "water",
+      "boss": null,
       "sections": [
         {
           "name": "open water",
@@ -1336,6 +1342,14 @@ export const PREBUILT = [
       "finale": "port",
       "armedPort": false,
       "music": "neon",
+      "boss": {
+        "kind": "marionette",
+        "name": "MARIONETTE",
+        "hp": 90,
+        "weapon": "arc",
+        "weakTo": "saw",
+        "arena": "surface"
+      },
       "sections": [
         {
           "name": "the on-ramp",

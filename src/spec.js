@@ -93,7 +93,34 @@ export function normalizeSpec(raw = {}) {
     armedPort: raw.armedPort === true,
     // Which stage theme plays. Names come from the score book in songs.js.
     music: typeof raw.music === 'string' ? raw.music.slice(0, 24) : 'bumblebee',
+    // The warden. A level with one grows an arena past the port: kill the door
+    // and the flyout carries you into the fight instead of the result screen.
+    // A level without one ends exactly as it always has -- bosses are opt-in,
+    // so a track stays usable for plain timed runs by leaving this out.
+    boss: normalizeBoss(raw.boss),
     sections,
+  };
+}
+
+/**
+ * The warden definition. `arena` is where the fight happens: 'surface' (the
+ * default) is open ground above the district -- the canyon walls fall away and
+ * the fight is flown in the clear. 'trench' and 'void' are reserved for
+ * wardens whose fights want walls or stars; they normalize but do not change
+ * anything yet.
+ */
+export function normalizeBoss(raw) {
+  if (!raw || typeof raw !== 'object') return null;
+  return {
+    kind: String(raw.kind ?? 'warden').slice(0, 24),
+    name: String(raw.name ?? raw.kind ?? 'THE WARDEN').slice(0, 24).toUpperCase(),
+    hp: clamp(+raw.hp || 90, 20, 400),
+    // The weapon it fights with -- and, by the campaign's rule, the weapon
+    // beating it hands over. Its own weapon only half-hurts it.
+    weapon: typeof raw.weapon === 'string' ? raw.weapon.slice(0, 12) : null,
+    // The wheel: hits from this special melt it, three to one.
+    weakTo: typeof raw.weakTo === 'string' ? raw.weakTo.slice(0, 12) : null,
+    arena: ['surface', 'trench', 'void'].includes(raw.arena) ? raw.arena : 'surface',
   };
 }
 

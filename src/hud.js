@@ -179,6 +179,16 @@ export function drawHud(rd, st) {
   rd.line2(px, py, px + pw * pk, py, 2.6 * s, CYAN[0], CYAN[1], CYAN[2], 1, 1);
   rd.line2(px + pw * pk, py - 8 * s, px + pw * pk, py + 8 * s, 2 * s, 1, 1, 1, 1, 1);
 
+  // --- the warden, when there is one: name and health, top center ---
+  if (st.boss) {
+    const bw = W * 0.34;
+    const bx = (W - bw) * 0.5;
+    const by = pad + 14 * s;
+    const bcol = st.boss.flash > 0 ? [1, 1, 1] : [0.78, 0.42, 1];
+    drawText(rd, st.boss.name, W * 0.5, by, 11 * s, 1.3 * s, bcol[0], bcol[1], bcol[2], 0.95, 0);
+    bar(rd, bx, by + 7 * s, bw, 8 * s, clamp(st.boss.frac, 0, 1), 16, bcol, s);
+  }
+
   // --- cockpit frame ---
   bracket(rd, pad * 0.6, pad * 0.6, W - pad * 1.2, H - pad * 1.2, s, DIM, 0.22, 1.2 * s);
 

@@ -8,6 +8,14 @@
   },
   "finale": "port",
   "music": "neon",
+  "boss": {
+    "kind": "marionette",
+    "name": "MARIONETTE",
+    "hp": 90,
+    "weapon": "arc",
+    "weakTo": "saw",
+    "arena": "surface"
+  },
   "sections": [
     {
       "name": "the on-ramp",

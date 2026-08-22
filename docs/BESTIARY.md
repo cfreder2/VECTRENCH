@@ -404,6 +404,7 @@ none do.
 | `anthem` | 152bpm, A minor | Eighteen bars. The opening-theme shape: long notes with big intervals over an arpeggio going four times as fast — the tune sounds unhurried and enormous *because* something underneath it is sprinting. The theme keeps the heroic i–VI–III–VII; a new second strain answers it — VI–VII–i twice, peaking a step higher each phrase to d6, then a rising sweep flare on the dominant, the brass gesture, before the loop is handed back. The bass is written pumping eighths with a walk into every chord change, and the strain earns a backbeat the theme does not have. The first two bars still play once and never return |
 | `fire` | 176bpm, E minor | Sixteen bars with a form, not a loop: a two-bar alarm of rising hardware sweeps that plays once, a driving 3+3+2 theme stated bare then restated with its harmony, a chorus lifting to the relative major, and a climax that runs down the octave at full speed and dive-bombs back into the loop on a falling sweep. The bass is a written gallop — root, rest, root, octave — that walks into every chord change; the drums fill into each section and go double-time under the run, metallic short-register noise ticking through the groove. Its dominant is still a **B7** carrying the D♯ of the harmonic minor, and the chorus's biggest note is a ♭9 over it |
 | `neon` | 138bpm, A minor | Synthwave in the chip idiom: the lament descent — a, g, f, e — pumped in eighths with a chromatic slip into nearly every change. The intro is three rising zap sweeps, arcs jumping a substation; the turnaround dives on one. The lead is the one duty no other song uses — the hollow 50% square over a reedy 25% harmony, the PWM pair — and the metallic short-register noise ticks the off-beats: electricity in the hi-hat |
+| `boss` | 148bpm, E minor | One track for every warden: the situation, not the ship. E minor leaning hard on **F** — the Neapolitan, a semitone above home, the oldest menace in the book — with the lead stabbing the tritone and the heaviest drums in the game, kick doubled and the metallic rasp on every upbeat. No intro: a boss fight starts mid-sentence. Twelve bars, because fights are heard on repeat and a short loop with two builds beats a long one heard once |
 
 All three written ones are checked as music before anyone hears them: every bar
 the right length, every token a note, and the strong beats landing on chord
@@ -474,10 +475,10 @@ climbing into its fire.
 
 The gun with a second identity. Each district's warden fights with its own
 special weapon — and beating it takes that weapon from it, fitted to the ship
-from then on. Press SPECIAL and the trigger *is* the special until the meter
-runs out or you press again; the normal gun is untouched underneath and comes
-back the moment it ends. The standard gun still finishes everything — a
-special is a multiplier, never a key.
+from then on. **Hold SPECIAL to fire it**, exactly like the burn: down is the
+special streaming, up is whatever charge is left, saved. The normal gun is
+untouched underneath and comes back the moment you let go. The standard gun
+still finishes everything — a special is a multiplier, never a key.
 
 **The meter is diamonds**, drawn on the SPECIAL button in the weapon's color:
 
@@ -489,19 +490,50 @@ special is a multiplier, never a key.
 | a `diamond` gate | **+1**, past the ceiling, up to **8** |
 | a `prism` | fills it to **8** |
 | a tap | commits at least one whole diamond — lighting it up is a decision |
+| held dry | it latches off; release and press again to relight |
 
 ### ARC — the Neon District's weapon
 
-Chain lightning, built on paint-to-lock. Each zap (every 0.16s) strikes what
-the crosshair holds and jumps ship to ship from there — painted and locked
-targets pull the bolt first, which is the reward for flying the paint game
-well. Up to **four ships a bolt**, 2 damage each, out to 900 units with 260
-between jumps. It ignores gun heat entirely; the diamonds are its whole
-economy. Against one target it is a slightly better gun. Against a crowd, the
-crowd loses. The port shrugs it off the same way it shrugs off the gun.
+A live stream of chain lightning, held rather than fired. The head of the
+chain is **the cursor's choice** — whatever sits closest to the crosshair, not
+closest to the ship, so pointing at a far gun arcs the far gun. From there it
+jumps to whatever is closest to the last ship struck, **three jumps at most**,
+each landing at 65% of the one before: 2 / 1.3 / 0.85 / 0.55 per tick, eight
+ticks a second, out to 900 units with 260 between jumps. The bolt is torn down
+and rebuilt every frame — a zigzag whose displacement flips side at every
+vertex, with short dead-end branches — so it *crackles*, and the audio
+crackles with it: thirty-odd randomized sparks a second, only while the stream
+is live. It ignores gun heat entirely; the diamonds are its whole economy.
+The port shrugs it off the same way it shrugs off the gun.
 
 MARIONETTE — the Neon warden — fights with ARC itself. What it does to you in
 the arena is exactly what the weapon does for you afterward.
+
+## The warden
+
+A level may put a boss past its port (`boss` in the spec — optional, so every
+track still works as a plain timed run). Kill the door and the climb out of
+the canyon stops being an ending: the music slams to the boss theme on the
+spot, the walls fall away into open ground above the district, and the warden
+is up there waiting. You fly alongside it, 1943-style. It paints, locks, and
+eats missiles like anything else — a big target with 90-odd health against
+your one-per-laser and eight-per-missile — and it fights back with the
+special weapon its district would hand you for beating it, which is the
+campaign's rule: the fight is the demonstration.
+
+The machinery is generic — an entity the existing paint, lock, laser, and
+missile systems already understand, attack clocks that tighten as it loses
+thirds of its health, and an arena that loops invisibly because it is flat
+and straight on purpose. A new warden is a block of numbers and a draw
+function, not a new system.
+
+**MARIONETTE** — the Neon warden, and the first one built — hangs from light
+cables and swings across the arena. It telegraphs an ARC strike with a
+blazing core for 0.85 seconds and lands it where you *were* — moving after
+the tell is the whole answer — fires seeker pairs from its second third,
+spawns drone escorts throughout, and in its last third drops to ship height
+and sweeps. Its own weapon half-hurts it; SAW, when it exists, will melt it.
+When it dies, an escape pod flies out and gets away. That is the setup.
 
 ## Aim, and what speed buys you
 

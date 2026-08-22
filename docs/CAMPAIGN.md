@@ -55,9 +55,10 @@ them on the HUD next to the boost chevrons.
 - **Diamond gates** — diamond-shaped, tinted the weapon's color — grant one
   diamond each, instantly, *above* the trickle ceiling, up to a cap of **8**.
 - The **recharge gate** is very rare: fly it and the meter fills to 8.
-- Firing: press SPECIAL and the normal gun *becomes* the special shot while
-  the meter drains; press again to conserve what is left. There is no partial
-  diamond spent on a tap — activation commits at least one.
+- Firing: **hold SPECIAL**, exactly like the burn — down is the special
+  streaming, up is whatever is left, saved. There is no partial diamond spent
+  on a tap: a press commits at least one, and holding it dry latches it off
+  until the next press.
 
 The wheel below is a damage multiplier (~3×, "melts"), never a key: the
 standard gun finishes every level and every warden. That rule is load-bearing
@@ -119,11 +120,11 @@ color — it is the setup. *(See the parking lot.)*
 | Glacier | to write — sparse, crystalline, high arpeggios |
 | The Gauntlet | to write — a relentless march |
 | The Null | to write — hollow, tritone-heavy, the empty one |
-| **Boss** | to write — ominous and driving; when the gate falls, `setSong('boss')` on the spot. The engine already switches songs cleanly mid-play |
+| **Boss** | **boss** — written, wired: when the port falls on a warden level, the music turns on the spot |
 | **Final run** (Citadel) | to write — the biggest track in the game, quoting the anthem's theme |
 | Training | **bumblebee** — where the joke belongs |
 
-Seven to write, five written. The synth has the full NES palette now
+Six to write, six written. The synth has the full NES palette now
 ([BESTIARY — the music](BESTIARY.md#the-music)); keeping eight districts
 audibly distinct is what the duty cycles, sweeps, and written basslines
 are *for*.
@@ -150,5 +151,7 @@ special weapon system.** In build order:
 2. The second hue, so districts look like districts.
 3. The remaining districts one at a time, each level + song + weapon together.
 4. The 3×3 select screen and the unlock state.
-5. The boss arena machinery and the wardens, one at a time.
+5. ~~The boss arena machinery~~ — **done**: `boss` in a spec grows the arena,
+   the ascent, the fight, the escape pod, and the boss theme; MARIONETTE is
+   the first warden flying it. The remaining wardens, one at a time.
 6. The Citadel.

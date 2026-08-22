@@ -70,6 +70,17 @@ export class Track {
     this.bodyLength = specLength(spec);
     this.total = this.bodyLength + RUNOUT;
     this.portT = spec.finale === 'port' ? this.bodyLength + 720 : -1;
+    // A level with a warden gets an arena past the runout: a stretch of open
+    // ground the boss fight lives on. It is flat, straight, and uniform on
+    // purpose -- the fight loops through it, and a loop through terrain with
+    // no features in it is a loop nobody can see.
+    this.arenaStart = -1;
+    this.arenaLen = 0;
+    if (spec.boss) {
+      this.arenaStart = this.total;
+      this.arenaLen = 6000;
+      this.total += this.arenaLen;
+    }
 
     // Section boundaries, so a t can be resolved back to authored intent.
     this.bounds = [0];
@@ -106,6 +117,22 @@ export class Track {
         const t = i * G;
         const k = smoothstep(this.portT - 950, this.portT - 150, t);
         if (k > 0) width[i] = lerp(width[i], 34, k);
+      }
+    }
+
+    // The arena: blend out of whatever the last section was into a shallow
+    // open basin, then hold it exactly constant so the wrap is invisible.
+    if (this.arenaStart > 0) {
+      for (let i = 0; i < n; i++) {
+        const t = i * G;
+        const k = smoothstep(this.arenaStart - 400, this.arenaStart + 700, t);
+        if (k <= 0) continue;
+        width[i] = lerp(width[i], 150, k);
+        depth[i] = lerp(depth[i], 44, k);
+        rough[i] = lerp(rough[i], 0.12, k);
+        curv[i] = lerp(curv[i], 0, k);
+        snake[i] = lerp(snake[i], 0, k);
+        hill[i] = lerp(hill[i], 0, k);
       }
     }
 

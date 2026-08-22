@@ -206,6 +206,17 @@ export class Audio {
   enemyShot() { this._tone('sawtooth', 620, 180, 0.14, 0.1); }
   hit() { this._noiseBurst(0.13, 0.22, 2600, 700, 2); }
 
+  /**
+   * One spark of a live arc stream: tiny, bright, and randomized, fired
+   * thirty-odd times a second while the weapon is held. The crackle is the
+   * irregularity -- evenly spaced ticks read as a motor, not lightning.
+   */
+  crackle() {
+    const v = 0.7 + Math.random() * 0.6;
+    this._noiseBurst(0.025 + Math.random() * 0.02, 0.32, 7200 * v, 2400, 3);
+    if (Math.random() < 0.35) this._tone('square', 2400 * v, 300, 0.04, 0.08);
+  }
+
   /** The arc: a crackle and a falling whine, over before the next one. */
   zap() {
     const v = 0.92 + Math.random() * 0.16;

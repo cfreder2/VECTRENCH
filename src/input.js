@@ -69,7 +69,7 @@ export class Input {
     this._lastPress = null;
     this.boosting = false;         // the burn is open
     this.boostHeld = false;        // the BURN button is down
-    this.specialPressed = false;   // the special was asked for, once
+    this.specBtnHeld = false;      // the SPECIAL button is down
     this.boostHeld = false;
     this.motion = 'unavailable';   // unavailable | granted | denied
     this.padName = '';             // the controller in use, if there is one
@@ -120,7 +120,6 @@ export class Input {
       if ((k === 'shift' || k === 'm' || k === 'enter') && !this.keys.has(k)) {
         this.launchMissiles();
       }
-      if (k === 'x' && !this.keys.has(k)) this.toggleSpecial();
 
       this.keys.add(k);
       if ([' ', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright'].includes(e.key.toLowerCase())) {
@@ -387,6 +386,7 @@ export class Input {
     // taking. So it is a button you hold, a key, or a face button on a pad.
     this.rolling = false;
     this.boosting = this.boostHeld;
+    this.specialHeld = this.specBtnHeld;
     if (Math.abs(this.steerX) > 0.15) this.rollDir = Math.sign(this.steerX);
     // The second tap starts the roll the instant it lands, not once it has
     // been held long enough to prove it is a hold. Waiting for that put 340ms
@@ -463,6 +463,7 @@ export class Input {
       this._padMissile = launch;
       if (held(2)) this.rolling = true;                 // X / Square: on edge
       if (held(3)) this.boosting = true;                // Y / Triangle: burn
+      if (held(2)) this.specialHeld = true;             // X / Square: the special
     }
 
     const k = this.keys;
@@ -475,21 +476,15 @@ export class Input {
     if (k.has(' ')) { if (!this.firing) this.justPressed = true; this.firing = true; }
     if (k.has('q') || k.has('e') || k.has('control')) this.rolling = true;
     if (k.has('b')) this.boosting = true;
+    if (k.has('x')) this.specialHeld = true;
 
     this.steerX = sx;
     this.steerY = sy;
   }
 
-  /** True once per special toggle request, from the button or a key. */
-  takeSpecial() {
-    const v = this.specialPressed;
-    this.specialPressed = false;
-    return v;
-  }
-
-  /** Requests the special weapon toggled. Button and keyboard both land here. */
-  toggleSpecial() {
-    this.specialPressed = true;
+  /** The special is held, like the burn: this is the button being down. */
+  specialBtn(on = true) {
+    this.specBtnHeld = on;
   }
 
   /** True once per missile request, from the button, a key, or a call. */
