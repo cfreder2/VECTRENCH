@@ -58,9 +58,13 @@
   /* --- design --- */
   #design { flex-direction: column; gap: 10px; pointer-events: none; }
   #design > * { pointer-events: auto; }
-  #topbar { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; }
-  #topbar .title { font-size: 15px; letter-spacing: 0.22em; }
-  #topbar .hint { color: var(--dim); font-size: 11px; letter-spacing: 0.08em; }
+  #topbar { display: flex; align-items: center; gap: 14px; flex-wrap: nowrap; }
+  #topbar .title { font-size: 15px; letter-spacing: 0.22em; white-space: nowrap; }
+  #topbar .hint {
+    color: var(--dim); font-size: 11px; letter-spacing: 0.08em;
+    flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  #topbar #setup { flex: 0 0 auto; }
   #spacer { flex: 0; min-height: 0; }
 
   #sheet {
@@ -258,11 +262,28 @@
     position: relative; overflow: hidden;
     -webkit-tap-highlight-color: transparent;
   }
-  .cell canvas.preview {
+  .cell canvas.preview, .cell canvas.qmarks {
     position: absolute; inset: 0; width: 100%; height: 100%;
-    pointer-events: none; border-radius: 8px;
+    pointer-events: none; border-radius: 8px; z-index: 1;
   }
-  .cell .dname, .cell .dsub { position: relative; text-shadow: 0 1px 4px #000, 0 0 8px #000; }
+  /* Idle squares drift through a starfield -- three layers of pinprick stars
+     at different depths sliding at different speeds. The selected square's
+     preview simply draws over it. */
+  .cell::after {
+    content: ''; position: absolute; inset: 0; pointer-events: none; opacity: .5;
+    background-image:
+      radial-gradient(1.5px 1.5px at 22% 34%, rgba(170,225,255,.8), transparent 55%),
+      radial-gradient(1px 1px at 68% 62%, rgba(255,255,255,.7), transparent 55%),
+      radial-gradient(1px 1px at 44% 82%, rgba(140,200,255,.6), transparent 55%);
+    background-size: 96px 96px, 64px 64px, 140px 140px;
+    animation: stardrift 70s linear infinite;
+  }
+  @keyframes stardrift {
+    from { background-position: 0 0, 0 0, 0 0; }
+    to { background-position: -192px 96px, -256px -64px, -140px 140px; }
+  }
+  @media (prefers-reduced-motion: reduce) { .cell::after { animation: none; } }
+  .cell .dname, .cell .dsub { position: relative; z-index: 2; text-shadow: 0 1px 4px #000, 0 0 8px #000; }
   .cell .dname { display: block; font-size: clamp(7px, 1.9vmin, 11px); letter-spacing: .12em; }
   .cell .dsub { display: block; font-size: clamp(6px, 1.5vmin, 9px); margin-top: 3px; opacity: .65; }
 

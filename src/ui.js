@@ -27,6 +27,77 @@ function hexRgb(css) {
 }
 
 /**
+ * Three question marks in three dimensions, each turning at its own rate --
+ * the Citadel square saying "sealed" without a word of English. A plain 2D
+ * canvas with the projection done by hand: the browser rations WebGL
+ * contexts, and a question mark does not need one.
+ */
+class QMarks {
+  constructor(canvas) {
+    this.canvas = canvas;
+    this.g = canvas.getContext('2d');
+    // The glyph, as a polyline in x/y (y down), plus the dot below.
+    this.pts = [];
+    for (let i = 0; i <= 14; i++) {
+      const a = Math.PI * 1.05 - (i / 14) * Math.PI * 1.35;
+      this.pts.push([Math.cos(a) * 0.42, -0.5 + Math.sin(a) * -0.42]);
+    }
+    this.pts.push([0, 0.05], [0, 0.28]);
+  }
+
+  tick() {
+    const c = this.canvas;
+    if (!c.isConnected) return;
+    const rect = c.getBoundingClientRect();
+    if (rect.width < 4) return;
+    const dpr = Math.min(2, devicePixelRatio || 1);
+    const W = Math.round(rect.width * dpr), H = Math.round(rect.height * dpr);
+    if (c.width !== W || c.height !== H) { c.width = W; c.height = H; }
+    const g = this.g;
+    g.clearRect(0, 0, W, H);
+    const t = performance.now() / 1000;
+    const focal = 3;
+    const marks = [
+      { x: -0.31, rate: 0.7, size: 0.24, phase: 0 },
+      { x: 0, rate: -1.15, size: 0.3, phase: 2 },
+      { x: 0.31, rate: 1.6, size: 0.22, phase: 4 },
+    ];
+    for (const m of marks) {
+      const a = t * m.rate + m.phase;
+      const ca = Math.cos(a), sa = Math.sin(a);
+      const S = H * m.size;
+      const cx = W * (0.5 + m.x), cy = H * 0.46;
+      g.beginPath();
+      let first = true;
+      for (const [px, py] of this.pts.slice(0, 15)) {
+        const z = px * sa;
+        const k = focal / (focal + z);
+        const sx = cx + px * ca * S * k, sy = cy + py * S * k;
+        if (first) { g.moveTo(sx, sy); first = false; } else g.lineTo(sx, sy);
+      }
+      // The stem, then the dot, each projected the same way.
+      for (const [px, py] of this.pts.slice(15)) {
+        const z = px * sa;
+        const k = focal / (focal + z);
+        g.lineTo(cx + px * ca * S * k, cy + py * S * k);
+      }
+      const depth = 0.7 + 0.3 * ca * ca;
+      g.strokeStyle = `rgba(140, 215, 255, ${0.75 * depth})`;
+      g.lineWidth = Math.max(1, 1.6 * dpr * depth);
+      g.shadowColor = 'rgba(111, 230, 255, 0.8)';
+      g.shadowBlur = 7 * dpr * depth;
+      g.lineCap = 'round';
+      g.stroke();
+      g.beginPath();
+      g.arc(cx, cy + 0.46 * S, Math.max(1.2, 0.05 * S), 0, TAU_2D);
+      g.fillStyle = `rgba(140, 215, 255, ${0.85 * depth})`;
+      g.fill();
+    }
+  }
+}
+const TAU_2D = Math.PI * 2;
+
+/**
  * The interceptor on its stand: the actual game ship, drawn by the actual
  * game's ship renderer, with the camera walking a slow circle around it.
  */
@@ -460,8 +531,8 @@ export class UI {
       b.className = 'cell' + (d.center ? ' center' : '');
       const lv = d.level ? PREBUILT.find((l) => l.spec.name === d.level) : null;
       if (d.center) {
-        b.innerHTML = `<span class="dname">${d.name}</span>
-          <span class="dsub" id="citadelsub"></span>`;
+        b.innerHTML = `<canvas class="qmarks"></canvas>
+          <span class="dsub" id="citadelsub" style="position:absolute;left:0;right:0;bottom:7px;text-align:center;z-index:2"></span>`;
         b.addEventListener('click', () => {
           this.status(this.campaign.wardensDown()
             ? 'the citadel is not built yet -- soon'
@@ -693,6 +764,11 @@ export class UI {
         try { this.shipView = new ShipView($('shipview')); } catch { this.shipView = false; }
       }
       if (this.shipView) this.shipView.tick();
+      if (!this.qmarks) {
+        const qc = document.querySelector('.qmarks');
+        if (qc) this.qmarks = new QMarks(qc);
+      }
+      if (this.qmarks) this.qmarks.tick();
     }
     this.dirty = false;
     rd.beginFrame(1);
