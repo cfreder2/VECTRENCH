@@ -175,6 +175,14 @@ the cannon. It drives **backwards** down its dead road, swerving lane to
 lane, crushing the cars and wreckage still parked on it — about one crush a
 second, each one going up under the treads.
 
+**The whole superstructure tracks you.** The central turret rides a square
+barbette on a bearing ring, the four gatlings mounted on the barbette's
+faces, and the assembly swings up to ninety degrees off dead-aft either way
+to keep the cannon on you — with lag, which is the whole game of it. Guns
+carried onto the far side are masked by the turret's own mass: guarded,
+silent, and safe until the bearing brings them back around, so which guns
+you can fight is decided by where you fly.
+
 **The turrets paint patterns, and the pattern is their number.** Four sweep
 in from the corners and stop short of center — the middle is safe, sit in
 it. Three run a circle. Two draw the X. The last survivor just hunts you.

@@ -444,6 +444,7 @@ export const WARDENS = {
       for (let i = 0; i < 5; i++) mkPart(b, 'SEGMENT', 7, { guarded: true });
       b.parts[b.parts.length - 1].guarded = false;   // the tail glows first
       b.weakIdx = b.parts.length - 1;
+      b.guardMsg = 'HIT THE ONE THAT GLOWS';
     },
     update(b, dt, game) {
       const tr = game.track;
@@ -862,6 +863,8 @@ export const WARDENS = {
       mkPart(b, 'POD', 8);
       mkPart(b, 'POD', 8);
       b.cannon = { state: 'idle', tIn: 6, charge: 0 };
+      b.yaw = 0;               // the superstructure's bearing: 0 is dead aft
+      b.guardMsg = 'THE TURRET BLOCKS THE SHOT';
       b.debris = [];
       b.missilesLive = [];
       b.burst = null;         // the turret pattern currently being painted
@@ -889,18 +892,40 @@ export const WARDENS = {
       tr.localToWorld(b.t, b.x, b.y, b.world);
       b.los = 1;
 
-      // The mounts, on the hull the concept drew: turrets at the quadrants,
-      // pods high on the rear shoulders, tilted at the sky.
-      const M = [
-        { dt: -85, dx: -30, dy: 52 }, { dt: -85, dx: 30, dy: 52 },
-        { dt: 65, dx: -42, dy: 40 }, { dt: 65, dx: 42, dy: 40 },
-        { dt: -30, dx: -52, dy: 58 }, { dt: -30, dx: 52, dy: 58 },
-      ];
+      // The superstructure tracks the player: turret, barbette, and the four
+      // gatlings on its faces all swing together, up to ninety degrees off
+      // dead aft either way -- and with LAG, which is the whole game of it.
+      // Guns carried onto the far side of the square are masked by the mass
+      // of the thing: guarded, silent, and safe until the bearing brings
+      // them back around.
+      const want = clamp(Math.atan2(game.shipX - b.x, -(game.t - b.t)), -Math.PI / 2, Math.PI / 2);
+      const dyaw = clamp(want - b.yaw, -1.5 * dt, 1.5 * dt);
+      b.yaw += dyaw;
+      const fT = -Math.cos(b.yaw), fX = Math.sin(b.yaw);   // forward, in (t, x)
+      const sT = Math.sin(b.yaw), sX = Math.cos(b.yaw);    // starboard
+      b.asm = { fT, fX, sT, sX };
+      // Direction to the ship in the (t, x) plane, for the masking test.
+      const dpT = game.t - b.t, dpX = game.shipX - b.x;
+      const dpL = Math.hypot(dpT, dpX) || 1;
+
+      const GUN = [{ a: 26, s: 0 }, { a: 0, s: 26 }, { a: -26, s: 0 }, { a: 0, s: -26 }];
       b.parts.forEach((part, i) => {
         if (!part.alive) return;
-        part.t = b.t + M[i].dt;
-        part.x = clamp(b.x + M[i].dx, -hw + 10, hw - 10);
-        part.y = M[i].dy;
+        if (part.label === 'TURRET') {
+          const g = GUN[i];
+          part.t = b.t + g.a * fT + g.s * sT;
+          part.x = clamp(b.x + g.a * fX + g.s * sX, -hw + 10, hw - 10);
+          part.y = 46;
+          // The gun's outward normal, against the line to the player.
+          const nT = (g.a * fT + g.s * sT) / 26;
+          const nX = (g.a * fX + g.s * sX) / 26;
+          part.guarded = (nT * dpT + nX * dpX) / dpL < -0.25;
+        } else {
+          const side = i === 4 ? -1 : 1;
+          part.t = b.t - 30;
+          part.x = clamp(b.x + side * 52, -hw + 10, hw - 10);
+          part.y = 58;
+        }
         tr.localToWorld(part.t, part.x, part.y, part.world);
         part.los = 1;
       });
@@ -1175,27 +1200,78 @@ export const WARDENS = {
         }
       }
 
+      // --- the superstructure: bearing ring, barbette, drum, cannon -------
+      // Everything here turns together on b.yaw. Assembly space is (a, s, h):
+      // a toward the player when the bearing is on them, s to starboard.
+      const A = b.asm || { fT: -1, fX: 0, sT: 0, sX: 1 };
+      const asmSeg = (a0, s0, h0, a1, s1, h1, w = 2, cl = col, al = 1) => {
+        tr.localToWorld(b.t + a0 * A.fT + s0 * A.sT, X + a0 * A.fX + s0 * A.sX, Y + h0, p);
+        tr.localToWorld(b.t + a1 * A.fT + s1 * A.sT, X + a1 * A.fX + s1 * A.sX, Y + h1, q);
+        rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], w, cl[0], cl[1], cl[2], al);
+      };
+      // The bearing ring the whole thing rides on -- the motion cue.
+      for (let k = 0; k < 8; k++) {
+        const a0 = (k / 8) * TAU + b.yaw, a1 = ((k + 1) / 8) * TAU + b.yaw;
+        seg(Math.cos(a0) * 32, Math.sin(a0) * 32, 35, Math.cos(a1) * 32, Math.sin(a1) * 32, 35, 1.6, dim, 0.9);
+      }
+      // The square barbette: four corner posts, top and bottom rings.
+      const S = 26;
+      const CORN = [[S, S], [S, -S], [-S, -S], [-S, S]];
+      for (let k = 0; k < 4; k++) {
+        const [a0, s0] = CORN[k], [a1, s1] = CORN[(k + 1) % 4];
+        asmSeg(a0, s0, 36, a1, s1, 36, 2, dim, 0.95);
+        asmSeg(a0, s0, 52, a1, s1, 52, 2.2, col, 1);
+        asmSeg(a0, s0, 36, a0, s0, 52, 2, col, 0.95);
+      }
+      // The central drum, and the cannon out of its crown toward you.
+      for (const h of [52, 63]) {
+        for (let k = 0; k < 8; k++) {
+          const a0 = (k / 8) * TAU, a1 = ((k + 1) / 8) * TAU;
+          asmSeg(Math.cos(a0) * 14, Math.sin(a0) * 14, h,
+            Math.cos(a1) * 14, Math.sin(a1) * 14, h, h === 63 ? 2.2 : 2, col, 1);
+        }
+      }
+      for (let k = 0; k < 4; k++) {
+        const a0 = (k / 4) * TAU + TAU / 8;
+        asmSeg(Math.cos(a0) * 14, Math.sin(a0) * 14, 52, Math.cos(a0) * 14, Math.sin(a0) * 14, 63, 1.6, dim, 0.9);
+      }
+      for (const ss of [-4, 4]) {
+        asmSeg(12, ss, 58, 132, ss * 1.25, 62, 2.4, col, 1);
+      }
+      asmSeg(132, -5, 62, 132, 5, 62, 2, col, 1);
+      for (let k = 0; k < 8; k++) {
+        const a0 = (k / 8) * TAU, a1 = ((k + 1) / 8) * TAU;
+        asmSeg(134 + Math.sin(a0) * 0, Math.cos(a0) * 6, 62 + Math.sin(a0) * 6,
+          134, Math.cos(a1) * 6, 62 + Math.sin(a1) * 6, 2, c.charge > 0.6 ? [1, 0.8, 1] : col, 0.95);
+      }
+      if (c.charge > 0) {
+        tr.localToWorld(b.t + 136 * A.fT, X + 136 * A.fX, Y + 62, p);
+        rd.line3(p[0], p[1], p[2], p[0], p[1], p[2], 5 + c.charge * 22,
+          1, 0.6 + c.charge * 0.4, 1, 0.4 + c.charge * 0.6);
+      }
+
       // --- the mounts -----------------------------------------------------
       for (const part of b.parts) {
         if (!part.alive) continue;
         const pc = part.flash > 0 ? [1, 1, 1]
-          : part.label === 'TURRET' ? [1, 0.6, 0.9] : [0.9, 0.5, 1];
+          : part.label === 'TURRET' ? (part.guarded ? [0.5, 0.3, 0.5] : [1, 0.6, 0.9])
+          : [0.9, 0.5, 1];
         const px = part.x - b.x - jx, py = part.y - jy;
         const ptt = part.t - b.t;
         if (part.label === 'TURRET') {
-          // Octagon base, boxed housing, and the 2x2 gatling cluster.
-          ring(ptt, px, py - 6, 8, 8, 1.8, dim, 0.9);
-          for (const sx of [-5, 5]) {
-            seg(ptt - 5, px + sx, py - 6, ptt - 5, px + sx, py + 5, 1.6, pc, 0.9);
-            seg(ptt + 5, px + sx, py - 6, ptt + 5, px + sx, py + 5, 1.6, pc, 0.9);
-            seg(ptt - 5, px + sx, py + 5, ptt + 5, px + sx, py + 5, 1.6, pc, 0.9);
-          }
-          seg(ptt - 5, px - 5, py + 5, ptt - 5, px + 5, py + 5, 1.6, pc, 0.9);
-          for (const bx of [-2.5, 2.5]) {
-            for (const by of [0, 4]) {
-              seg(ptt - 5, px + bx, py - 3 + by, ptt - 24, px + bx * 1.5, py + 1 + by, 1.5, pc, 0.95);
-              tr.localToWorld(b.t + ptt - 24, X + px + bx * 1.5, Y + py + 1 + by, p);
-              rd.line3(p[0], p[1], p[2], p[0], p[1], p[2], 2.4, pc[0], pc[1], pc[2], 0.9);
+          // A drum on the barbette face, barrels along its outward normal --
+          // dimmed while the mass of the turret masks it.
+          const al = part.guarded ? 0.5 : 0.95;
+          ring(ptt, px, py - 5, 7, 8, 1.8, pc, al);
+          // Outward normal in (t, x), and its perpendicular for the cluster.
+          const nT = (part.t - b.t) / 26, nX2 = (part.x - b.x - jx) / 26;
+          const eT = -nX2, eX = nT;
+          for (const off of [-2.5, 2.5]) {
+            for (const oy of [0, 4]) {
+              tr.localToWorld(b.t + ptt + off * eT, X + px + off * eX, Y + py - 3 + oy, p);
+              tr.localToWorld(b.t + ptt + off * eT + nT * 20, X + px + off * eX + nX2 * 20, Y + py - 2 + oy, q);
+              rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], 1.5, pc[0], pc[1], pc[2], al);
+              rd.line3(q[0], q[1], q[2], q[0], q[1], q[2], 2.2, pc[0], pc[1], pc[2], al);
             }
           }
         } else {
@@ -1227,30 +1303,6 @@ export const WARDENS = {
         }
       }
 
-      // --- the cannon: a true octagonal prism, tracking you ---------------
-      // The mantlet it emerges from.
-      for (const sx of [-10, 10]) {
-        seg(-170, sx, 14, -186, sx, 14, 2, dim);
-        seg(-170, sx, 30, -186, sx, 30, 2, dim);
-        seg(-186, sx, 14, -186, sx, 30, 2, dim);
-      }
-      seg(-186, -10, 14, -186, 10, 14, 2, dim);
-      seg(-186, -10, 30, -186, 10, 30, 2, dim);
-      // Eight long edges between the breech ring and the muzzle ring.
-      ring(-186, 0, 22, 7.5, 8, 2);
-      ring(-300, 0, 24, 8.5, 8, 2.2);
-      for (let k = 0; k < 8; k++) {
-        const a0 = (k / 8) * TAU;
-        seg(-186, Math.cos(a0) * 7.5, 22 + Math.sin(a0) * 7.5,
-          -300, Math.cos(a0) * 8.5, 24 + Math.sin(a0) * 8.5, 1.7, k % 2 ? dim : col, 0.9);
-      }
-      ring(-302, 0, 24, 4.5, 8, 2, c.charge > 0.6 ? [1, 0.8, 1] : col);
-      if (c.charge > 0) {
-        tr.localToWorld(b.t - 302, X, Y + 24, p);
-        rd.line3(p[0], p[1], p[2], p[0], p[1], p[2], 5 + c.charge * 22,
-          1, 0.6 + c.charge * 0.4, 1, 0.4 + c.charge * 0.6);
-      }
-
       // --- the tail face: twin indicator panels, six lights counting ------
       const lit = Math.round(c.charge * 6);
       for (const side of [-1, 1]) {
@@ -1276,7 +1328,9 @@ export const WARDENS = {
 
       // --- the fire being painted, the volley, the blasts, the road -------
       if (b.burst) {
-        const turrets = b.parts.filter((x) => x.alive && x.label === 'TURRET');
+        const clear = b.parts.filter((x) => x.alive && x.label === 'TURRET' && !x.guarded);
+        const turrets = clear.length ? clear
+          : b.parts.filter((x) => x.alive && x.label === 'TURRET');
         b.burst.pts.forEach((pt, i) => {
           const g = turrets[i % turrets.length];
           if (!g) return;

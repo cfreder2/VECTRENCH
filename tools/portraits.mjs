@@ -398,6 +398,8 @@ const SUBJECTS = [
     draw: showWarden('revenant', (b) => {
       b.cannon.state = 'charging';
       b.cannon.charge = 0.4;
+      b.yaw = 0.5;
+      b.asm = { fT: -Math.cos(0.5), fX: Math.sin(0.5), sT: Math.sin(0.5), sX: Math.cos(0.5) };
       b.debris = [
         { t: 250, x: 34, size: 8 },
         { t: 360, x: -28, size: 12, car: true },

@@ -9231,7 +9231,7 @@ class Game {
   sayGuard() {
     if (this.time - (this._guardSaid || 0) < 3) return;
     this._guardSaid = this.time;
-    this.say('HIT THE ONE THAT GLOWS', 1.4);
+    this.say((this.boss && this.boss.guardMsg) || 'ITS ARMOR HOLDS', 1.4);
   }
 
   /**
