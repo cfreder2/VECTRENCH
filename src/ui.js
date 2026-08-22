@@ -342,11 +342,14 @@ export class UI {
       const el = $(id);
       el.addEventListener('pointerdown', (e) => {
         e.preventDefault();
-        el.setPointerCapture?.(e.pointerId);
+        // The game logic first, the capture nicety last: setPointerCapture
+        // can throw (a pointer already gone by the time we ask), and a throw
+        // above the barrel-roll line was eating the double-tap whole.
         const now = performance.now();
         if (now - rollTaps[dir] < 340) this.input.requestBarrel(dir);
         rollTaps[dir] = now;
         this.input.rollBtn(dir, true);
+        try { el.setPointerCapture?.(e.pointerId); } catch { /* fine without */ }
       });
       for (const ev of ['pointerup', 'pointercancel', 'pointerleave']) {
         el.addEventListener(ev, (e) => { e.preventDefault(); this.input.rollBtn(dir, false); });
