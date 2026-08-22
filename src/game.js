@@ -1860,7 +1860,7 @@ export class Game {
           // Shielded-with-parts blocks with a sliver so it cannot shadow its
           // own mounts; shielded-with-ARMOR blocks with its whole hull,
           // because hitting the hull is the entire game of cracking it.
-          const R = e.kind === 'boss' && e.shielded && !e.armorMax ? 8 : RADIUS[e.kind] || 12;
+          const R = e.kind === 'boss' && e.shielded && !e.armorMax ? 8 : e.rad || RADIUS[e.kind] || 12;
           if (Math.abs(e.world[2] - s.z) > R + 120) continue;
           if (!segSphere(s.px, s.py, s.pz, s.x, s.y, s.z,
             e.world[0], e.world[1], e.world[2], R)) continue;
@@ -1958,7 +1958,7 @@ export class Game {
       const tg = m.target;
       let boom = false;
       if (tg && tg.alive && tg.world) {
-        const R = tg.kind === 'boss' && tg.shielded && !tg.armorMax ? 8 : RADIUS[tg.kind] || 14;
+        const R = tg.kind === 'boss' && tg.shielded && !tg.armorMax ? 8 : tg.rad || RADIUS[tg.kind] || 14;
         if (segSphere(m.px, m.py, m.pz, m.x, m.y, m.z,
           tg.world[0], tg.world[1], tg.world[2], R + 6)) {
           boom = true;
@@ -2241,7 +2241,7 @@ export class Game {
           if (!e.alive || !e.onScreen || !e.lockable) continue;
           if (!this.locks.includes(e) && e.los < 0.55) continue;
           const locked = this.locks.includes(e);
-          const box = clamp(rd.focal * (RADIUS[e.kind] || 12) * 2.1
+          const box = clamp(rd.focal * (e.rad || RADIUS[e.kind] || 12) * 2.1
             / Math.max(60, e.dist || 400), 9 * rd.scale, 90 * rd.scale);
           drawTargetBox(rd, e.sx, e.sy, rd.scale, box,
             locked ? 0 : clamp(e.paint || 0, 0, 1), locked);

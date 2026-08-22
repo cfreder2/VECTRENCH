@@ -108,13 +108,22 @@ lightspeed, weapon in hand.
 
 ### HYDRA — Riverworks · yields WAVE · melted by GHOST
 A river monitor in segments, and the one fight that stays **in the trench**:
-the arena is its river, widened, and the thing weaves bend to bend trying to
-put its body between you and the gap. It raises WAVE walls — rising sheets
-of light with one hole — timed to arrive as the bends do. **The shape:** its
-spine. Segments glow weak one at a time, back to front; each one broken
-shortens it, and a shorter HYDRA corners harder. GHOST reaches through hull
-and water alike, which is why it melts; guns must wait for the glowing
-segment to surface.
+the arena is its river, widened, and the serpent swims the whole water
+column — weaving side to side AND diving and cresting, a true 3D slither
+the body follows link by link. It raises WAVE walls — rising sheets of
+light with one hole — spits **bubbles** — slow, patient, teal heat-seeking
+orbs you can shoot or lock before they find you — and throws the **wave**:
+a wall of water with a sine-shaped band of safe air through it. RIDE THE
+WAVE means exactly that: fly inside the moving crest or be under it.
+Periodically it COILS — the body loops a full circle in the channel, jaws
+gaping — and completes the loop facing you: THE RIVER RISES, and four
+quarter-screen squares of river come on like a dam burst, randomly placed;
+the gaps between them are the safety, find one. **The shape:** its spine.
+Segments glow weak one at a time, back to front; each one broken shortens
+it — and everything above gets faster and madder with every lost link.
+Only the glowing segment takes locks; painting armor was never a plan.
+GHOST reaches through hull and water alike, which is why it melts; guns
+must wait for the glowing segment to surface.
 
 ### FURNACE — Reactor · yields MAGMA · melted by WAVE
 The core on rails, dragging its heat with it over open foundry ground. It

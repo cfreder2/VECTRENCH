@@ -441,42 +441,203 @@ export const WARDENS = {
   hydra: {
     init(b) {
       b.openMsg = 'THE HEAD IS BARE';
-      for (let i = 0; i < 5; i++) mkPart(b, 'SEGMENT', 7, { guarded: true });
+      for (let i = 0; i < 5; i++) mkPart(b, 'SEGMENT', 7, { guarded: true, rad: 13 });
       b.parts[b.parts.length - 1].guarded = false;   // the tail glows first
       b.weakIdx = b.parts.length - 1;
       b.guardMsg = 'HIT THE ONE THAT GLOWS';
+      b.missilesLive = [];   // the bubbles live here: shootable, lockable
+      b.floods = [];         // the ultimate: walls of water
+      b.sines = [];          // the wave you ride inside
+      b.state = 'swim';
+      b.loopA = 0;
     },
     update(b, dt, game) {
       const tr = game.track;
       const st = stageOf(b);
+      // Madder per segment down: everything below multiplies by this.
+      const rage = 1 + (b.parts.length - partsAlive(b)) * 0.22;
       b.shielded = partsAlive(b) > 0;
       b.lockable = !b.shielded;
-      // The head rides low in its river, weaving hard; the spine trails it.
-      ride(b, dt, game, 400, 0.85, 26 - tr.rim(b.t) * 0);
-      b.y = tr.rim(b.t) * 0.5 + 18 + Math.sin(b.bob) * 6;
+
+      // --- the serpent: it swims the whole water column, not a lane -------
+      const LOOP_LAG = 0.55;
+      ride(b, dt, game, 400, 0.85, 26);
+      const rim = tr.rim(b.t);
+      const hw = tr.halfWidth(b.t);
+      const cy = rim * 0.55 + 16;
+      const vAmp = rim * 0.3 + 8;
+      const loopR = Math.min(hw * 0.5, rim * 0.45 + 16);
+      // Head and body share one shape function: swim is a 3D slither, and
+      // inside the loop window each link follows the same circle the head
+      // carved, lag by lag -- which is what makes the coil a coil.
+      const shape = (phase, tt) => {
+        const r2 = tr.rim(tt);
+        const a = b.state === 'loop' ? b.loopA - phase : -1;
+        if (a >= 0 && a <= TAU) {
+          return {
+            x: Math.sin(a) * loopR,
+            y: Math.max(12, r2 * 0.6 + 12 - Math.cos(a) * loopR * 0.66 + loopR * 0.2),
+          };
+        }
+        return {
+          x: Math.sin(b.sway - phase) * (tr.halfWidth(tt) * 0.8 - 18),
+          y: Math.max(12, r2 * 0.55 + 16 + Math.sin(b.bob * 1.35 * rage - phase * 1.45) * (r2 * 0.3 + 8) * 0.9),
+        };
+      };
+      if (b.state === 'swim') {
+        const h = shape(0, b.t);
+        b.y = h.y;
+        b.timers.loop = (b.timers.loop ?? 8) - dt * rage;
+        if (b.timers.loop <= 0) {
+          b.timers.loop = 14 - st * 3;
+          b.state = 'loop';
+          b.loopA = 0;
+          game.say('IT COILS', 1.0);
+        }
+      } else {
+        const wasBelow = b.loopA < TAU;
+        b.loopA += dt * (TAU / 2.2) * (1 + st * 0.25);
+        const h = shape(0, b.t);
+        b.x = h.x;
+        b.y = h.y;
+        // The head completes its circle FACING you -- and the river rises:
+        // four quarter-screen walls of water, thrown from the face.
+        if (wasBelow && b.loopA >= TAU) {
+          const seed = (game.time * 7) | 0;
+          const fw = tr.halfWidth(game.t + 620);
+          const fr = tr.rim(game.t + 620);
+          for (let k = 0; k < 4; k++) {
+            b.floods.push({
+              t: game.t + 620 + hash2(seed, k * 5) * 90,
+              x: (hash2(seed, k * 3 + 1) * 2 - 1) * fw * 0.55,
+              y: 16 + hash2(seed, k * 3 + 2) * fr * 0.85,
+              ex: fw * 0.5, ey: (fr * 0.9 + 30) * 0.25,
+              hit: false,
+            });
+          }
+          game.say('THE RIVER RISES', 1.2);
+          game.audio.beam();
+        }
+        if (b.loopA >= TAU + (b.parts.length + 1) * LOOP_LAG) b.state = 'swim';
+      }
       tr.localToWorld(b.t, b.x, b.y, b.world);
-      // Advance the glow to the rearmost living segment.
+
+      // Advance the glow to the rearmost living segment; only the glowing
+      // one takes locks -- painting armor was never a plan.
       const living = b.parts.filter((p) => p.alive);
       for (const p of b.parts) p.guarded = true;
       if (living.length) living[living.length - 1].guarded = false;
-      let px = b.x, py = b.y, pt = b.t;
       b.parts.forEach((part, i) => {
         if (!part.alive) return;
-        const lag = (i + 1) * 34;
-        part.t = b.t - lag;
-        part.x = Math.sin(b.sway - (i + 1) * 0.55) * (tr.halfWidth(part.t) * 0.8 - 18);
-        part.y = tr.rim(part.t) * 0.5 + 16 + Math.sin(b.bob - i * 0.8) * 5;
+        part.t = b.t - (i + 1) * 34;
+        const pos = shape((i + 1) * LOOP_LAG, part.t);
+        part.x = pos.x;
+        part.y = pos.y;
         tr.localToWorld(part.t, part.x, part.y, part.world);
         part.los = 1;
-        px = part.x; py = part.y; pt = part.t;
+        part.lockable = !part.guarded;
       });
+
+      // --- the bubbles: slow, patient, and they know where you live -------
+      b.timers.bubble = (b.timers.bubble ?? 4) - dt * rage;
+      if (b.timers.bubble <= 0) {
+        b.timers.bubble = 5.4 - st * 0.9;
+        const seed = (game.time * 11) | 0;
+        for (let k = 0; k < 2 + st; k++) {
+          const spread = (hash2(seed, k * 7) - 0.5) * 60;
+          b.missilesLive.push({
+            kind: 'bossmissile', alive: true, hp: 1, maxHp: 1,
+            lockable: true, points: 60, label: 'BUBBLE', rad: 9, bubble: true,
+            world: [b.world[0], b.world[1], b.world[2]],
+            vel: [spread, 20 + hash2(seed, k * 3) * 30, -60],
+            t: b.t, x: b.x, y: b.y,
+            flash: 0, paint: 0, los: 1, ttl: 13,
+          });
+        }
+        game.say('IT SPITS', 0.8);
+        game.audio.smallBoom();
+      }
+      const speed = 115 + st * 25;
+      b.missilesLive = b.missilesLive.filter((m) => {
+        if (!m.alive) return false;
+        m.ttl -= dt;
+        if (m.ttl <= 0) return false;
+        // A heat-seeker with no hurry: it drifts toward wherever you are.
+        const dx = game.shipPos[0] - m.world[0];
+        const dy = game.shipPos[1] - m.world[1];
+        const dz = game.shipPos[2] - m.world[2];
+        const L = Math.hypot(dx, dy, dz) || 1;
+        const k2 = Math.min(1, 0.7 * dt);
+        m.vel[0] += (dx / L * speed - m.vel[0]) * k2;
+        m.vel[1] += (dy / L * speed - m.vel[1]) * k2;
+        m.vel[2] += (dz / L * speed - m.vel[2]) * k2;
+        m.world[0] += m.vel[0] * dt;
+        m.world[1] += m.vel[1] * dt;
+        m.world[2] += m.vel[2] * dt;
+        m.flash = Math.max(0, m.flash - dt * 6);
+        // The paint pass culls by t, so a bubble's t must track where it
+        // actually is: about its straight-line distance ahead of the ship.
+        m.t = game.t + L;
+        if (L < 12) {
+          game.damage(10);
+          game.boomAt(m.world, 20, 120, 0.4, 0.95, 0.75, 0.7);
+          return false;
+        }
+        return true;
+      });
+
+      // --- the walls of water, arriving ----------------------------------
+      b.floods = b.floods.filter((f) => {
+        f.t -= 150 * dt * rage;
+        if (f.t < game.t - 90) return false;
+        if (!f.hit && Math.abs(game.t - f.t) < 14
+            && Math.abs(game.shipX - f.x) < f.ex
+            && Math.abs(game.shipY - f.y) < f.ey) {
+          f.hit = true;
+          game.damage(24);
+          game.audio.hit();
+          game.say('SWEPT UNDER', 1.0);
+        }
+        return true;
+      });
+
+      // --- the wave you fly inside of -------------------------------------
+      b.timers.sine = (b.timers.sine ?? 7) - dt * rage;
+      if (b.timers.sine <= 0) {
+        b.timers.sine = 12 - st * 2.2;
+        const seed = (game.time * 17) | 0;
+        b.sines.push({
+          t: game.t + 780,
+          phase: hash2(seed, 3) * TAU,
+          amp: tr.rim(game.t + 780) * 0.28 + 6,
+          mid: tr.rim(game.t + 780) * 0.5 + 18,
+          k: TAU / (tr.halfWidth(game.t + 780) * 1.15),
+          hit: false,
+        });
+        game.say('RIDE THE WAVE', 1.1);
+      }
+      b.sines = b.sines.filter((sn) => {
+        sn.t -= 150 * dt * rage;
+        if (sn.t < game.t - 80) return false;
+        if (!sn.hit && Math.abs(game.t - sn.t) < 12) {
+          sn.hit = true;
+          const safeY = sn.mid + sn.amp * Math.sin(game.shipX * sn.k + sn.phase);
+          if (Math.abs(game.shipY - safeY) > 16) {
+            game.damage(20);
+            game.audio.hit();
+            game.say('UNDER THE CREST', 1.0);
+          }
+        }
+        return true;
+      });
+
       wallsUpdate(b, dt, game);
-      b.timers.wave = (b.timers.wave ?? 4) - dt;
+      b.timers.wave = (b.timers.wave ?? 5) - dt;
       if (b.timers.wave <= 0) {
-        b.timers.wave = 6.5 - st * 1.2;
-        const hw = tr.halfWidth(game.t + 500);
+        b.timers.wave = 8 - st * 1.2;
+        const hw2 = tr.halfWidth(game.t + 500);
         wallSpawn(b, game, {
-          gx: (hash2((game.time * 13) | 0, 2) * 2 - 1) * (hw - 30),
+          gx: (hash2((game.time * 13) | 0, 2) * 2 - 1) * (hw2 - 30),
           gy: 20 + hash2((game.time * 13) | 0, 5) * (tr.rim(game.t) - 30),
           gr: 26 - st * 3,
           color: [0.35, 0.85, 1],
@@ -487,15 +648,17 @@ export const WARDENS = {
     },
     draw(rd, b, tr, time) {
       const col = b.flash > 0 ? [1, 1, 1] : [0.3, 0.85, 1];
-      // The head: a jawed wedge.
+      // The head: a jawed wedge. The jaws gape through the coil -- the loop
+      // IS the wind-up, and the face is the weapon.
+      const gape = b.state === 'loop' ? 1 + Math.min(1, b.loopA / 3) * 0.7 : 1;
       const p = [0, 0, 0];
       const q = [0, 0, 0];
       for (const [dx0, dy0, dx1, dy1] of [
         [-16, 0, 0, 12], [0, 12, 16, 0], [16, 0, 0, -10], [0, -10, -16, 0],
         [16, 0, 26, 5], [16, 0, 26, -5],
       ]) {
-        tr.localToWorld(b.t, b.x + dx0, b.y + dy0, p);
-        tr.localToWorld(b.t, b.x + dx1, b.y + dy1, q);
+        tr.localToWorld(b.t, b.x + dx0, b.y + dy0 * gape, p);
+        tr.localToWorld(b.t, b.x + dx1, b.y + dy1 * gape, q);
         rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], 2.4, col[0], col[1], col[2], 1);
       }
       let prev = { t: b.t, x: b.x, y: b.y };
@@ -503,13 +666,75 @@ export const WARDENS = {
         if (!part.alive) continue;
         const glow = !part.guarded;
         const pc = part.flash > 0 ? [1, 1, 1] : glow ? [1, 0.8, 0.3] : [0.25, 0.6, 0.8];
-        octagon(rd, tr, part.t, part.x, part.y, glow ? 12 : 10, pc, glow ? 2.6 : 1.6,
+        octagon(rd, tr, part.t, part.x, part.y, glow ? 13 : 11, pc, glow ? 2.6 : 1.6,
           glow ? 0.8 + 0.2 * Math.sin(time * 10) : 0.85);
         tr.localToWorld(prev.t, prev.x, prev.y, p);
         tr.localToWorld(part.t, part.x, part.y, q);
         rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], 1.4, 0.3, 0.7, 0.9, 0.7);
         prev = part;
       }
+
+      // --- the bubbles: two circles and a shine, wobbling as they come ----
+      for (const m of b.missilesLive) {
+        const r = 6.5 + Math.sin(time * 6 + m.world[2] * 0.02) * 1.4;
+        const mc = m.flash > 0 ? [1, 1, 1] : [0.35, 0.95, 0.75];
+        for (let k = 0; k < 8; k++) {
+          const a0 = (k / 8) * TAU, a1 = ((k + 1) / 8) * TAU;
+          rd.line3(m.world[0] + Math.cos(a0) * r, m.world[1] + Math.sin(a0) * r, m.world[2],
+            m.world[0] + Math.cos(a1) * r, m.world[1] + Math.sin(a1) * r, m.world[2],
+            1.6, mc[0], mc[1], mc[2], 0.9);
+        }
+        rd.dot3(m.world[0] - r * 0.35, m.world[1] + r * 0.35, m.world[2], 1.8, 1, 1, 1, 0.7);
+      }
+
+      // --- the walls of water: squares of river, ripples and foam ---------
+      for (const f of b.floods) {
+        const x0 = f.x - f.ex, x1 = f.x + f.ex;
+        const y0 = Math.max(2, f.y - f.ey), y1 = f.y + f.ey;
+        const seg2 = (xa, ya, xb, yb, w, a) => {
+          tr.localToWorld(f.t, xa, ya, p);
+          tr.localToWorld(f.t, xb, yb, q);
+          rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], w, 0.4, 0.85, 1, a);
+        };
+        seg2(x0, y0, x1, y0, 2.4, 0.95);
+        seg2(x1, y0, x1, y1, 2.4, 0.95);
+        seg2(x1, y1, x0, y1, 2.6, 1);
+        seg2(x0, y1, x0, y0, 2.4, 0.95);
+        for (let k = 1; k < 4; k++) {
+          const yy = y0 + (y1 - y0) * (k / 4) + Math.sin(time * 5 + k * 2 + f.x) * 2;
+          seg2(x0 + 4, yy, x1 - 4, yy, 1.3, 0.5);
+        }
+        for (let k = 0; k < 5; k++) {
+          const fx = x0 + (x1 - x0) * ((k + 0.5) / 5);
+          tr.localToWorld(f.t, fx, y1 + 3 + Math.sin(time * 7 + k * 3) * 2, p);
+          rd.dot3(p[0], p[1], p[2], 2, 0.8, 1, 1, 0.8);
+        }
+      }
+
+      // --- the sine wave: a band of safe water through a wall of it -------
+      for (const sn of b.sines) {
+        const hw3 = tr.halfWidth(sn.t);
+        const rim3 = tr.rim(sn.t);
+        const yAt = (x) => sn.mid + sn.amp * Math.sin(x * sn.k + sn.phase);
+        for (let x = -hw3 + 8; x < hw3 - 8; x += 14) {
+          const xa = x, xb = Math.min(hw3 - 8, x + 14);
+          for (const off of [-16, 16]) {
+            tr.localToWorld(sn.t, xa, Math.max(3, yAt(xa) + off), p);
+            tr.localToWorld(sn.t, xb, Math.max(3, yAt(xb) + off), q);
+            rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], 2.2, 0.4, 0.9, 1, 0.95);
+          }
+        }
+        for (let x = -hw3 + 16; x < hw3 - 8; x += 36) {
+          const yc = yAt(x);
+          tr.localToWorld(sn.t, x, Math.min(rim3 + 50, yc + 16), p);
+          tr.localToWorld(sn.t, x, rim3 + 50, q);
+          rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], 1.4, 0.35, 0.75, 0.95, 0.55);
+          tr.localToWorld(sn.t, x, Math.max(2, yc - 16), p);
+          tr.localToWorld(sn.t, x, 2, q);
+          rd.line3(p[0], p[1], p[2], q[0], q[1], q[2], 1.4, 0.35, 0.75, 0.95, 0.55);
+        }
+      }
+
       wallsDraw(rd, tr, b, time);
       coreGlow(rd, tr, b, time, col);
     },
