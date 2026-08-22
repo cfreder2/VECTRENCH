@@ -28,16 +28,20 @@ export const WEAPONS = {
  * The grid, row-major. `level` names an entry in PREBUILT, or null for a
  * district that is designed but not yet built. The center is the Citadel.
  */
+// Every district owns a band of the hue wheel, and nobody shares:
+// REACTOR red 0.0-0.06, GAUNTLET gold 0.13-0.16, OVERGROWTH green 0.30-0.36,
+// RIVERWORKS cyan 0.48-0.53, GLACIER ice 0.56-0.60, BULKHEAD steel 0.63-0.66,
+// NEON violet 0.74-0.86, VOID magenta 0.90-0.94. The Citadel takes them all.
 export const DISTRICTS = [
-  { id: 'riverworks', name: 'RIVERWORKS',   level: 'THE ESSES',     weapon: 'ghost',  css: '#4fd8ff' },
-  { id: 'foundry',    name: 'FOUNDRY',      level: 'REACTOR',       weapon: 'wave',   css: '#ff7a3c' },
-  { id: 'overgrowth', name: 'OVERGROWTH',   level: null,            weapon: 'magma',  css: '#7dff6a' },
-  { id: 'neon',       name: 'NEON DISTRICT', level: 'NEON DISTRICT', weapon: 'saw',   css: '#b06fff' },
-  { id: 'citadel',    name: 'THE CITADEL',  level: null,            weapon: null,     css: '#ffffff', center: true },
-  { id: 'freight',    name: 'FREIGHT LOCKS', level: 'BULKHEAD RUN', weapon: 'arc',    css: '#a8b8c8' },
-  { id: 'glacier',    name: 'GLACIER',      level: null,            weapon: 'breach', css: '#bfe8ff' },
-  { id: 'gauntlet',   name: 'THE GAUNTLET', level: 'GAUNTLET',      weapon: 'freeze', css: '#ffd24f' },
-  { id: 'thenull',    name: 'THE NULL',     level: null,            weapon: 'rail',   css: '#ff6fd8' },
+  { id: 'riverworks', name: 'RIVERWORKS', level: 'THE ESSES',     weapon: 'ghost',  css: '#4fd8ff' },
+  { id: 'reactor',    name: 'REACTOR',    level: 'REACTOR',       weapon: 'wave',   css: '#ff5a3c' },
+  { id: 'overgrowth', name: 'OVERGROWTH', level: null,            weapon: 'magma',  css: '#7dff6a' },
+  { id: 'neon',       name: 'NEON',       level: 'NEON DISTRICT', weapon: 'saw',    css: '#b06fff' },
+  { id: 'citadel',    name: 'CITADEL',    level: null,            weapon: null,     css: '#ffffff', center: true },
+  { id: 'bulkhead',   name: 'BULKHEAD',   level: 'BULKHEAD RUN',  weapon: 'arc',    css: '#6f9fe6' },
+  { id: 'glacier',    name: 'GLACIER',    level: null,            weapon: 'breach', css: '#cfeeff' },
+  { id: 'gauntlet',   name: 'GAUNTLET',   level: 'GAUNTLET',      weapon: 'freeze', css: '#ffd24f' },
+  { id: 'void',       name: 'VOID',       level: null,            weapon: 'rail',   css: '#ff4fd8' },
 ];
 // A cell's `weapon` is what its warden is WEAK to, per the wheel; the weapon
 // you TAKE from a district is the one its own warden fights with, which is

@@ -24,7 +24,7 @@
       "wallguns": 0,
       "drones": 0.2,
       "seals": 0,
-      "hue": 0.13,
+      "hue": 0.66,
       "gatlings": 0.26,
       "batteries": 0.2,
       "panels": 2
@@ -46,7 +46,7 @@
       "wallguns": 0.12,
       "drones": 0.25,
       "seals": 0,
-      "hue": 0.13,
+      "hue": 0.655,
       "gatlings": 0.26,
       "batteries": 0.2,
       "panels": 2
@@ -69,7 +69,7 @@
       "wallguns": 0.3,
       "drones": 0.3,
       "seals": 1,
-      "hue": 0.12,
+      "hue": 0.65,
       "gatlings": 0.48,
       "batteries": 0.35,
       "panels": 3
@@ -92,7 +92,7 @@
       "wallguns": 0.4,
       "drones": 0.28,
       "seals": 1,
-      "hue": 0.11,
+      "hue": 0.645,
       "gatlings": 0.68,
       "batteries": 0.56,
       "panels": 2
@@ -115,7 +115,7 @@
       "wallguns": 0.35,
       "drones": 0.24,
       "seals": 1,
-      "hue": 0.1,
+      "hue": 0.64,
       "gatlings": 0.94,
       "batteries": 0.88,
       "panels": 2
@@ -138,7 +138,7 @@
       "wallguns": 0.45,
       "drones": 0.2,
       "seals": 0,
-      "hue": 0.09,
+      "hue": 0.635,
       "gatlings": 0.77,
       "batteries": 0.64,
       "panels": 2
@@ -160,7 +160,7 @@
       "wallguns": 0.4,
       "drones": 0.18,
       "seals": 0,
-      "hue": 0.08,
+      "hue": 0.63,
       "gatlings": 0.59,
       "batteries": 0.48,
       "panels": 2

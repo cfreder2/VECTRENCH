@@ -494,7 +494,7 @@ export const PREBUILT = [
           "panels": 2,
           "slotgap": 4,
           "ringrate": 0.2,
-          "hue": 0.13
+          "hue": 0.66
         },
         {
           "name": "first narrowing",
@@ -519,7 +519,7 @@ export const PREBUILT = [
           "panels": 2,
           "slotgap": 4,
           "ringrate": 0.2,
-          "hue": 0.13
+          "hue": 0.655
         },
         {
           "name": "the narrows",
@@ -545,7 +545,7 @@ export const PREBUILT = [
           "panels": 3,
           "slotgap": 4,
           "ringrate": 0.2,
-          "hue": 0.12
+          "hue": 0.65
         },
         {
           "name": "deep water",
@@ -571,7 +571,7 @@ export const PREBUILT = [
           "panels": 2,
           "slotgap": 4,
           "ringrate": 0.2,
-          "hue": 0.11
+          "hue": 0.645
         },
         {
           "name": "sealed deep",
@@ -597,7 +597,7 @@ export const PREBUILT = [
           "panels": 2,
           "slotgap": 4,
           "ringrate": 0.2,
-          "hue": 0.1
+          "hue": 0.64
         },
         {
           "name": "the choke",
@@ -623,7 +623,7 @@ export const PREBUILT = [
           "panels": 2,
           "slotgap": 4,
           "ringrate": 0.2,
-          "hue": 0.09
+          "hue": 0.635
         },
         {
           "name": "last light",
@@ -648,7 +648,7 @@ export const PREBUILT = [
           "panels": 2,
           "slotgap": 4,
           "ringrate": 0.2,
-          "hue": 0.08
+          "hue": 0.63
         }
       ]
     },
@@ -911,7 +911,7 @@ export const PREBUILT = [
           "panels": 2,
           "slotgap": 4,
           "ringrate": 0.2,
-          "hue": 0.01
+          "hue": 0.15
         },
         {
           "name": "first seal",
@@ -936,7 +936,7 @@ export const PREBUILT = [
           "panels": 3,
           "slotgap": 4,
           "ringrate": 0.2,
-          "hue": 0.01
+          "hue": 0.15
         },
         {
           "name": "slab run",
@@ -960,7 +960,7 @@ export const PREBUILT = [
           "panels": 2,
           "slotgap": 4,
           "ringrate": 0.2,
-          "hue": 0.01
+          "hue": 0.14
         },
         {
           "name": "the squeeze",
@@ -985,7 +985,7 @@ export const PREBUILT = [
           "panels": 3,
           "slotgap": 4,
           "ringrate": 0.2,
-          "hue": 0.02
+          "hue": 0.14
         },
         {
           "name": "last seal",
@@ -1010,7 +1010,7 @@ export const PREBUILT = [
           "panels": 2,
           "slotgap": 4,
           "ringrate": 0.2,
-          "hue": 0.01
+          "hue": 0.13
         },
         {
           "name": "run to the core",
@@ -1035,7 +1035,7 @@ export const PREBUILT = [
           "panels": 2,
           "slotgap": 4,
           "ringrate": 0.2,
-          "hue": 0
+          "hue": 0.13
         }
       ]
     },
@@ -1078,7 +1078,7 @@ export const PREBUILT = [
           "panels": 2,
           "slotgap": 4,
           "ringrate": 0.2,
-          "hue": 0.55
+          "hue": 0.53
         },
         {
           "name": "first bend",
@@ -1127,7 +1127,7 @@ export const PREBUILT = [
           "panels": 2,
           "slotgap": 4,
           "ringrate": 0.2,
-          "hue": 0.48
+          "hue": 0.51
         },
         {
           "name": "the wide slits",
@@ -1152,7 +1152,7 @@ export const PREBUILT = [
           "panels": 2,
           "slotgap": 14,
           "ringrate": 0.2,
-          "hue": 0.44
+          "hue": 0.5
         },
         {
           "name": "second bend",
@@ -1177,7 +1177,7 @@ export const PREBUILT = [
           "panels": 2,
           "slotgap": 4,
           "ringrate": 0.2,
-          "hue": 0.38
+          "hue": 0.49
         },
         {
           "name": "line up again",
@@ -1201,7 +1201,7 @@ export const PREBUILT = [
           "panels": 2,
           "slotgap": 4,
           "ringrate": 0.2,
-          "hue": 0.32
+          "hue": 0.48
         },
         {
           "name": "narrower",
@@ -1226,7 +1226,7 @@ export const PREBUILT = [
           "panels": 2,
           "slotgap": 11,
           "ringrate": 0.2,
-          "hue": 0.26
+          "hue": 0.49
         },
         {
           "name": "the hard bend",
@@ -1251,7 +1251,7 @@ export const PREBUILT = [
           "panels": 2,
           "slotgap": 4,
           "ringrate": 0.2,
-          "hue": 0.2
+          "hue": 0.5
         },
         {
           "name": "last runway",
@@ -1275,7 +1275,7 @@ export const PREBUILT = [
           "panels": 2,
           "slotgap": 4,
           "ringrate": 0.2,
-          "hue": 0.14
+          "hue": 0.51
         },
         {
           "name": "on edge",
@@ -1300,7 +1300,7 @@ export const PREBUILT = [
           "panels": 2,
           "slotgap": 8,
           "ringrate": 0.2,
-          "hue": 0.08
+          "hue": 0.52
         },
         {
           "name": "run to the port",
@@ -1324,7 +1324,7 @@ export const PREBUILT = [
           "panels": 2,
           "slotgap": 4,
           "ringrate": 0.2,
-          "hue": 0.02
+          "hue": 0.53
         }
       ]
     },

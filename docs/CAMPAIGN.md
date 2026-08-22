@@ -26,15 +26,15 @@ districts not yet built sit dark on the map, which is honest.
 
 | # | District | Level | Hue | The district's job | Weapon earned |
 | --- | --- | --- | --- | --- | --- |
-| 1 | **RIVERWORKS** | THE ESSES *(exists)* | cyan 0.5 → blue | coolant rivers — snaking bends, slots | **WAVE** |
-| 2 | **FOUNDRY** | REACTOR *(exists)* | gold 0.14 → red 0.0 | the furnace — everything at once, on fire | **MAGMA** |
-| 3 | **OVERGROWTH** | *new* | green 0.33 | a reclaimed district — vines as rings, pinwheels as windmills | **SAW** |
-| 4 | **NEON DISTRICT** | NEON DISTRICT *(exists)* | violet 0.74 → 0.86 | the power grid at night | **ARC** *(built)* |
-| 5 | **FREIGHT LOCKS** | BULKHEAD RUN *(exists)* | steel 0.6, desaturated | doors, presses, crushers | **BREACH** |
-| 6 | **GLACIER** | *new* | ice 0.55 + white | a frozen intake — knife-edge slot country | **FREEZE** |
-| 7 | **THE GAUNTLET** | GAUNTLET *(exists)* | gold 0.14 on black | the armory corridor — wall guns the whole way | **RAIL** |
-| 8 | **THE NULL** | *new* | magenta 0.9, sparse | a dead district above the rim — inverts the surface-is-lethal rule | **GHOST** |
-| 9 | **THE CITADEL** | *new, final* | every hue, shifting per section | the dive to the core — one hazard quoted from each district, then the boss | — |
+| 1 | **RIVERWORKS** | THE ESSES *(exists)* | cyan 0.48–0.53 | coolant rivers — snaking bends, slots | **WAVE** |
+| 2 | **REACTOR** | REACTOR *(exists)* | red 0.0–0.06 | the furnace — everything at once, on fire | **MAGMA** |
+| 3 | **OVERGROWTH** | *new* | green 0.30–0.36 | a reclaimed district — vines as rings, pinwheels as windmills | **SAW** |
+| 4 | **NEON** | NEON DISTRICT *(exists)* | violet 0.74–0.86 | the power grid at night | **ARC** *(built)* |
+| 5 | **BULKHEAD** | BULKHEAD RUN *(exists)* | steel 0.63–0.66 | doors, presses, crushers | **BREACH** |
+| 6 | **GLACIER** | *new* | ice 0.56–0.60 | a frozen intake — knife-edge slot country | **FREEZE** |
+| 7 | **THE GAUNTLET** | GAUNTLET *(exists)* | gold 0.13–0.16 on black | the armory corridor — wall guns the whole way | **RAIL** |
+| 8 | **VOID** | *new* | magenta 0.90–0.94, sparse | a dead district above the rim — inverts the surface-is-lethal rule | **GHOST** |
+| 9 | **CITADEL** | *new, final* | every hue, shifting per section | the dive to the core — one hazard quoted from each district, then the boss | — |
 
 SHAKEDOWN and PROVING GROUND stay outside the campaign as training.
 
@@ -74,14 +74,14 @@ warden it melts.*
 
 | Weapon | From | The shot | Melts |
 | --- | --- | --- | --- |
-| **WAVE** | Riverworks | a rising wall of light — your version of the ring's beam; clears anything wide | FURNACE (douses the Foundry warden) |
-| **MAGMA** | Foundry | short-range burning flak, damage over time; armor-killer | MANTIS (burns the Overgrowth warden) |
+| **WAVE** | Riverworks | a rising wall of light — your version of the ring's beam; clears anything wide | FURNACE (douses the Reactor warden) |
+| **MAGMA** | Reactor | short-range burning flak, damage over time; armor-killer | MANTIS (burns the Overgrowth warden) |
 | **SAW** | Overgrowth | a returning blade; shreds anything that spins | MARIONETTE (severs the Neon warden's cables) |
-| **ARC** | Neon District | chain lightning that jumps between painted locks — built on paint-to-lock | PORTCULLIS (conducts through the Freight warden's doors) |
-| **BREACH** | Freight Locks | a charge shot that blows seals early and staggers presses | AVALANCHE (shatters the Glacier warden's ice) |
+| **ARC** | Neon | chain lightning that jumps between painted locks — built on paint-to-lock | PORTCULLIS (conducts through the Bulkhead warden's doors) |
+| **BREACH** | Bulkhead | a charge shot that blows seals early and staggers presses | AVALANCHE (shatters the Glacier warden's ice) |
 | **FREEZE** | Glacier | stops mechanisms — pinwheels stop, presses halt mid-cycle, sliders lock | BROADSIDE (freezes the Gauntlet warden's batteries) |
-| **RAIL** | The Gauntlet | a piercing lance through everything in a line | REVENANT (the only thing that catches The Null's phasing warden) |
-| **GHOST** | The Null | passes through walls and hits what hides behind them | HYDRA (reaches the Riverworks warden inside its river) |
+| **RAIL** | The Gauntlet | a piercing lance through everything in a line | REVENANT (the only thing that catches VOID's phasing warden) |
+| **GHOST** | Void | passes through walls and hits what hides behind them | HYDRA (reaches the Riverworks warden inside its river) |
 
 ## The wardens
 
@@ -98,13 +98,13 @@ First-pass identities, to be designed properly one at a time:
 | Warden | District | The fight |
 | --- | --- | --- |
 | **HYDRA** | Riverworks | a segmented river monitor that weaves the bends and crushes you against them; the weak segment cycles |
-| **FURNACE** | Foundry | the core on rails — vents plasma walls, rams |
+| **FURNACE** | Reactor | the core on rails — vents plasma walls, rams |
 | **MANTIS** | Overgrowth | scythe blades, spawns seed drones that must be shot |
-| **MARIONETTE** | Neon District | hangs from light-cables strung across the trench and swings |
-| **PORTCULLIS** | Freight Locks | a flying gate that screens itself with doors; crush attack |
+| **MARIONETTE** | Neon | hangs from light-cables strung across the trench and swings |
+| **PORTCULLIS** | Bulkhead | a flying gate that screens itself with doors; crush attack |
 | **AVALANCHE** | Glacier | a ram ship shedding regrowing ice plates |
 | **BROADSIDE** | The Gauntlet | a gun-deck frigate flying parallel — the wall-of-fire fight |
-| **REVENANT** | The Null | phases through the surface and ambushes |
+| **REVENANT** | Void | phases through the surface and ambushes |
 
 **When a warden dies, an escape pod flies out and gets away.** That is not
 color — it is the setup. *(See the parking lot.)*
@@ -115,13 +115,13 @@ color — it is the setup. *(See the parking lot.)*
 | --- | --- |
 | Title / select screen | **anthem** — written, playing: it starts on the first screen after the opening tap and returns whenever a run ends |
 | Riverworks | **water** — written, assigned |
-| Foundry | **fire** — written, assigned |
+| Reactor | **fire** — written, assigned |
 | Overgrowth | to write — pastoral but driving, 6/8 |
-| Neon District | **neon** — written, assigned |
-| Freight Locks | to write — industrial ostinato, machine rhythms |
+| Neon | **neon** — written, assigned |
+| Bulkhead | to write — industrial ostinato, machine rhythms |
 | Glacier | to write — sparse, crystalline, high arpeggios |
 | The Gauntlet | to write — a relentless march |
-| The Null | to write — hollow, tritone-heavy, the empty one |
+| Void | to write — hollow, tritone-heavy, the empty one |
 | **Boss** | **boss** — written, wired: when the port falls on a warden level, the music turns on the spot |
 | **Final run** (Citadel) | to write — the biggest track in the game, quoting the anthem's theme |
 | Training | **bumblebee** — where the joke belongs |

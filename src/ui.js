@@ -570,10 +570,13 @@ export class UI {
             : `sealed -- ${this.campaign.clearedCount()} of ${DISTRICTS.filter((x) => x.level && !x.center).length} wardens down`);
         });
       } else if (lv) {
+        // A sub-label that only repeats the district's name says nothing:
+        // NEON over NEON DISTRICT is one name, not two.
+        const echo = lv.label.includes(d.name) || d.name.includes(lv.label);
         b.innerHTML = `<img class="thumb" alt="" hidden>
           <span class="veil"></span>
           <span class="dname">${d.name}</span>
-          <span class="dsub">${lv.label}</span>`;
+          ${echo ? '' : `<span class="dsub">${lv.label}</span>`}`;
         b.addEventListener('click', () => {
           for (const o of this.buttons) o.classList.toggle('on', o === b);
           this.setSpec(lv.spec, [d.name, lv.blurb].filter(Boolean));
