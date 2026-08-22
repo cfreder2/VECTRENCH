@@ -1,6 +1,7 @@
 {
   "name": "REACTOR",
   "blurb": "Everything at once, on fire, at speed. It still starts gently -- then staggered slabs, an iris chain, four bulkheads, and a core that will not open until you hold the lock.",
+  "music": "fire",
   "seed": 66613,
   "speed": {
     "start": 300,

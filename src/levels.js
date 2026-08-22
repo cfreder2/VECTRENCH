@@ -662,7 +662,7 @@ export const PREBUILT = [
       },
       "finale": "port",
       "armedPort": false,
-      "music": "bumblebee",
+      "music": "fire",
       "sections": [
         {
           "name": "the descent",
