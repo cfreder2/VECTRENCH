@@ -56,8 +56,11 @@ export class Campaign {
       const raw = JSON.parse(localStorage.getItem(KEY) || '{}');
       this.cleared = raw.cleared || {};
       this.weapons = (raw.weapons || []).filter((w) => WEAPONS[w]);
-      this.equipped = WEAPONS[raw.equipped] && this.weapons.includes(raw.equipped)
-        ? raw.equipped : this.weapons[0] || null;
+      // null is a real choice -- the machine gun, fitted on purpose -- and it
+      // survives a reload. Only an *invalid* save falls back to the first earn.
+      this.equipped = raw.equipped === null ? null
+        : WEAPONS[raw.equipped] && this.weapons.includes(raw.equipped)
+          ? raw.equipped : this.weapons[0] || null;
     } catch { /* first run, or storage denied: start clean */ }
   }
 
@@ -101,9 +104,9 @@ export class Campaign {
     return { first, weapon };
   }
 
-  /** Fit a weapon. Only earned ones; returns whether it took. */
+  /** Fit a weapon -- an earned one, or null for the plain machine gun. */
   equip(w) {
-    if (!this.weapons.includes(w)) return false;
+    if (w !== null && !this.weapons.includes(w)) return false;
     this.equipped = w;
     this.save();
     return true;

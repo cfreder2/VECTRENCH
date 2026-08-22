@@ -14,6 +14,7 @@ import { PREBUILT } from './levels.js';
 import { drawText } from './font.js';
 import { Campaign, DISTRICTS, WEAPONS } from './campaign.js';
 import { Renderer } from './renderer.js';
+import { drawShip } from './entities.js';
 import { Track, makeFrame } from './track.js';
 import { TerrainRenderer } from './terrain.js';
 
@@ -23,6 +24,44 @@ const $ = (id) => document.getElementById(id);
 function hexRgb(css) {
   const n = parseInt(css.slice(1), 16);
   return [(n >> 16 & 255) / 255, (n >> 8 & 255) / 255, (n & 255) / 255];
+}
+
+/**
+ * The interceptor on its stand: the actual game ship, drawn by the actual
+ * game's ship renderer, with the camera walking a slow circle around it.
+ */
+class ShipView {
+  constructor(canvas) {
+    this.canvas = canvas;
+    this.rd = new Renderer(canvas);
+    this.basis = { r: [1, 0, 0], u: [0, 1, 0], f: [0, 0, 1] };
+    this.sized = false;
+  }
+
+  tick() {
+    if (!this.canvas.isConnected) return;
+    const rect = this.canvas.getBoundingClientRect();
+    if (rect.width < 4 || rect.height < 4) return;
+    if (!this.sized || Math.abs(rect.width - this._w) > 2 || Math.abs(rect.height - this._h) > 2) {
+      this.rd.resize(rect.width, rect.height, 400_000);
+      this._w = rect.width; this._h = rect.height;
+      this.sized = true;
+    }
+    const t = performance.now() / 1000;
+    const a = t * 0.6;
+    const eye = [Math.sin(a) * 44, 12 + Math.sin(t * 0.9) * 3, Math.cos(a) * 44];
+    const f = [-eye[0], -eye[1] + 6, -eye[2]];
+    const fl = Math.hypot(f[0], f[1], f[2]) || 1;
+    f[0] /= fl; f[1] /= fl; f[2] /= fl;
+    const r = [f[2], 0, -f[0]];
+    const rl = Math.hypot(r[0], r[1], r[2]) || 1;
+    r[0] /= rl; r[2] /= rl;
+    const u = [f[1] * r[2] - f[2] * r[1], f[2] * r[0] - f[0] * r[2], f[0] * r[1] - f[1] * r[0]];
+    this.rd.beginFrame(1);
+    this.rd.setCamera(eye, r, u, f, 0.9, 400);
+    drawShip(this.rd, [0, 0, 0], this.basis, 0.35 + 0.15 * Math.sin(t * 3), t, 0);
+    this.rd.endFrame();
+  }
 }
 
 /**
@@ -441,28 +480,38 @@ export class UI {
   }
 
   /**
-   * The training levels, as first-class tiles under the districts: same
-   * squares, same previews, same FLY. The drawer keeps only custom levels.
+   * TRAIN: one small button that steps through the training levels --
+   * PROVING GROUND first, SHAKEDOWN after -- selecting each for FLY. The
+   * grid stays the campaign's; training does not need a square of its own.
    */
   buildTraining() {
-    const row = $('training');
     const inGrid = new Set(DISTRICTS.map((d) => d.level).filter(Boolean));
-    for (const lv of PREBUILT) {
-      if (inGrid.has(lv.spec.name)) continue;
-      const b = document.createElement('button');
-      b.className = 'cell';
-      b.innerHTML = `<span class="dname">${lv.label}</span>
-        <span class="dsub">training</span>`;
-      if (lv.blurb) b.title = lv.blurb;
-      b.addEventListener('click', () => {
-        for (const o of this.buttons) o.classList.toggle('on', o === b);
-        this.setSpec(lv.spec, [lv.label, lv.blurb].filter(Boolean));
-        this.showPreview(b);
-      });
-      this.buttons.push(b);
-      this.cells[`training-${lv.spec.name}`] = { el: b, district: { level: lv.spec.name } };
-      row.appendChild(b);
-    }
+    this.trainLevels = PREBUILT.filter((lv) => !inGrid.has(lv.spec.name));
+    this.trainIdx = -1;
+    $('train').addEventListener('click', () => {
+      if (!this.trainLevels.length) return;
+      this.trainIdx = (this.trainIdx + 1) % this.trainLevels.length;
+      const lv = this.trainLevels[this.trainIdx];
+      for (const o of this.buttons) o.classList.remove('on');
+      this.setSpec(lv.spec, [lv.label, lv.blurb].filter(Boolean));
+      this.status(`${lv.label} -- training. FLY when ready`);
+    });
+
+    // The loadout button: the machine gun, until a warden hands over better.
+    // With one or more specials earned it steps through them, gun included.
+    $('wbtn').addEventListener('click', () => {
+      const cycle = [null, ...this.campaign.weapons];
+      const at = cycle.indexOf(this.campaign.equipped);
+      this.campaign.equip(cycle[(at + 1) % cycle.length]);
+      this.refreshCampaign();
+    });
+
+    // Everything that is not selecting-and-flying lives behind SETUP.
+    $('setup').addEventListener('click', () => {
+      const x = $('extras');
+      x.hidden = !x.hidden;
+      $('setup').textContent = x.hidden ? 'SETUP' : 'CLOSE';
+    });
   }
 
   /** The chosen square starts flying its level. One preview, moved around. */
@@ -489,26 +538,14 @@ export class UI {
       const total = DISTRICTS.filter((d) => d.level && !d.center).length;
       sub.textContent = c.wardensDown() ? 'UNSEALED' : `SEALED ${c.clearedCount()}/${total}`;
     }
-    const rack = $('rack');
-    rack.textContent = '';
-    for (const key of c.weapons) {
-      const w = WEAPONS[key];
-      const b = document.createElement('button');
-      b.className = 'wslot' + (c.equipped === key ? ' on' : '');
-      b.textContent = w.name;
-      b.style.borderColor = w.css;
-      b.style.background = c.equipped === key ? w.css : '';
-      b.style.color = c.equipped === key ? '#04140b' : w.css;
-      b.addEventListener('click', () => {
-        this.campaign.equip(key);
-        this.refreshCampaign();
-        this.status(`${w.name} fitted`);
-      });
-      rack.appendChild(b);
-    }
-    $('racknote').textContent = c.weapons.length
-      ? `fitted: ${WEAPONS[c.equipped].name} -- hold SPECIAL in flight`
-      : 'no specials yet -- beat a warden to take its weapon';
+    // One loadout button. MACHINE GUN and disabled until anything better
+    // exists; from the first earned weapon on, it cycles.
+    const w = $('wbtn');
+    w.disabled = c.weapons.length === 0;
+    const eq = c.equipped && WEAPONS[c.equipped];
+    w.textContent = eq ? eq.name : 'MACHINE GUN';
+    w.style.borderColor = eq ? eq.css : '';
+    w.style.color = eq ? eq.css : '';
   }
 
   /** One button on the shelf. The chosen one stays lit, so the shelf is the state. */
@@ -641,7 +678,13 @@ export class UI {
    */
   drawBackdrop() {
     const rd = this.rd;
-    if (this.screen === 'design' && this.preview) this.preview.tick();
+    if (this.screen === 'design') {
+      if (this.preview) this.preview.tick();
+      if (!this.shipView) {
+        try { this.shipView = new ShipView($('shipview')); } catch { this.shipView = false; }
+      }
+      if (this.shipView) this.shipView.tick();
+    }
     this.dirty = false;
     rd.beginFrame(1);
     // Both idle screens get the slow grid; the level itself is previewed

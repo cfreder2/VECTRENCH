@@ -66,7 +66,7 @@
   #sheet {
     background: var(--panel); border: 1px solid var(--line); border-radius: 4px;
     padding: 12px; display: flex; flex-direction: column; gap: 10px;
-    flex: 1 1 auto; min-height: 0; overflow-y: auto; backdrop-filter: blur(3px);
+    flex: 1 1 auto; min-height: 0; overflow: hidden; backdrop-filter: blur(3px);
   }
   #sheet.collapsed { max-height: none; }
   #sheet.collapsed .foldable { display: none; }
@@ -198,20 +198,47 @@
   #msl:active { background: rgba(255,183,77,0.45); }
   #flight.on { display: block; }
   #err { color: var(--red); font-size: 11px; line-height: 1.6; }
-  /* The selection: the grid, and the plane beside it -- beside in landscape,
-     below in portrait. The sheet grows to fill the screen either way, because
-     a select screen with a void above it is a select screen half-drawn. */
-  #select { display: grid; grid-template-columns: 1fr; gap: 12px; align-items: start; }
-  @media (orientation: landscape) {
-    #select { grid-template-columns: 5fr 4fr; }
+  /* The select screen is ONE screen: no scrolling, either way up. The grid
+     is always three by three; the squares get smaller before the page ever
+     gets longer. Portrait stacks the plane under the grid; landscape puts it
+     beside. Everything that is not selecting-and-flying lives behind SETUP. */
+  #select { flex: 1; min-height: 0; display: grid; gap: 12px; }
+  @media (orientation: portrait) {
+    #select { grid-template-rows: minmax(0, 1fr) auto; grid-template-columns: minmax(0, 1fr); }
   }
-  #grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
-  #training { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+  @media (orientation: landscape) {
+    #select { grid-template-columns: minmax(0, 5fr) minmax(0, 4fr); grid-template-rows: minmax(0, 1fr); }
+  }
+  #gridwrap {
+    min-height: 0; min-width: 0; display: flex; align-items: center; justify-content: center;
+    container-type: size;
+  }
+  #grid {
+    display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(3, 1fr);
+    gap: 6px;
+    /* The square is the smaller of the box's two sides, so the cells are true
+       squares whichever way the box is long. */
+    width: min(100cqw, 100cqh); height: min(100cqw, 100cqh);
+  }
+  #plane { display: flex; flex-direction: column; gap: 10px; min-height: 0; min-width: 0; }
+  #shipview { flex: 1; min-height: 70px; width: 100%; border: 1px solid var(--line); border-radius: 8px; }
+  #plane .row { flex-wrap: nowrap; }
+  #train { flex: 0 0 auto; }
+  #plane #fly { flex: 1; }
+  #wbtn { letter-spacing: .14em; }
+  #wbtn:disabled { opacity: .45; }
+  #extras {
+    position: absolute; left: 0; right: 0; bottom: 0;
+    top: calc(max(14px, env(safe-area-inset-top)) + 34px);
+    background: rgba(3, 10, 16, .96); border-top: 1px solid var(--line);
+    padding: 14px; overflow-y: auto; z-index: 5;
+    display: flex; flex-direction: column; gap: 10px; pointer-events: auto;
+  }
   .cell {
     font: inherit; text-align: left; padding: 9px 10px; border-radius: 8px;
     background: rgba(10, 24, 34, .45); border: 1px solid #1d3a4c; color: #9fc2d0;
     cursor: pointer; letter-spacing: .08em;
-    aspect-ratio: 1; min-height: 0;
+    min-height: 0; min-width: 0; padding: 6px 7px;
     position: relative; overflow: hidden;
     -webkit-tap-highlight-color: transparent;
   }
@@ -220,8 +247,8 @@
     pointer-events: none; border-radius: 8px;
   }
   .cell .dname, .cell .dsub { position: relative; text-shadow: 0 1px 4px #000, 0 0 8px #000; }
-  .cell .dname { display: block; font-size: 11px; letter-spacing: .14em; }
-  .cell .dsub { display: block; font-size: 9px; margin-top: 4px; opacity: .65; }
+  .cell .dname { display: block; font-size: clamp(7px, 1.9vmin, 11px); letter-spacing: .12em; }
+  .cell .dsub { display: block; font-size: clamp(6px, 1.5vmin, 9px); margin-top: 3px; opacity: .65; }
 
   .cell.locked { opacity: .38; cursor: default; }
   .cell.on { background: rgba(111, 230, 255, .14); box-shadow: 0 0 10px rgba(111, 230, 255, .25) inset; }
@@ -257,24 +284,26 @@
     <div id="topbar">
       <span class="title">VECTRENCH</span>
       <span class="hint" id="statusline">pick a level</span>
+      <button id="setup" class="chip" style="margin-left:auto">SETUP</button>
     </div>
     <div id="spacer"></div>
     <div id="sheet">
       <div id="select">
-        <div class="foldable">
-          <label>THE DISTRICTS</label>
+        <div id="gridwrap">
           <div id="grid"></div>
-          <label style="margin-top:10px">TRAINING</label>
-          <div id="training"></div>
         </div>
-        <div class="foldable">
-          <label>INTERCEPTOR &mdash; SPECIAL WEAPON</label>
-          <div id="rack"></div>
-          <div class="note" id="racknote">beat a warden to take its weapon</div>
+        <div id="plane">
+          <canvas id="shipview"></canvas>
+          <button id="wbtn" class="chip" disabled>MACHINE GUN</button>
+          <div class="row">
+            <button id="train" class="chip">TRAIN</button>
+            <button id="fly" class="primary" disabled>FLY</button>
+          </div>
         </div>
       </div>
+    </div>
+    <div id="extras" hidden>
       <div class="row">
-        <button id="fly" class="primary" disabled>FLY</button>
         <button id="full" class="chip">FULL SCREEN</button>
       </div>
       <details class="foldable" id="customfold" hidden>
@@ -2918,8 +2947,11 @@ class Campaign {
       const raw = JSON.parse(localStorage.getItem(KEY) || '{}');
       this.cleared = raw.cleared || {};
       this.weapons = (raw.weapons || []).filter((w) => WEAPONS[w]);
-      this.equipped = WEAPONS[raw.equipped] && this.weapons.includes(raw.equipped)
-        ? raw.equipped : this.weapons[0] || null;
+      // null is a real choice -- the machine gun, fitted on purpose -- and it
+      // survives a reload. Only an *invalid* save falls back to the first earn.
+      this.equipped = raw.equipped === null ? null
+        : WEAPONS[raw.equipped] && this.weapons.includes(raw.equipped)
+          ? raw.equipped : this.weapons[0] || null;
     } catch { /* first run, or storage denied: start clean */ }
   }
 
@@ -2963,9 +2995,9 @@ class Campaign {
     return { first, weapon };
   }
 
-  /** Fit a weapon. Only earned ones; returns whether it took. */
+  /** Fit a weapon -- an earned one, or null for the plain machine gun. */
   equip(w) {
-    if (!this.weapons.includes(w)) return false;
+    if (w !== null && !this.weapons.includes(w)) return false;
     this.equipped = w;
     this.save();
     return true;
@@ -9729,12 +9761,51 @@ class Game {
 
 
 
+
 const $ = (id) => document.getElementById(id);
 
 /** '#b06fff' -> [0.69, 0.44, 1], for drawing DOM-side colors on the canvas. */
 function hexRgb(css) {
   const n = parseInt(css.slice(1), 16);
   return [(n >> 16 & 255) / 255, (n >> 8 & 255) / 255, (n & 255) / 255];
+}
+
+/**
+ * The interceptor on its stand: the actual game ship, drawn by the actual
+ * game's ship renderer, with the camera walking a slow circle around it.
+ */
+class ShipView {
+  constructor(canvas) {
+    this.canvas = canvas;
+    this.rd = new Renderer(canvas);
+    this.basis = { r: [1, 0, 0], u: [0, 1, 0], f: [0, 0, 1] };
+    this.sized = false;
+  }
+
+  tick() {
+    if (!this.canvas.isConnected) return;
+    const rect = this.canvas.getBoundingClientRect();
+    if (rect.width < 4 || rect.height < 4) return;
+    if (!this.sized || Math.abs(rect.width - this._w) > 2 || Math.abs(rect.height - this._h) > 2) {
+      this.rd.resize(rect.width, rect.height, 400_000);
+      this._w = rect.width; this._h = rect.height;
+      this.sized = true;
+    }
+    const t = performance.now() / 1000;
+    const a = t * 0.6;
+    const eye = [Math.sin(a) * 44, 12 + Math.sin(t * 0.9) * 3, Math.cos(a) * 44];
+    const f = [-eye[0], -eye[1] + 6, -eye[2]];
+    const fl = Math.hypot(f[0], f[1], f[2]) || 1;
+    f[0] /= fl; f[1] /= fl; f[2] /= fl;
+    const r = [f[2], 0, -f[0]];
+    const rl = Math.hypot(r[0], r[1], r[2]) || 1;
+    r[0] /= rl; r[2] /= rl;
+    const u = [f[1] * r[2] - f[2] * r[1], f[2] * r[0] - f[0] * r[2], f[0] * r[1] - f[1] * r[0]];
+    this.rd.beginFrame(1);
+    this.rd.setCamera(eye, r, u, f, 0.9, 400);
+    drawShip(this.rd, [0, 0, 0], this.basis, 0.35 + 0.15 * Math.sin(t * 3), t, 0);
+    this.rd.endFrame();
+  }
 }
 
 /**
@@ -10153,28 +10224,38 @@ class UI {
   }
 
   /**
-   * The training levels, as first-class tiles under the districts: same
-   * squares, same previews, same FLY. The drawer keeps only custom levels.
+   * TRAIN: one small button that steps through the training levels --
+   * PROVING GROUND first, SHAKEDOWN after -- selecting each for FLY. The
+   * grid stays the campaign's; training does not need a square of its own.
    */
   buildTraining() {
-    const row = $('training');
     const inGrid = new Set(DISTRICTS.map((d) => d.level).filter(Boolean));
-    for (const lv of PREBUILT) {
-      if (inGrid.has(lv.spec.name)) continue;
-      const b = document.createElement('button');
-      b.className = 'cell';
-      b.innerHTML = `<span class="dname">${lv.label}</span>
-        <span class="dsub">training</span>`;
-      if (lv.blurb) b.title = lv.blurb;
-      b.addEventListener('click', () => {
-        for (const o of this.buttons) o.classList.toggle('on', o === b);
-        this.setSpec(lv.spec, [lv.label, lv.blurb].filter(Boolean));
-        this.showPreview(b);
-      });
-      this.buttons.push(b);
-      this.cells[`training-${lv.spec.name}`] = { el: b, district: { level: lv.spec.name } };
-      row.appendChild(b);
-    }
+    this.trainLevels = PREBUILT.filter((lv) => !inGrid.has(lv.spec.name));
+    this.trainIdx = -1;
+    $('train').addEventListener('click', () => {
+      if (!this.trainLevels.length) return;
+      this.trainIdx = (this.trainIdx + 1) % this.trainLevels.length;
+      const lv = this.trainLevels[this.trainIdx];
+      for (const o of this.buttons) o.classList.remove('on');
+      this.setSpec(lv.spec, [lv.label, lv.blurb].filter(Boolean));
+      this.status(`${lv.label} -- training. FLY when ready`);
+    });
+
+    // The loadout button: the machine gun, until a warden hands over better.
+    // With one or more specials earned it steps through them, gun included.
+    $('wbtn').addEventListener('click', () => {
+      const cycle = [null, ...this.campaign.weapons];
+      const at = cycle.indexOf(this.campaign.equipped);
+      this.campaign.equip(cycle[(at + 1) % cycle.length]);
+      this.refreshCampaign();
+    });
+
+    // Everything that is not selecting-and-flying lives behind SETUP.
+    $('setup').addEventListener('click', () => {
+      const x = $('extras');
+      x.hidden = !x.hidden;
+      $('setup').textContent = x.hidden ? 'SETUP' : 'CLOSE';
+    });
   }
 
   /** The chosen square starts flying its level. One preview, moved around. */
@@ -10201,26 +10282,14 @@ class UI {
       const total = DISTRICTS.filter((d) => d.level && !d.center).length;
       sub.textContent = c.wardensDown() ? 'UNSEALED' : `SEALED ${c.clearedCount()}/${total}`;
     }
-    const rack = $('rack');
-    rack.textContent = '';
-    for (const key of c.weapons) {
-      const w = WEAPONS[key];
-      const b = document.createElement('button');
-      b.className = 'wslot' + (c.equipped === key ? ' on' : '');
-      b.textContent = w.name;
-      b.style.borderColor = w.css;
-      b.style.background = c.equipped === key ? w.css : '';
-      b.style.color = c.equipped === key ? '#04140b' : w.css;
-      b.addEventListener('click', () => {
-        this.campaign.equip(key);
-        this.refreshCampaign();
-        this.status(`${w.name} fitted`);
-      });
-      rack.appendChild(b);
-    }
-    $('racknote').textContent = c.weapons.length
-      ? `fitted: ${WEAPONS[c.equipped].name} -- hold SPECIAL in flight`
-      : 'no specials yet -- beat a warden to take its weapon';
+    // One loadout button. MACHINE GUN and disabled until anything better
+    // exists; from the first earned weapon on, it cycles.
+    const w = $('wbtn');
+    w.disabled = c.weapons.length === 0;
+    const eq = c.equipped && WEAPONS[c.equipped];
+    w.textContent = eq ? eq.name : 'MACHINE GUN';
+    w.style.borderColor = eq ? eq.css : '';
+    w.style.color = eq ? eq.css : '';
   }
 
   /** One button on the shelf. The chosen one stays lit, so the shelf is the state. */
@@ -10353,7 +10422,13 @@ class UI {
    */
   drawBackdrop() {
     const rd = this.rd;
-    if (this.screen === 'design' && this.preview) this.preview.tick();
+    if (this.screen === 'design') {
+      if (this.preview) this.preview.tick();
+      if (!this.shipView) {
+        try { this.shipView = new ShipView($('shipview')); } catch { this.shipView = false; }
+      }
+      if (this.shipView) this.shipView.tick();
+    }
     this.dirty = false;
     rd.beginFrame(1);
     // Both idle screens get the slow grid; the level itself is previewed

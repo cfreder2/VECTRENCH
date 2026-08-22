@@ -66,7 +66,7 @@
   #sheet {
     background: var(--panel); border: 1px solid var(--line); border-radius: 4px;
     padding: 12px; display: flex; flex-direction: column; gap: 10px;
-    flex: 1 1 auto; min-height: 0; overflow-y: auto; backdrop-filter: blur(3px);
+    flex: 1 1 auto; min-height: 0; overflow: hidden; backdrop-filter: blur(3px);
   }
   #sheet.collapsed { max-height: none; }
   #sheet.collapsed .foldable { display: none; }
@@ -198,20 +198,47 @@
   #msl:active { background: rgba(255,183,77,0.45); }
   #flight.on { display: block; }
   #err { color: var(--red); font-size: 11px; line-height: 1.6; }
-  /* The selection: the grid, and the plane beside it -- beside in landscape,
-     below in portrait. The sheet grows to fill the screen either way, because
-     a select screen with a void above it is a select screen half-drawn. */
-  #select { display: grid; grid-template-columns: 1fr; gap: 12px; align-items: start; }
-  @media (orientation: landscape) {
-    #select { grid-template-columns: 5fr 4fr; }
+  /* The select screen is ONE screen: no scrolling, either way up. The grid
+     is always three by three; the squares get smaller before the page ever
+     gets longer. Portrait stacks the plane under the grid; landscape puts it
+     beside. Everything that is not selecting-and-flying lives behind SETUP. */
+  #select { flex: 1; min-height: 0; display: grid; gap: 12px; }
+  @media (orientation: portrait) {
+    #select { grid-template-rows: minmax(0, 1fr) auto; grid-template-columns: minmax(0, 1fr); }
   }
-  #grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
-  #training { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+  @media (orientation: landscape) {
+    #select { grid-template-columns: minmax(0, 5fr) minmax(0, 4fr); grid-template-rows: minmax(0, 1fr); }
+  }
+  #gridwrap {
+    min-height: 0; min-width: 0; display: flex; align-items: center; justify-content: center;
+    container-type: size;
+  }
+  #grid {
+    display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(3, 1fr);
+    gap: 6px;
+    /* The square is the smaller of the box's two sides, so the cells are true
+       squares whichever way the box is long. */
+    width: min(100cqw, 100cqh); height: min(100cqw, 100cqh);
+  }
+  #plane { display: flex; flex-direction: column; gap: 10px; min-height: 0; min-width: 0; }
+  #shipview { flex: 1; min-height: 70px; width: 100%; border: 1px solid var(--line); border-radius: 8px; }
+  #plane .row { flex-wrap: nowrap; }
+  #train { flex: 0 0 auto; }
+  #plane #fly { flex: 1; }
+  #wbtn { letter-spacing: .14em; }
+  #wbtn:disabled { opacity: .45; }
+  #extras {
+    position: absolute; left: 0; right: 0; bottom: 0;
+    top: calc(max(14px, env(safe-area-inset-top)) + 34px);
+    background: rgba(3, 10, 16, .96); border-top: 1px solid var(--line);
+    padding: 14px; overflow-y: auto; z-index: 5;
+    display: flex; flex-direction: column; gap: 10px; pointer-events: auto;
+  }
   .cell {
     font: inherit; text-align: left; padding: 9px 10px; border-radius: 8px;
     background: rgba(10, 24, 34, .45); border: 1px solid #1d3a4c; color: #9fc2d0;
     cursor: pointer; letter-spacing: .08em;
-    aspect-ratio: 1; min-height: 0;
+    min-height: 0; min-width: 0; padding: 6px 7px;
     position: relative; overflow: hidden;
     -webkit-tap-highlight-color: transparent;
   }
@@ -220,8 +247,8 @@
     pointer-events: none; border-radius: 8px;
   }
   .cell .dname, .cell .dsub { position: relative; text-shadow: 0 1px 4px #000, 0 0 8px #000; }
-  .cell .dname { display: block; font-size: 11px; letter-spacing: .14em; }
-  .cell .dsub { display: block; font-size: 9px; margin-top: 4px; opacity: .65; }
+  .cell .dname { display: block; font-size: clamp(7px, 1.9vmin, 11px); letter-spacing: .12em; }
+  .cell .dsub { display: block; font-size: clamp(6px, 1.5vmin, 9px); margin-top: 3px; opacity: .65; }
 
   .cell.locked { opacity: .38; cursor: default; }
   .cell.on { background: rgba(111, 230, 255, .14); box-shadow: 0 0 10px rgba(111, 230, 255, .25) inset; }
@@ -257,24 +284,26 @@
     <div id="topbar">
       <span class="title">VECTRENCH</span>
       <span class="hint" id="statusline">pick a level</span>
+      <button id="setup" class="chip" style="margin-left:auto">SETUP</button>
     </div>
     <div id="spacer"></div>
     <div id="sheet">
       <div id="select">
-        <div class="foldable">
-          <label>THE DISTRICTS</label>
+        <div id="gridwrap">
           <div id="grid"></div>
-          <label style="margin-top:10px">TRAINING</label>
-          <div id="training"></div>
         </div>
-        <div class="foldable">
-          <label>INTERCEPTOR &mdash; SPECIAL WEAPON</label>
-          <div id="rack"></div>
-          <div class="note" id="racknote">beat a warden to take its weapon</div>
+        <div id="plane">
+          <canvas id="shipview"></canvas>
+          <button id="wbtn" class="chip" disabled>MACHINE GUN</button>
+          <div class="row">
+            <button id="train" class="chip">TRAIN</button>
+            <button id="fly" class="primary" disabled>FLY</button>
+          </div>
         </div>
       </div>
+    </div>
+    <div id="extras" hidden>
       <div class="row">
-        <button id="fly" class="primary" disabled>FLY</button>
         <button id="full" class="chip">FULL SCREEN</button>
       </div>
       <details class="foldable" id="customfold" hidden>
