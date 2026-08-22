@@ -141,13 +141,8 @@ export class UI {
   bindAll() {
     this.buttons = [];
     this.buildGrid();
-    this.buildRack();
+    this.buildTraining();
     this.refreshCampaign();
-    // Campaign levels live in the grid; the shelf keeps training and customs.
-    const inGrid = new Set(DISTRICTS.map((d) => d.level).filter(Boolean));
-    for (const lv of PREBUILT) {
-      if (!inGrid.has(lv.spec.name)) this.addLevel(lv, $('prebuilt'));
-    }
 
     $('fly').addEventListener('click', () => this.fly());
     $('full').addEventListener('click', () => this.goFullscreen());
@@ -445,6 +440,31 @@ export class UI {
     this.refreshCampaign();
   }
 
+  /**
+   * The training levels, as first-class tiles under the districts: same
+   * squares, same previews, same FLY. The drawer keeps only custom levels.
+   */
+  buildTraining() {
+    const row = $('training');
+    const inGrid = new Set(DISTRICTS.map((d) => d.level).filter(Boolean));
+    for (const lv of PREBUILT) {
+      if (inGrid.has(lv.spec.name)) continue;
+      const b = document.createElement('button');
+      b.className = 'cell';
+      b.innerHTML = `<span class="dname">${lv.label}</span>
+        <span class="dsub">training</span>`;
+      if (lv.blurb) b.title = lv.blurb;
+      b.addEventListener('click', () => {
+        for (const o of this.buttons) o.classList.toggle('on', o === b);
+        this.setSpec(lv.spec, [lv.label, lv.blurb].filter(Boolean));
+        this.showPreview(b);
+      });
+      this.buttons.push(b);
+      this.cells[`training-${lv.spec.name}`] = { el: b, district: { level: lv.spec.name } };
+      row.appendChild(b);
+    }
+  }
+
   /** The chosen square starts flying its level. One preview, moved around. */
   showPreview(cell) {
     try {
@@ -456,34 +476,9 @@ export class UI {
     this.preview.mount(cell);
   }
 
-  /** The eight weapon slots: earned ones equip, the rest say how to earn. */
-  buildRack() {
-    const rack = $('rack');
-    this.slots = {};
-    for (const [key, w] of Object.entries(WEAPONS)) {
-      const b = document.createElement('button');
-      b.className = 'wslot';
-      b.textContent = w.name;
-      b.addEventListener('click', () => {
-        if (this.campaign.equip(key)) {
-          this.refreshCampaign();
-          this.status(`${w.name} fitted`);
-        } else {
-          const holder = DISTRICTS.find((d) => {
-            const lv = d.level && PREBUILT.find((l) => l.spec.name === d.level);
-            return lv && lv.spec.boss && lv.spec.boss.weapon === key;
-          });
-          this.status(holder
-            ? `${w.name.toLowerCase()} -- beat the ${holder.name.toLowerCase()} warden to take it`
-            : `${w.name.toLowerCase()} -- its warden is not built yet`);
-        }
-      });
-      this.slots[key] = b;
-      rack.appendChild(b);
-    }
-  }
-
-  /** Cleared badges, the Citadel's count, and the rack's states -- from truth. */
+  /** Cleared badges, the Citadel's count, and the rack -- all from truth.
+   *  The rack holds only what has been TAKEN: an unearned weapon is not a
+   *  greyed-out spoiler, it is nothing at all until its warden falls. */
   refreshCampaign() {
     const c = this.campaign;
     for (const { el, district } of Object.values(this.cells || {})) {
@@ -494,21 +489,31 @@ export class UI {
       const total = DISTRICTS.filter((d) => d.level && !d.center).length;
       sub.textContent = c.wardensDown() ? 'UNSEALED' : `SEALED ${c.clearedCount()}/${total}`;
     }
-    for (const [key, b] of Object.entries(this.slots || {})) {
-      const earned = c.weapons.includes(key);
-      b.classList.toggle('locked', !earned);
-      b.classList.toggle('on', c.equipped === key);
-      b.style.background = c.equipped === key ? WEAPONS[key].css : '';
-      b.style.borderColor = earned ? WEAPONS[key].css : '';
-      b.style.color = c.equipped === key ? '#04140b' : earned ? WEAPONS[key].css : '';
+    const rack = $('rack');
+    rack.textContent = '';
+    for (const key of c.weapons) {
+      const w = WEAPONS[key];
+      const b = document.createElement('button');
+      b.className = 'wslot' + (c.equipped === key ? ' on' : '');
+      b.textContent = w.name;
+      b.style.borderColor = w.css;
+      b.style.background = c.equipped === key ? w.css : '';
+      b.style.color = c.equipped === key ? '#04140b' : w.css;
+      b.addEventListener('click', () => {
+        this.campaign.equip(key);
+        this.refreshCampaign();
+        this.status(`${w.name} fitted`);
+      });
+      rack.appendChild(b);
     }
     $('racknote').textContent = c.weapons.length
       ? `fitted: ${WEAPONS[c.equipped].name} -- hold SPECIAL in flight`
-      : 'beat a warden to take its weapon';
+      : 'no specials yet -- beat a warden to take its weapon';
   }
 
   /** One button on the shelf. The chosen one stays lit, so the shelf is the state. */
   addLevel(lv, into) {
+    $('customfold').hidden = false;
     const b = document.createElement('button');
     b.className = 'chip built';
     b.textContent = lv.label;

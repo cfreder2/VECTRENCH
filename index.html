@@ -206,6 +206,7 @@
     #select { grid-template-columns: 5fr 4fr; }
   }
   #grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+  #training { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
   .cell {
     font: inherit; text-align: left; padding: 9px 10px; border-radius: 8px;
     background: rgba(10, 24, 34, .45); border: 1px solid #1d3a4c; color: #9fc2d0;
@@ -263,6 +264,8 @@
         <div class="foldable">
           <label>THE DISTRICTS</label>
           <div id="grid"></div>
+          <label style="margin-top:10px">TRAINING</label>
+          <div id="training"></div>
         </div>
         <div class="foldable">
           <label>INTERCEPTOR &mdash; SPECIAL WEAPON</label>
@@ -274,10 +277,10 @@
         <button id="fly" class="primary" disabled>FLY</button>
         <button id="full" class="chip">FULL SCREEN</button>
       </div>
-      <details class="foldable">
-        <summary>TRAINING &amp; YOUR LEVELS</summary>
+      <details class="foldable" id="customfold" hidden>
+        <summary>YOUR LEVELS</summary>
         <div class="body">
-          <div class="row" id="prebuilt"></div>
+          <div class="row" id="prebuilt" hidden></div>
           <div class="row" id="customrow" hidden>
             <span class="note">YOUR LEVELS</span>
           </div>
