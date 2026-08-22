@@ -372,7 +372,7 @@ export class UI {
     } catch { /* browsers may refuse; the game plays fine regardless */ }
     if (this.input.motion === 'granted') this.input.recalibrate();
     this.game.reset();
-    this.audio.musicStart();
+    this.audio.musicStart(this.spec.music);
     this.show('flight');
   }
 

@@ -91,6 +91,7 @@ Each section:
 | `panels` | 0–4 | 2 | Shootable control panels per bulkhead. 0 welds it shut |
 | `ringrate` | 0.06–1 | 0.2 | Seconds between one tentacle of a `ring` firing and the next. Lower is a faster sweep. The number standing at once does not change with it — four, always — so this slows the wall going round rather than thinning it |
 | `slotgap` | 2–14 | 4 | Room each side of the ship in a `slot`, in units. The slit is built from the ship's own footprint plus this, so it is authored in the thing that matters. **Above about 4.5 an upright slit stops asking for the roll**: the ship is 14 wide flying level and 5 on edge, so a slit wide enough to give more room than that is a slit the level ship fits through. 4 is the widest that keeps a slot a slot |
+| `music` | top level, not a section: which stage theme plays, by name from [`src/songs.js`](../src/songs.js). `bumblebee` (default) or `water`. A song is data — bars of note names, one token per sixteenth, `.` to hold and `-` to rest — plus a chord per bar for the arpeggio, a bass root per bar, a drum pattern and its own mix |
 | `armedPort` | top level, not a section: `true` gives the finale the wall of beams described above. Default `false`. |
 | `hue` | 0–1 | 0.5 | 0 red, 0.14 gold, 0.33 green, 0.5 cyan, 0.62 blue, 0.79 violet |
 

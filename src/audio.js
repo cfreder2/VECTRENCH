@@ -139,7 +139,12 @@ export class Audio {
     }
   }
 
-  musicStart() { this._flying = true; this.music?.setLevel(1); this.music?.start(); }
+  musicStart(song) {
+    this._flying = true;
+    if (song) this.music?.setSong(song);
+    this.music?.setLevel(1);
+    this.music?.start();
+  }
   musicStop() { this._flying = false; this.music?.stop(); }
   /** 0 while a run is ending, so the win and loss stings play in the clear. */
   setMusicLevel(v) { this.music?.setLevel(v); }

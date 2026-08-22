@@ -17,6 +17,7 @@ export const PREBUILT = [
       },
       "finale": "port",
       "armedPort": false,
+      "music": "bumblebee",
       "sections": [
         {
           "name": "open air",
@@ -301,6 +302,7 @@ export const PREBUILT = [
       },
       "finale": "port",
       "armedPort": false,
+      "music": "bumblebee",
       "sections": [
         {
           "name": "open approach",
@@ -465,6 +467,7 @@ export const PREBUILT = [
       },
       "finale": "port",
       "armedPort": false,
+      "music": "bumblebee",
       "sections": [
         {
           "name": "wide mouth",
@@ -659,6 +662,7 @@ export const PREBUILT = [
       },
       "finale": "port",
       "armedPort": false,
+      "music": "bumblebee",
       "sections": [
         {
           "name": "the descent",
@@ -877,6 +881,7 @@ export const PREBUILT = [
       },
       "finale": "port",
       "armedPort": false,
+      "music": "bumblebee",
       "sections": [
         {
           "name": "the drop",
@@ -1042,6 +1047,7 @@ export const PREBUILT = [
       },
       "finale": "port",
       "armedPort": false,
+      "music": "water",
       "sections": [
         {
           "name": "open water",

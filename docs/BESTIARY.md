@@ -358,6 +358,27 @@ Nothing else is placed in the last 620 units, and no bulkhead within 1200.
 
 ---
 
+## The music
+
+One theme per level, named by the spec's `music` field and written in
+[`src/songs.js`](../src/songs.js). The synth is the NES's set and not by
+accident — two pulse voices, a triangle and noise — which is the palette every
+stage theme of that era was written for. What made those sound bigger than four
+channels was technique, and it is the technique that is implemented here rather
+than more voices:
+
+| | |
+| --- | --- |
+| **arpeggio** | a chord is one voice cycling three notes faster than the ear separates them. One channel instead of three, and it is where the shimmer comes from |
+| **vibrato** | anything held longer than a quarter of a second wavers, delayed slightly the way a player would. A held note that does not is a test tone |
+| **a second pulse** | harmony under the lead, quieter and duller, so two channels read as one instrument thickening |
+| **a walking bass** | roots on the beat is a metronome; a bass that moves is a part |
+| **per-song mix** | the balance is part of the writing. A theme carried by its bass and one carried by its lead do not want the same one |
+
+`bumblebee` is Rimsky-Korsakov at the score's tempo. `water` is written for the
+game: A minor, 132bpm, i–VI–v–III–V7–iv–V7 over a running sixteenth arpeggio,
+eight bars that sink for four and climb back out for four.
+
 ## The ship
 
 ### Interceptor

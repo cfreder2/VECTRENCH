@@ -91,6 +91,8 @@ export function normalizeSpec(raw = {}) {
     // An exhaust port is a target, not a gun. It can be given the wall of
     // beams, but it is off unless a level asks for it.
     armedPort: raw.armedPort === true,
+    // Which stage theme plays. Names come from the score book in songs.js.
+    music: typeof raw.music === 'string' ? raw.music.slice(0, 24) : 'bumblebee',
     sections,
   };
 }
