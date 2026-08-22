@@ -863,6 +863,8 @@ export const WARDENS = {
       mkPart(b, 'POD', 8);
       mkPart(b, 'POD', 8);
       b.cannon = { state: 'idle', tIn: 6, charge: 0 };
+      b.rangeT = 640;          // the stand-off it wants right now
+      b.laneSide = 1;
       b.yaw = 0;               // the superstructure's bearing: 0 is dead aft
       b.noSight = 0;
       b.slewFor = 0;
@@ -881,17 +883,31 @@ export const WARDENS = {
       b.shielded = partsAlive(b) > 0;
       b.lockable = !b.shielded;
 
-      // Driving backwards, swerving: a new lane on a whim, smoothly taken.
+      // Distance is its weapon, and it spends it by the attack: it pulls
+      // AWAY before a volley so the missiles have road to hang in, wades IN
+      // for the gun patterns, and falls back long to work the cannon. The
+      // read on its range is the read on what is coming.
+      const c0 = b.cannon;
+      let wantRange = 640;
+      if (c0.state !== 'idle') wantRange = 840;                    // cannon work
+      else if (b.burst || b.burstIn < 1) wantRange = 470;          // gun work
+      else if (b.missilesIn < 1.6) wantRange = 820;                // volley wind-up
+      b.rangeT = lerp(b.rangeT, wantRange, dt * 1.1);
+
+      // And it drives like something choosing a line, not holding a lane:
+      // it curves out to one side, carries the arc, then crosses to the
+      // other, biased to alternate so the road actually gets used.
       b.swerveIn -= dt;
       const hw = tr.halfWidth(b.t);
       if (b.swerveIn <= 0) {
-        b.swerveIn = 1.2 + hash2((game.time * 7) | 0, 1) * 1.6;
-        b.xT = (hash2((game.time * 7) | 0, 2) * 2 - 1) * (hw - 76);
+        b.swerveIn = 1.8 + hash2((game.time * 7) | 0, 1) * 1.6;
+        b.laneSide = hash2((game.time * 7) | 0, 4) < 0.72 ? -b.laneSide : b.laneSide;
+        b.xT = b.laneSide * (0.3 + hash2((game.time * 7) | 0, 2) * 0.65) * (hw - 72);
       }
       // The chase lerp lags a moving target by speed/rate -- feed the ship's
       // speed forward so the stand-off it holds is the stand-off we wrote.
-      b.t = lerp(b.t, game.t + 640 + game.speed / 1.4, dt * 1.4);
-      b.x = lerp(b.x, b.xT, dt * 1.6);
+      b.t = lerp(b.t, game.t + b.rangeT + game.speed / 1.4, dt * 1.4);
+      b.x = lerp(b.x, b.xT, dt * 1.1);
       b.y = 20;
       b.tShip = game.t;         // the draw paints fire on the ship's plane
       tr.localToWorld(b.t, b.x, b.y, b.world);

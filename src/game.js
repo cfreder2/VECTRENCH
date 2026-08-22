@@ -745,6 +745,10 @@ export class Game {
     } else if (this.phase === 'ascent') {
       // The climb the win used to be -- but now it is an entrance. The warden
       // music is already going; control comes back the moment you level off.
+      // The warden lives through the entrance too -- a boss that stands still
+      // while the cinematic closes eight hundred units is a boss you arrive
+      // on top of, which is exactly how that bug felt.
+      if (this.boss && this.boss.alive) updateWarden(this.boss, dt, this);
       this.ascentTimer += dt;
       this.speed = lerp(this.speed, 320, dt * 0.8);
       this.t += this.speed * dt;
