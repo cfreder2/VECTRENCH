@@ -1149,7 +1149,34 @@ function normalizeSpec(raw = {}) {
     armedPort: raw.armedPort === true,
     // Which stage theme plays. Names come from the score book in songs.js.
     music: typeof raw.music === 'string' ? raw.music.slice(0, 24) : 'bumblebee',
+    // The warden. A level with one grows an arena past the port: kill the door
+    // and the flyout carries you into the fight instead of the result screen.
+    // A level without one ends exactly as it always has -- bosses are opt-in,
+    // so a track stays usable for plain timed runs by leaving this out.
+    boss: normalizeBoss(raw.boss),
     sections,
+  };
+}
+
+/**
+ * The warden definition. `arena` is where the fight happens: 'surface' (the
+ * default) is open ground above the district -- the canyon walls fall away and
+ * the fight is flown in the clear. 'trench' and 'void' are reserved for
+ * wardens whose fights want walls or stars; they normalize but do not change
+ * anything yet.
+ */
+function normalizeBoss(raw) {
+  if (!raw || typeof raw !== 'object') return null;
+  return {
+    kind: String(raw.kind ?? 'warden').slice(0, 24),
+    name: String(raw.name ?? raw.kind ?? 'THE WARDEN').slice(0, 24).toUpperCase(),
+    hp: clamp(+raw.hp || 90, 20, 400),
+    // The weapon it fights with -- and, by the campaign's rule, the weapon
+    // beating it hands over. Its own weapon only half-hurts it.
+    weapon: typeof raw.weapon === 'string' ? raw.weapon.slice(0, 12) : null,
+    // The wheel: hits from this special melt it, three to one.
+    weakTo: typeof raw.weakTo === 'string' ? raw.weakTo.slice(0, 12) : null,
+    arena: ['surface', 'trench', 'void'].includes(raw.arena) ? raw.arena : 'surface',
   };
 }
 
@@ -1199,6 +1226,7 @@ const PREBUILT = [
       "finale": "port",
       "armedPort": false,
       "music": "bumblebee",
+      "boss": null,
       "sections": [
         {
           "name": "open air",
@@ -1484,6 +1512,7 @@ const PREBUILT = [
       "finale": "port",
       "armedPort": false,
       "music": "bumblebee",
+      "boss": null,
       "sections": [
         {
           "name": "open approach",
@@ -1649,6 +1678,7 @@ const PREBUILT = [
       "finale": "port",
       "armedPort": false,
       "music": "bumblebee",
+      "boss": null,
       "sections": [
         {
           "name": "wide mouth",
@@ -1844,6 +1874,7 @@ const PREBUILT = [
       "finale": "port",
       "armedPort": false,
       "music": "fire",
+      "boss": null,
       "sections": [
         {
           "name": "the descent",
@@ -2063,6 +2094,7 @@ const PREBUILT = [
       "finale": "port",
       "armedPort": false,
       "music": "bumblebee",
+      "boss": null,
       "sections": [
         {
           "name": "the drop",
@@ -2229,6 +2261,7 @@ const PREBUILT = [
       "finale": "port",
       "armedPort": false,
       "music": "water",
+      "boss": null,
       "sections": [
         {
           "name": "open water",
@@ -2517,6 +2550,14 @@ const PREBUILT = [
       "finale": "port",
       "armedPort": false,
       "music": "neon",
+      "boss": {
+        "kind": "marionette",
+        "name": "MARIONETTE",
+        "hp": 90,
+        "weapon": "arc",
+        "weakTo": "saw",
+        "arena": "surface"
+      },
       "sections": [
         {
           "name": "the on-ramp",
@@ -2831,6 +2872,17 @@ class Track {
     this.bodyLength = specLength(spec);
     this.total = this.bodyLength + RUNOUT;
     this.portT = spec.finale === 'port' ? this.bodyLength + 720 : -1;
+    // A level with a warden gets an arena past the runout: a stretch of open
+    // ground the boss fight lives on. It is flat, straight, and uniform on
+    // purpose -- the fight loops through it, and a loop through terrain with
+    // no features in it is a loop nobody can see.
+    this.arenaStart = -1;
+    this.arenaLen = 0;
+    if (spec.boss) {
+      this.arenaStart = this.total;
+      this.arenaLen = 6000;
+      this.total += this.arenaLen;
+    }
 
     // Section boundaries, so a t can be resolved back to authored intent.
     this.bounds = [0];
@@ -2867,6 +2919,22 @@ class Track {
         const t = i * GRID;
         const k = smoothstep(this.portT - 950, this.portT - 150, t);
         if (k > 0) width[i] = lerp(width[i], 34, k);
+      }
+    }
+
+    // The arena: blend out of whatever the last section was into a shallow
+    // open basin, then hold it exactly constant so the wrap is invisible.
+    if (this.arenaStart > 0) {
+      for (let i = 0; i < n; i++) {
+        const t = i * GRID;
+        const k = smoothstep(this.arenaStart - 400, this.arenaStart + 700, t);
+        if (k <= 0) continue;
+        width[i] = lerp(width[i], 150, k);
+        depth[i] = lerp(depth[i], 44, k);
+        rough[i] = lerp(rough[i], 0.12, k);
+        curv[i] = lerp(curv[i], 0, k);
+        snake[i] = lerp(snake[i], 0, k);
+        hill[i] = lerp(hill[i], 0, k);
       }
     }
 
@@ -4889,6 +4957,16 @@ function drawHud(rd, st) {
   rd.line2(px, py, px + pw * pk, py, 2.6 * s, CYAN[0], CYAN[1], CYAN[2], 1, 1);
   rd.line2(px + pw * pk, py - 8 * s, px + pw * pk, py + 8 * s, 2 * s, 1, 1, 1, 1, 1);
 
+  // --- the warden, when there is one: name and health, top center ---
+  if (st.boss) {
+    const bw = W * 0.34;
+    const bx = (W - bw) * 0.5;
+    const by = pad + 14 * s;
+    const bcol = st.boss.flash > 0 ? [1, 1, 1] : [0.78, 0.42, 1];
+    drawText(rd, st.boss.name, W * 0.5, by, 11 * s, 1.3 * s, bcol[0], bcol[1], bcol[2], 0.95, 0);
+    bar(rd, bx, by + 7 * s, bw, 8 * s, clamp(st.boss.frac, 0, 1), 16, bcol, s);
+  }
+
   // --- cockpit frame ---
   bracket(rd, pad * 0.6, pad * 0.6, W - pad * 1.2, H - pad * 1.2, s, DIM, 0.22, 1.2 * s);
 
@@ -5605,8 +5683,11 @@ const SONGS = {
    * NEON. The power grid at night: synthwave in the chip idiom. Sixteen bars
    * in A minor at 138 -- slower than FIRE on paper and relentless anyway,
    * because the engine is the bass: the lament descent, a-g-f-e, pumped in
-   * eighths with a chromatic slip into every change. The intro is three zap
-   * sweeps -- arcs jumping a substation -- and the turnaround dives on one.
+   * eighths with a chromatic slip into every change. The intro IS that bass:
+   * alone in the dark with the metallic noise ticking like a live rail, then
+   * a chromatic climb up into the hook. No sweeps until the turnaround dives
+   * on one -- the rising-blip opening belongs to WATER, and two songs that
+   * start with the same gesture are the same song for eight seconds.
    *
    * The lead is the one duty no other song uses: the plain 50% square, hollow
    * and cold, which against the reedy harmony underneath is the PWM-synth
@@ -5620,8 +5701,8 @@ const SONGS = {
     beats: 16,
     loopFrom: 2,          // the arcs jump once; the loop is bars 3-16
     lead: [
-      '-  -  -  -  e5/ .  -  -  -  -  -  -  a5/ .  -  - ',
-      '-  -  b5/ .  -  -  -  -  e5 .  d5 .  c5 .  b4 . ',
+      '-  -  -  -  -  -  -  -  -  -  -  -  -  -  -  - ',
+      'e4 .  g4 .  a4 .  a#4 .  b4 .  .  .  d5 .  c5 . ',
       // A: the hook, low and terse.
       'a4 .  .  .  e5 .  d5 .  c5 .  .  .  b4 .  c5 . ',
       'b4 .  .  .  d5 .  .  .  g4 .  .  .  a4 .  b4 . ',
@@ -5665,8 +5746,8 @@ const SONGS = {
     // The lament, pumped: eighths on the root with the octave popping, and a
     // chromatic slip -- g#, f#, c#, d# -- into nearly every change.
     bassLine: [
-      'a2 .  .  .  a2 .  .  .  a2 .  .  .  a2 .  .  . ',
-      'a2 .  .  .  a2 .  .  .  a2 .  a2 .  a2 .  g#2 . ',
+      'a2 .  .  .  a2 .  g#2 .  a2 .  .  .  a2 .  g2 . ',
+      'a2 .  a2 .  a2 .  a2 .  a2 .  a2 .  a2 a2 g#2 . ',
       'a2 .  a2 .  a3 .  a2 .  a2 .  a3 .  a2 .  g#2 . ',
       'g2 .  g2 .  g3 .  g2 .  g2 .  g3 .  g2 .  f#2 . ',
       'f2 .  f2 .  f3 .  f2 .  f2 .  f3 .  f2 .  f2 . ',
@@ -5686,8 +5767,8 @@ const SONGS = {
     // Backbeat with the metallic tick on the off-beats; fills into each
     // section, double-time under the run.
     drums: [
-      'k.......k.......',
-      'k.......k...x.x.',
+      'k...m...k...m...',
+      'k.m.k.m.k.m.x.x.',
       'k.h.x.m.k.h.x.m.',
       'k.h.x.m.k.h.x.m.',
       'k.h.x.m.k.h.x.m.',
@@ -5829,6 +5910,89 @@ const SONGS = {
     // against about 70 for the other two. The lead comes up and the parts
     // running underneath it come down.
     mix: { lead: 0.36, under: 0.085, arp: 0.055, bass: 0.115, sub: 0.055 },
+  },
+
+  /**
+   * BOSS. What plays when the gate falls and the flyout stops being an
+   * ending. One track for every warden, and it earns that by being about the
+   * *situation* rather than any one of them: E minor leaning hard on F -- the
+   * Neapolitan, a semitone above home, the oldest menace in the book -- with
+   * the lead stabbing tritones and the drums hitting more than anything else
+   * in the game. No intro. A boss fight starts mid-sentence.
+   *
+   * Twelve bars so it loops fast: fights are heard on repeat, and a short
+   * loop with two builds beats a long one heard once.
+   */
+  boss: {
+    name: 'BOSS',
+    bpm: 148,
+    beats: 16,
+    lead: [
+      'e4 .  .  .  a#4 .  .  .  e4 .  g4 .  a#4 .  b4 . ',
+      'e4 .  .  .  a#4 .  .  .  b4 .  g4 .  e4 .  .  . ',
+      'f4 .  .  .  c5 .  .  .  f4 .  g#4 .  c5 .  d5 . ',
+      'b4 .  a#4 .  b4 .  a#4 .  b4 .  .  .  -  -  -  - ',
+      'e5 .  .  .  .  .  d5 .  a#4 .  .  .  b4 .  .  . ',
+      'e5 .  .  .  .  .  f5 .  e5 .  d5 .  a#4 .  b4 . ',
+      'f5 .  .  .  e5 .  .  .  c5 .  .  .  g#4 .  a4 . ',
+      'f#4 .  a#4 .  b4 .  d#5 .  e5 .  .  .  -  -  -  - ',
+      'e5 f5 e5 d5 e5 .  .  .  -  -  b4 c5 b4 a#4 b4 . ',
+      'e5 f5 e5 d5 e5 .  .  .  g5 .  f5 .  e5 .  d#5 . ',
+      'f5 .  .  .  f5 .  e5 .  d5 .  c5 .  b4 .  a#4 . ',
+      'b4 .  .  .  d#5 .  .  .  f#5 .  .  .  b4\\ .  .  . ',
+    ],
+    lead2: [
+      '-  -  -  -  -  -  -  -  -  -  -  -  -  -  -  - ',
+      '-  -  -  -  -  -  -  -  -  -  -  -  -  -  -  - ',
+      'c4 .  .  .  f4 .  .  .  c4 .  f4 .  g#4 .  a#4 . ',
+      'g#4 .  g4 .  g#4 .  g4 .  g#4 .  .  .  -  -  -  - ',
+      'b4 .  .  .  .  .  b4 .  g4 .  .  .  g#4 .  .  . ',
+      'b4 .  .  .  .  .  c5 .  b4 .  b4 .  g4 .  g#4 . ',
+      'c5 .  .  .  c5 .  .  .  g#4 .  .  .  f4 .  f4 . ',
+      'd#4 .  f#4 .  g#4 .  a4 .  b4 .  .  .  -  -  -  - ',
+      '-  -  -  -  -  -  -  -  -  -  -  -  -  -  -  - ',
+      'b4 c5 b4 a4 b4 .  .  .  d5 .  c5 .  b4 .  a4 . ',
+      'c5 .  .  .  c5 .  b4 .  a4 .  g#4 .  g4 .  f#4 . ',
+      'f#4 .  .  .  a4 .  .  .  d#5 .  .  .  f#4\\ .  .  . ',
+    ],
+    // i i bII V -- and the last bar is the dominant with the floor dropping.
+    arp: ['em', 'em', 'f', 'b7', 'em', 'em', 'f', 'b7', 'em', 'em', 'f', 'b7'],
+    // A pedal that will not let go: eighths hammering the root, the semitone
+    // shove up to F and back, and the tritone a# walking through.
+    bassLine: [
+      'e2 .  e2 .  e2 .  e3 .  e2 .  e2 .  a#2 .  b2 . ',
+      'e2 .  e2 .  e2 .  e3 .  e2 .  e2 .  d2 .  d#2 . ',
+      'f2 .  f2 .  f2 .  f3 .  f2 .  f2 .  g#2 .  g2 . ',
+      'b2 .  b2 .  b2 .  b3 .  b2 .  a#2 .  a2 .  g#2 . ',
+      'e2 .  e2 .  e2 .  e3 .  e2 .  e2 .  a#2 .  b2 . ',
+      'e2 .  e2 .  e2 .  e3 .  e2 .  e2 .  d2 .  d#2 . ',
+      'f2 .  f2 .  f2 .  f3 .  f2 .  f2 .  g#2 .  g2 . ',
+      'b2 .  b2 .  b2 .  b3 .  a#2 .  a2 .  g#2 .  g2 . ',
+      'e2 .  e2 e2 e2 .  e3 .  e2 .  e2 e2 e2 .  e3 . ',
+      'e2 .  e2 e2 e2 .  e3 .  e2 .  e2 e2 e2 .  d#2 . ',
+      'f2 .  f2 f2 f2 .  f3 .  f2 .  f2 f2 f2 .  f2 . ',
+      'b2 .  b2 .  b2 .  b2 .  b1 .  .  .  .  .  .  . ',
+    ],
+    bass: null,
+    // The heaviest kit in the game. Kick doubled, the metallic rasp on the
+    // upbeats, and the last bar of each pass opens into a roll.
+    drums: [
+      'k.m.x.m.k.m.x.m.',
+      'k.m.x.m.k.m.x.m.',
+      'k.m.x.m.k.m.x.m.',
+      'k.m.x.m.x.x.x.xx',
+      'kkm.x.m.k.m.x.m.',
+      'kkm.x.m.k.m.x.m.',
+      'kkm.x.m.k.m.x.m.',
+      'kkm.x.m.x.x.xxxx',
+      'k.x.k.x.k.x.k.x.',
+      'k.x.k.x.k.x.k.x.',
+      'k.x.k.x.k.x.kkxx',
+      'k...x...k...xxxx',
+    ],
+    // The snarl: the thin lead over a hollow harmony.
+    duty: { lead: 0.125, under: 0.5, arp: 0.5, bass: 0.5 },
+    mix: { lead: 0.3, under: 0.09, arp: 0.05, bass: 0.15, sub: 0.07 },
   },
 };
 
@@ -7065,6 +7229,7 @@ class Input {
 
 
 
+
 // The ship's motion limits. Exported because tools/audit.mjs proves levels are
 // flyable against them -- a copy of these numbers that drifted would make the
 // audit confidently wrong.
@@ -7239,7 +7404,7 @@ const RING_BEAM_DAMAGE = 20;
 // from, and counting down from it sweeps clockwise: twelve, three, six, nine.
 const RING_TOP_ARM = 2;
 
-const RADIUS = { turret: 13, wallgun: 11, emplacement: 21, drone: 11, port: 20 };
+const RADIUS = { turret: 13, wallgun: 11, emplacement: 21, drone: 11, port: 20, boss: 26 };
 
 class Game {
   constructor(rd, input, audio) {
@@ -7274,6 +7439,7 @@ class Game {
 
   load(spec) {
     this.spec = spec;
+    this.bossDef = spec.boss || null;
     this.track = new Track(spec);
     this.level = buildLevel(spec, this.track);
     this.terrain = new TerrainRenderer(this.track);
@@ -7387,6 +7553,10 @@ class Game {
     }
     this.gateTime = 0;
     this.speedMul = 1;
+    this.boss = null;
+    this.pod = null;
+    this.ascentTimer = 0;
+    this.escapeTimer = 0;
     this.phase = 'flying';
   }
 
@@ -7408,7 +7578,7 @@ class Game {
     }
     this.hurt = Math.max(0, this.hurt - dt * 3);
     this.calm = Math.max(0, (this.calm || 0) - dt);
-    if (this.phase === 'flying' && !this.exposed && this.calm <= 0
+    if ((this.phase === 'flying' || this.phase === 'boss') && !this.exposed && this.calm <= 0
         && this.shield < SHIELD_MAX) {
       this.shield = Math.min(SHIELD_MAX, this.shield + SHIELD_REGEN * dt);
     }
@@ -7416,7 +7586,7 @@ class Game {
     this.lockedFlash = Math.max(0, this.lockedFlash - dt * 2);
     for (const e of this.level.enemies) if (e.flash > 0) e.flash -= dt * 6;
 
-    const flying = this.phase === 'flying';
+    const flying = this.phase === 'flying' || this.phase === 'boss';
 
     if (flying) this.updateShip(dt);
     else this.updateOutro(dt);
@@ -7605,7 +7775,64 @@ class Game {
     this.checkPortBeams();
     this.spawnDrones();
     this.updateDrones(dt);
-    this.checkFinish();
+    if (this.phase === 'boss') this.updateArena(dt);
+    else this.checkFinish();
+  }
+
+  /**
+   * The boss fight's frame: the warden ticks, the surface rule is suspended
+   * (there is nothing up here to hide from -- the warden IS the surface), and
+   * the arena loops. The loop is a plain translation: the stretch is straight
+   * and uniform, so sliding everything back by a constant is invisible.
+   */
+  updateArena(dt) {
+    const tr = this.track;
+    this.exposed = false;
+    if (this.boss && this.boss.alive) updateWarden(this.boss, dt, this);
+
+    const wrapEnd = tr.arenaStart + tr.arenaLen - 400;
+    if (this.t > wrapEnd) {
+      const W = tr.arenaLen - 1300;
+      tr.localToWorld(this.t, 0, 0, this._p);
+      const a0 = this._p[0], a1 = this._p[1], a2 = this._p[2];
+      tr.localToWorld(this.t - W, 0, 0, this._p);
+      const dx = this._p[0] - a0, dy = this._p[1] - a1, dz = this._p[2] - a2;
+      this.t -= W;
+      if (this.boss) this.boss.t -= W;
+      for (const d of this.drones) d.t -= W;
+      for (const key of ['lasers', 'bolts', 'seekers', 'missiles']) {
+        for (const m of this.weapons[key] || []) {
+          m.x += dx; m.y += dy; m.z += dz;
+          if ('px' in m) { m.px += dx; m.py += dy; m.pz += dz; }
+        }
+      }
+      // Cosmetic world-space debris does not survive the seam; nobody sees a
+      // spark blink out mid-dogfight.
+      this.particles.clear();
+      this.arcs.length = 0;
+    }
+  }
+
+  /**
+   * The warden's arc strike, landed. The aim was frozen at the telegraph, so
+   * a strike that hits means the ship stood still through the whole charge.
+   */
+  wardenBolt(b, aim, dmg) {
+    const pts = [[b.world[0], b.world[1], b.world[2]]];
+    const segs = 7;
+    for (let i = 1; i <= segs; i++) {
+      const f = i / segs;
+      const wob = i < segs ? 9 : 0;
+      pts.push([
+        b.world[0] + (aim[0] - b.world[0]) * f + (hash2((this.time * 60) | 0, i * 17) - 0.5) * wob,
+        b.world[1] + (aim[1] - b.world[1]) * f + (hash2((this.time * 60) | 0, i * 31) - 0.5) * wob,
+        b.world[2] + (aim[2] - b.world[2]) * f,
+      ]);
+    }
+    this.arcs.push({ pts, life: 0.14 });
+    this.particles.burst(aim[0], aim[1], aim[2], 10, 160, 0.8, 0.5, 1, 0.4, 1.6);
+    this.audio.zap();
+    if (dmg > 0) this.damage(dmg);
   }
 
   updateOutro(dt) {
@@ -7628,12 +7855,44 @@ class Game {
       this.speed = lerp(this.speed, 300, dt);
       this.t += this.speed * dt;
       this.shipY = lerp(this.shipY, this.ceiling, dt * 0.8);
+    } else if (this.phase === 'ascent') {
+      // The climb the win used to be -- but now it is an entrance. The warden
+      // music is already going; control comes back the moment you level off.
+      this.ascentTimer += dt;
+      this.speed = lerp(this.speed, 320, dt * 0.8);
+      this.t += this.speed * dt;
+      const want = this.track.rim(this.t) + 30;
+      this.shipY = lerp(this.shipY, want, dt * 1.2);
+      this.bank = approach(this.bank, 0, 2, dt);
+      if (this.ascentTimer > 2.6) {
+        this.phase = 'boss';
+        this.shield = Math.min(this.shieldMax, this.shield + 25);
+        this.say(this.boss ? this.boss.name : 'THE WARDEN', 2.2);
+      }
+    } else if (this.phase === 'escape') {
+      // The pod gets away. That is not mercy; it is the setup.
+      this.escapeTimer += dt;
+      this.speed = lerp(this.speed, 300, dt * 0.5);
+      this.t += this.speed * dt;
+      this.shipY = lerp(this.shipY, this.track.rim(this.t) + 30, dt);
+      if (this.pod) {
+        this.pod.world[0] += this.pod.vel[0] * dt;
+        this.pod.world[1] += this.pod.vel[1] * dt;
+        this.pod.world[2] += this.pod.vel[2] * dt;
+        this.pod.vel[1] += 60 * dt;
+      }
+      if (this.escapeTimer > 3.4) {
+        this.phase = 'won';
+        this.say('THE POD GOT AWAY', 3);
+        this.audio.win();
+      }
     }
     this.exposed = false;
     this.updateDrones(dt);
   }
 
   checkFinish() {
+    if (this.phase === 'boss') return;
     const tr = this.track;
     const port = this.level.port;
     if (port && !port.alive && this.phase === 'flying') return;
@@ -7652,7 +7911,7 @@ class Game {
 
   damage(amount, flash = true) {
     this.calm = SHIELD_CALM;
-    if (this.phase !== 'flying') return;
+    if (this.phase !== 'flying' && this.phase !== 'boss') return;
     this.shield -= amount;
     if (flash) {
       this.hurt = 1;
@@ -7961,6 +8220,7 @@ class Game {
     // Project every candidate once. onScreen/sx/sy are read again by the
     // overlay, so this doubles as the frame's visibility pass.
     const cands = [this.level.enemies, this.drones];
+    if (this.boss && this.boss.alive) cands.push([this.boss]);
     if (this.level.port) cands.push([this.level.port]);
     for (const arr of cands) {
       for (const e of arr) {
@@ -8537,7 +8797,9 @@ class Game {
     // Everything a bolt could reach, with what the crosshair holds first and
     // painted ships ahead of merely visible ones.
     const cands = [];
-    for (const arr of [this.level.enemies, this.drones]) {
+    const pools = [this.level.enemies, this.drones];
+    if (this.boss && this.boss.alive) pools.push([this.boss]);
+    for (const arr of pools) {
       for (const e of arr) {
         if (!e.alive || !e.world || e.kind === 'port') continue;
         const dz = e.world[2] - this.shipPos[2];
@@ -8589,7 +8851,12 @@ class Game {
         ]);
       }
       px = e.world[0]; py = e.world[1]; pz = e.world[2];
-      e.hp -= ARC_DAMAGE;
+      // The wheel: a warden's own weapon half-hurts it; the one it is weak to
+      // melts it, three to one. Everything else is just damage.
+      const mul = e.kind !== 'boss' ? 1
+        : this.special === e.def.weakTo ? 3
+        : this.special === e.def.weapon ? 0.5 : 1;
+      e.hp -= ARC_DAMAGE * mul;
       e.flash = 1;
       this.particles.burst(e.world[0], e.world[1], e.world[2], 6, 130, 0.8, 0.5, 1, 0.3, 1.5);
       if (e.hp <= 0) this.destroy(e);
@@ -8642,6 +8909,7 @@ class Game {
     const tr = this.track;
     const targets = [this.level.enemies, this.drones];
     if (this.level.port) targets.push([this.level.port]);
+    if (this.boss && this.boss.alive) targets.push([this.boss]);
 
     // Player lasers.
     for (let i = W.lasers.length - 1; i >= 0; i--) {
@@ -8830,7 +9098,7 @@ class Game {
       e.world = [0, 0, 0];
       this.track.localToWorld(e.t, e.x, e.y, e.world);
     }
-    const big = e.kind === 'port' || e.kind === 'emplacement';
+    const big = e.kind === 'port' || e.kind === 'emplacement' || e.kind === 'boss';
     this.boomAt(e.world, big ? 90 : 34, big ? 300 : 170,
       1, e.kind === 'port' ? 0.85 : 0.55, 0.25, big ? 1.6 : 0.8);
     if (big) {
@@ -8840,10 +9108,31 @@ class Game {
       this.audio.smallBoom();
     }
     if (e.kind === 'port') {
-      this.phase = 'won';
       this.score += 5000;
-      this.say('DIRECT HIT', 5);
-      this.audio.win();
+      if (this.bossDef) {
+        // The door is down and the flyout is no longer an ending: the climb
+        // out of the canyon carries you into the arena, and the music turns.
+        this.phase = 'ascent';
+        this.ascentTimer = 0;
+        this.boss = makeWarden(this.bossDef, this.track.arenaStart);
+        this.say('DIRECT HIT -- SOMETHING IS UP THERE', 3.5);
+        this.audio.musicStart('boss');
+      } else {
+        this.phase = 'won';
+        this.say('DIRECT HIT', 5);
+        this.audio.win();
+      }
+    } else if (e.kind === 'boss') {
+      // The warden dies; the pilot does not. An escape pod flies out and gets
+      // away, which the campaign has plans for.
+      this.phase = 'escape';
+      this.escapeTimer = 0;
+      this.pod = {
+        world: [e.world[0], e.world[1], e.world[2]],
+        vel: [40, 90, 220],
+      };
+      this.say('WARDEN DOWN', 2.5);
+      this.shake = Math.min(1.8, this.shake + 1.2);
     } else if (e.kind === 'panel') {
       // The last panel drops the bulkhead. This is the other way through, and
       // the reason a bulkhead is a decision: climb into the guns, or stay low
@@ -8894,6 +9183,8 @@ class Game {
       drawEnemies(rd, tr, [this.level.port], camT, FAR, this.time);
     }
     this.weapons.draw(rd);
+    if (this.boss && this.boss.alive) drawWarden(rd, this.boss, tr, this.time);
+    if (this.pod && (this.phase === 'escape' || this.phase === 'won')) drawPod(rd, this.pod);
     for (let i = this.arcs.length - 1; i >= 0; i--) {
       const a = this.arcs[i];
       a.life -= 0.016;
@@ -8990,9 +9281,12 @@ class Game {
       portT: tr.portT,
       time: this.time,
       message: this.message,
+      boss: this.boss && this.boss.alive && this.phase === 'boss'
+        ? { name: this.boss.name, frac: this.boss.hp / this.boss.maxHp, flash: this.boss.flash }
+        : null,
     });
 
-    if (this.phase !== 'flying') this.drawResult();
+    if (this.phase === 'won' || this.phase === 'dead' || this.phase === 'ended') this.drawResult();
   }
 
   drawResult() {

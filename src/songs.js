@@ -343,8 +343,11 @@ export const SONGS = {
    * NEON. The power grid at night: synthwave in the chip idiom. Sixteen bars
    * in A minor at 138 -- slower than FIRE on paper and relentless anyway,
    * because the engine is the bass: the lament descent, a-g-f-e, pumped in
-   * eighths with a chromatic slip into every change. The intro is three zap
-   * sweeps -- arcs jumping a substation -- and the turnaround dives on one.
+   * eighths with a chromatic slip into every change. The intro IS that bass:
+   * alone in the dark with the metallic noise ticking like a live rail, then
+   * a chromatic climb up into the hook. No sweeps until the turnaround dives
+   * on one -- the rising-blip opening belongs to WATER, and two songs that
+   * start with the same gesture are the same song for eight seconds.
    *
    * The lead is the one duty no other song uses: the plain 50% square, hollow
    * and cold, which against the reedy harmony underneath is the PWM-synth
@@ -358,8 +361,8 @@ export const SONGS = {
     beats: 16,
     loopFrom: 2,          // the arcs jump once; the loop is bars 3-16
     lead: [
-      '-  -  -  -  e5/ .  -  -  -  -  -  -  a5/ .  -  - ',
-      '-  -  b5/ .  -  -  -  -  e5 .  d5 .  c5 .  b4 . ',
+      '-  -  -  -  -  -  -  -  -  -  -  -  -  -  -  - ',
+      'e4 .  g4 .  a4 .  a#4 .  b4 .  .  .  d5 .  c5 . ',
       // A: the hook, low and terse.
       'a4 .  .  .  e5 .  d5 .  c5 .  .  .  b4 .  c5 . ',
       'b4 .  .  .  d5 .  .  .  g4 .  .  .  a4 .  b4 . ',
@@ -403,8 +406,8 @@ export const SONGS = {
     // The lament, pumped: eighths on the root with the octave popping, and a
     // chromatic slip -- g#, f#, c#, d# -- into nearly every change.
     bassLine: [
-      'a2 .  .  .  a2 .  .  .  a2 .  .  .  a2 .  .  . ',
-      'a2 .  .  .  a2 .  .  .  a2 .  a2 .  a2 .  g#2 . ',
+      'a2 .  .  .  a2 .  g#2 .  a2 .  .  .  a2 .  g2 . ',
+      'a2 .  a2 .  a2 .  a2 .  a2 .  a2 .  a2 a2 g#2 . ',
       'a2 .  a2 .  a3 .  a2 .  a2 .  a3 .  a2 .  g#2 . ',
       'g2 .  g2 .  g3 .  g2 .  g2 .  g3 .  g2 .  f#2 . ',
       'f2 .  f2 .  f3 .  f2 .  f2 .  f3 .  f2 .  f2 . ',
@@ -424,8 +427,8 @@ export const SONGS = {
     // Backbeat with the metallic tick on the off-beats; fills into each
     // section, double-time under the run.
     drums: [
-      'k.......k.......',
-      'k.......k...x.x.',
+      'k...m...k...m...',
+      'k.m.k.m.k.m.x.x.',
       'k.h.x.m.k.h.x.m.',
       'k.h.x.m.k.h.x.m.',
       'k.h.x.m.k.h.x.m.',
@@ -567,6 +570,89 @@ export const SONGS = {
     // against about 70 for the other two. The lead comes up and the parts
     // running underneath it come down.
     mix: { lead: 0.36, under: 0.085, arp: 0.055, bass: 0.115, sub: 0.055 },
+  },
+
+  /**
+   * BOSS. What plays when the gate falls and the flyout stops being an
+   * ending. One track for every warden, and it earns that by being about the
+   * *situation* rather than any one of them: E minor leaning hard on F -- the
+   * Neapolitan, a semitone above home, the oldest menace in the book -- with
+   * the lead stabbing tritones and the drums hitting more than anything else
+   * in the game. No intro. A boss fight starts mid-sentence.
+   *
+   * Twelve bars so it loops fast: fights are heard on repeat, and a short
+   * loop with two builds beats a long one heard once.
+   */
+  boss: {
+    name: 'BOSS',
+    bpm: 148,
+    beats: 16,
+    lead: [
+      'e4 .  .  .  a#4 .  .  .  e4 .  g4 .  a#4 .  b4 . ',
+      'e4 .  .  .  a#4 .  .  .  b4 .  g4 .  e4 .  .  . ',
+      'f4 .  .  .  c5 .  .  .  f4 .  g#4 .  c5 .  d5 . ',
+      'b4 .  a#4 .  b4 .  a#4 .  b4 .  .  .  -  -  -  - ',
+      'e5 .  .  .  .  .  d5 .  a#4 .  .  .  b4 .  .  . ',
+      'e5 .  .  .  .  .  f5 .  e5 .  d5 .  a#4 .  b4 . ',
+      'f5 .  .  .  e5 .  .  .  c5 .  .  .  g#4 .  a4 . ',
+      'f#4 .  a#4 .  b4 .  d#5 .  e5 .  .  .  -  -  -  - ',
+      'e5 f5 e5 d5 e5 .  .  .  -  -  b4 c5 b4 a#4 b4 . ',
+      'e5 f5 e5 d5 e5 .  .  .  g5 .  f5 .  e5 .  d#5 . ',
+      'f5 .  .  .  f5 .  e5 .  d5 .  c5 .  b4 .  a#4 . ',
+      'b4 .  .  .  d#5 .  .  .  f#5 .  .  .  b4\\ .  .  . ',
+    ],
+    lead2: [
+      '-  -  -  -  -  -  -  -  -  -  -  -  -  -  -  - ',
+      '-  -  -  -  -  -  -  -  -  -  -  -  -  -  -  - ',
+      'c4 .  .  .  f4 .  .  .  c4 .  f4 .  g#4 .  a#4 . ',
+      'g#4 .  g4 .  g#4 .  g4 .  g#4 .  .  .  -  -  -  - ',
+      'b4 .  .  .  .  .  b4 .  g4 .  .  .  g#4 .  .  . ',
+      'b4 .  .  .  .  .  c5 .  b4 .  b4 .  g4 .  g#4 . ',
+      'c5 .  .  .  c5 .  .  .  g#4 .  .  .  f4 .  f4 . ',
+      'd#4 .  f#4 .  g#4 .  a4 .  b4 .  .  .  -  -  -  - ',
+      '-  -  -  -  -  -  -  -  -  -  -  -  -  -  -  - ',
+      'b4 c5 b4 a4 b4 .  .  .  d5 .  c5 .  b4 .  a4 . ',
+      'c5 .  .  .  c5 .  b4 .  a4 .  g#4 .  g4 .  f#4 . ',
+      'f#4 .  .  .  a4 .  .  .  d#5 .  .  .  f#4\\ .  .  . ',
+    ],
+    // i i bII V -- and the last bar is the dominant with the floor dropping.
+    arp: ['em', 'em', 'f', 'b7', 'em', 'em', 'f', 'b7', 'em', 'em', 'f', 'b7'],
+    // A pedal that will not let go: eighths hammering the root, the semitone
+    // shove up to F and back, and the tritone a# walking through.
+    bassLine: [
+      'e2 .  e2 .  e2 .  e3 .  e2 .  e2 .  a#2 .  b2 . ',
+      'e2 .  e2 .  e2 .  e3 .  e2 .  e2 .  d2 .  d#2 . ',
+      'f2 .  f2 .  f2 .  f3 .  f2 .  f2 .  g#2 .  g2 . ',
+      'b2 .  b2 .  b2 .  b3 .  b2 .  a#2 .  a2 .  g#2 . ',
+      'e2 .  e2 .  e2 .  e3 .  e2 .  e2 .  a#2 .  b2 . ',
+      'e2 .  e2 .  e2 .  e3 .  e2 .  e2 .  d2 .  d#2 . ',
+      'f2 .  f2 .  f2 .  f3 .  f2 .  f2 .  g#2 .  g2 . ',
+      'b2 .  b2 .  b2 .  b3 .  a#2 .  a2 .  g#2 .  g2 . ',
+      'e2 .  e2 e2 e2 .  e3 .  e2 .  e2 e2 e2 .  e3 . ',
+      'e2 .  e2 e2 e2 .  e3 .  e2 .  e2 e2 e2 .  d#2 . ',
+      'f2 .  f2 f2 f2 .  f3 .  f2 .  f2 f2 f2 .  f2 . ',
+      'b2 .  b2 .  b2 .  b2 .  b1 .  .  .  .  .  .  . ',
+    ],
+    bass: null,
+    // The heaviest kit in the game. Kick doubled, the metallic rasp on the
+    // upbeats, and the last bar of each pass opens into a roll.
+    drums: [
+      'k.m.x.m.k.m.x.m.',
+      'k.m.x.m.k.m.x.m.',
+      'k.m.x.m.k.m.x.m.',
+      'k.m.x.m.x.x.x.xx',
+      'kkm.x.m.k.m.x.m.',
+      'kkm.x.m.k.m.x.m.',
+      'kkm.x.m.k.m.x.m.',
+      'kkm.x.m.x.x.xxxx',
+      'k.x.k.x.k.x.k.x.',
+      'k.x.k.x.k.x.k.x.',
+      'k.x.k.x.k.x.kkxx',
+      'k...x...k...xxxx',
+    ],
+    // The snarl: the thin lead over a hollow harmony.
+    duty: { lead: 0.125, under: 0.5, arp: 0.5, bass: 0.5 },
+    mix: { lead: 0.3, under: 0.09, arp: 0.05, bass: 0.15, sub: 0.07 },
   },
 };
 
