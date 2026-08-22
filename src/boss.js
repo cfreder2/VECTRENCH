@@ -820,8 +820,8 @@ export const WARDENS = {
       const q = [0, 0, 0];
       // The hull: a long slab beside the lane.
       for (const [t0, y0, t1, y1] of [
-        [-100, -14, 110, -14], [110, -14, 120, 0], [120, 0, 110, 16],
-        [110, 16, -100, 16], [-100, 16, -100, -14],
+        [-132, -14, 110, -14], [110, -14, 120, 0], [120, 0, 110, 16],
+        [110, 16, -132, 16], [-132, 16, -132, -14],
       ]) {
         tr.localToWorld(b.t + t0, b.x, b.y + y0, p);
         tr.localToWorld(b.t + t1, b.x, b.y + y1, q);

@@ -21,6 +21,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
 import { drawEnemies, drawObstacles, drawShip, shipBasis } from '../src/entities.js';
+import { makeWarden, updateWarden, drawWarden } from '../src/boss.js';
 import { drawText } from '../src/font.js';
 import { TAU } from '../src/math.js';
 
@@ -316,6 +317,32 @@ function fit(rd, draw, view, fov, fill) {
   }
 }
 
+// --- staging a warden ------------------------------------------------------
+//
+// A warden poses itself: build it, give it a stub game to fly against, tick
+// its own update until it settles into station, then hand it to its own draw.
+// Deterministic because the stub clock never moves, so every hash the update
+// rolls comes up the same on both of fit()'s passes.
+
+const stubGame = () => ({
+  track, time: 0.4, t: -400, speed: 0,
+  shipX: 0, shipY: 60, shipPos: [0, 60, -400],
+  drones: [],
+  weapons: { fireBolt() {}, fireSeeker() {} },
+  audio: { zap() {}, hit() {}, smallBoom() {}, bigBoom() {}, specialOn() {} },
+  particles: { burst() {} },
+  say() {}, damage() {}, boomAt() {}, wardenBolt() {},
+  shake: 0,
+});
+
+const showWarden = (kind, pose) => (rd) => {
+  const g = stubGame();
+  const b = makeWarden({ kind, name: kind.toUpperCase(), hp: 90 }, -430);
+  for (let i = 0; i < 90; i++) updateWarden(b, 1 / 60, g);
+  if (pose) pose(b, g);
+  drawWarden(rd, b, track, 0.4);
+};
+
 // --- the cast -------------------------------------------------------------
 
 const enemy = (over) => ({
@@ -337,6 +364,47 @@ const SURFACE = [0.5, -0.34, 1];   // looking up at something standing on the ri
 const HEADON = [0.3, -0.12, 1];
 
 const SUBJECTS = [
+  {
+    id: 'hydra', name: 'HYDRA', fov: 1.0, view: [-0.8, -0.3, 1], fill: 0.72,
+    draw: showWarden('hydra'),
+  },
+  {
+    id: 'furnace', name: 'FURNACE', fov: 1.0, view: [0.35, -0.2, 1], fill: 0.66,
+    draw: showWarden('furnace'),
+  },
+  {
+    id: 'mantis', name: 'MANTIS', fov: 1.0, view: [0.28, -0.16, 1], fill: 0.62,
+    draw: showWarden('mantis'),
+  },
+  {
+    id: 'marionette', name: 'MARIONETTE', fov: 1.0, view: [0.3, -0.2, 1], fill: 0.66,
+    draw: showWarden('marionette'),
+  },
+  {
+    id: 'portcullis', name: 'PORTCULLIS', fov: 1.0, view: [0.3, -0.12, 1], fill: 0.68,
+    draw: showWarden('portcullis'),
+  },
+  {
+    id: 'avalanche', name: 'AVALANCHE', fov: 1.0, view: [0.4, -0.25, 1], fill: 0.62,
+    draw: showWarden('avalanche'),
+  },
+  {
+    id: 'broadside', name: 'BROADSIDE', fov: 1.0, view: [-1, -0.3, 0.35], fill: 0.74,
+    draw: showWarden('broadside'),
+  },
+  {
+    id: 'revenant', name: 'REVENANT', fov: 1.0, view: [0.34, -0.22, 1], fill: 0.78,
+    // Caught mid-charge, which is the state that matters: the warning.
+    draw: showWarden('revenant', (b) => {
+      b.cannon.state = 'charging';
+      b.cannon.charge = 0.4;
+      b.debris = [
+        { t: 250, x: 34, size: 8 },
+        { t: 360, x: -28, size: 12, car: true },
+        { t: 470, x: 8, size: 6 },
+      ];
+    }),
+  },
   {
     id: 'ship', name: 'INTERCEPTOR', fov: 0.9, view: [-0.42, -0.6, -1], fill: 0.74,
     draw: (rd) => {

@@ -536,6 +536,11 @@ fights' shapes, and the wheel that connects them — is designed in
 [CAMPAIGN.md](CAMPAIGN.md#the-wardens); this file documents the ones that
 exist in code.
 
+| | | | |
+| --- | --- | --- | --- |
+| <img src="assets/hydra.png" width="190"><br>**HYDRA** — Riverworks. The spine takes damage one glowing segment at a time, rear to front | <img src="assets/furnace.png" width="190"><br>**FURNACE** — Reactor. Four regulators around a core that vents fire which stays where poured | <img src="assets/mantis.png" width="190"><br>**MANTIS** — Overgrowth. Scythe arms that regrow once; blades that come back | <img src="assets/marionette.png" width="190"><br>**MARIONETTE** — Neon. Six pods hold the lattice; the strike tracks you to the last third of a second |
+| <img src="assets/portcullis.png" width="190"><br>**PORTCULLIS** — Bulkhead. A gate that got up: strip the panels, thread the doors | <img src="assets/avalanche.png" width="190"><br>**AVALANCHE** — Glacier. Ice that regrows from the edges; the freeze beam ices your controls | <img src="assets/broadside.png" width="190"><br>**BROADSIDE** — Gauntlet. The wall-of-fire frigate; silence the deck a battery at a time | <img src="assets/revenant.png" width="190"><br>**REVENANT** — Void. The backwards-driving juggernaut; six lights count to a triple blast whose only refuge is dead center |
+
 **All eight wardens fly.** The full designs live in the
 [campaign roster](CAMPAIGN.md#the-wardens); in code they share one registry —
 HYDRA weaving its trench with one glowing segment takeable at a time,
